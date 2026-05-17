@@ -3057,6 +3057,123 @@ numpy>=1.26
 - `text-embedding-004` returns expected shape/dtype; bytes round-trip correctly through SQLite BLOB
 - Title-gen prompt returns non-empty short string
 
+### 13.14 Graph Model — Links as Nodes (v1) / Videos as Nodes (v2)
+
+**v1 (current):** Each row in `links` is one **URL**. A video that extracted 50 links creates 50 brain nodes. Each node records:
+- `url` — the link itself (the identity of the node)
+- `source_job` — the job_id of the video that **first introduced** this URL (single column, not a list — first sighting wins; subsequent appearances bump `seen_count` and `last_seen_at` only)
+- `topic` — the topic of that first-sighting video
+
+The `## Related` section in each Obsidian `.md` is the **top-3 URLs across the entire corpus** whose embeddings are most cosine-similar to this URL's embedding. Those neighbors come from semantic content similarity — *not* "other links from the same video." A node for `aniapi.com` might link to other anime APIs from the same source video, or to a `crunchyroll.com` node from a different video processed months earlier, whichever the embedding clusters closer.
+
+**Direction navigation in v1:**
+- **Link → its source video:** rendered in the node's `.md` body as `**Source video:** {url}` and `**Source report:** {drive_url}`. Always available.
+- **Video → its child links:** *not* surfaced in the brain UI. Available via SQL (`SELECT * FROM links WHERE source_job = ?`) or by re-opening the video's original Drive report (short pipeline analysis or long pipeline transcript, which both already contain the link list).
+
+**Why not video-as-node in v1:** The video's own Drive report already serves as the "all links from this video" view. Adding video nodes would double corpus size (1 video node + N link nodes), force a different embedding doc shape (title + topic + transcript excerpt vs. url + title + topic), and make `/find` ranking awkward (link hits and video hits are semantically different objects competing in one result list).
+
+**v2 path (deferred — implement when /find feels link-fragmented):** Promote videos to first-class brain nodes alongside link nodes. A `/find <query>` would return either a video ("the tutorial that taught this") or a link, with appropriate ranking. New row shape in `links` table (or new `video_nodes` table); embedding doc becomes `f"{title} {topic} {transcript_excerpt}"`. The `## Related` section on a video node lists semantically-related videos; on a link node, still lists semantically-related links. **Trigger to revisit:** when `/find` results consistently surface individual tool URLs from a tutorial when the user actually wanted the tutorial itself.
+
+### 13.15 One-off Backfill from Existing Sheets
+
+When the bot deploys against an existing user with months of historical jobs in the legacy Sheets, run `scripts/backfill_brain.py` once to seed the brain corpus from that history. **Does not touch `jobs`** — historical jobs are not restored to the active-state table (see §14.1 greenfield note; `/spec` on historical jobs is not supported, user re-uploads the URL if they want a PRD).
+
+**Per-row ingestion logic — short Sheet (`SHEETS_ID_SHORT`):**
+
+The short Sheet stores all links from one video in two cells:
+- **Col 10** — Telegram-formatted message: `🔗 *Links Found:*` followed by per-link blocks `• *Label* — description\n  🔗 url`. Capped near 4096 chars (Telegram message limit); long lists end with `_(truncated — see Drive summary for full list)_` and may cut mid-URL.
+- **Col 11** — Bare URL list, one per line. Always complete (no truncation).
+
+Parser:
+
+```python
+import re
+
+LINK_BLOCK = re.compile(
+    r"•\s*\*(?P<label>[^*]+)\*\s*—\s*(?P<desc>[^\n]+)\n\s*🔗\s*(?P<url>https?://\S+)",
+    re.MULTILINE,
+)
+
+def parse_short_links(col_10: str, col_11: str) -> list[dict]:
+    """Merge labeled triples from col 10 with bare URLs from col 11."""
+    labeled = {
+        m["url"]: {"url": m["url"], "label": m["label"].strip(), "description": m["desc"].strip()}
+        for m in LINK_BLOCK.finditer(col_10 or "")
+    }
+    # Supplement with col 11 only when col 10 hit truncation (rare)
+    if "_(truncated" in (col_10 or ""):
+        for url in (col_11 or "").splitlines():
+            url = url.strip()
+            if url and url not in labeled:
+                labeled[url] = {"url": url, "label": None, "description": None}
+    return list(labeled.values())
+```
+
+Per-row ingestion call:
+```python
+links = parse_short_links(row.col_10, row.col_11)
+if not links:
+    continue
+# Synthesize a richer topic from the link labels — IG/TikTok titles are usually generic ("Video by X")
+labels = [l["label"] for l in links if l["label"]]
+topic = ", ".join(labels[:5]) or row.title or row.platform
+await brain.ingest_links(
+    links=links,
+    topic=topic,
+    source_job_id=f"backfill_short_{row.job_id}",   # prefix marks origin for debugging
+)
+```
+
+**Per-row ingestion logic — long Sheet (`SHEETS_ID_LONG`):**
+
+The long Sheet stores extracted tools per video in the `ai_tools` column as pipe-joined records (each: `[type] name (url): description`). Parser TBD when a sample row is shared; expected shape:
+
+```python
+TOOL_REC = re.compile(r"\[(?P<type>[^\]]+)\]\s*(?P<name>[^(]+?)\s*\((?P<url>https?://[^)]+)\):\s*(?P<desc>.+?)(?=\s*\||$)")
+
+def parse_long_tools(ai_tools: str) -> list[dict]:
+    if not ai_tools:
+        return []
+    return [
+        {"url": m["url"], "label": m["name"].strip(), "description": m["desc"].strip(), "type": m["type"].strip()}
+        for m in TOOL_REC.finditer(ai_tools)
+    ]
+
+links = parse_long_tools(row.ai_tools)
+if not links:
+    continue
+await brain.ingest_links(
+    links=links,
+    topic=row.ai_topic or row.title,   # long sheet has a real ai_topic from enrichment
+    source_job_id=f"backfill_long_{row.job_id}",
+)
+```
+
+**Run-once script structure** (`scripts/backfill_brain.py`):
+
+```python
+async def main():
+    short_rows = read_sheet(GOOGLE_SHEETS_ID_SHORT, status_filter="done")
+    long_rows  = read_sheet(GOOGLE_SHEETS_ID_LONG)   # long sheet has no explicit status col
+
+    short_ingested = long_ingested = 0
+    for row in short_rows:
+        if await ingest_short_row(row):
+            short_ingested += 1
+    for row in long_rows:
+        if await ingest_long_row(row):
+            long_ingested += 1
+
+    logger.info("backfill_done",
+                extra={"short_rows": short_ingested, "long_rows": long_ingested})
+```
+
+**Operational notes:**
+- **Rate-limit awareness:** the script will trigger embedding calls for every new (non-duplicate) URL. Hundreds-to-thousands of `text-embedding-004` requests. Run during a quiet window; brain's `GEMINI_BRAIN_API_KEY` should be set so backfill quota doesn't compete with live pipeline quota.
+- **Idempotent:** soft dedup in `brain.ingest_links` means re-running the script doesn't create duplicates — URLs already in `links` table just bump `seen_count`. Safe to re-run after fixing a parser bug.
+- **Truncation acceptance:** the rare row where col 10 was truncated mid-URL produces a few brain nodes with `label=None` (URL hint or Gemini title-gen fills in). No special handling — outliers don't justify backfill complexity; refresh worker re-embeds over time.
+- **`/spec` on backfilled history:** not supported. Backfill writes only to `links`, not `jobs`. A user wanting a PRD on a historical video re-uploads the URL and gets a fresh, fully-populated job in ~90s.
+
 ---
 
 ## 14. Mini-PRD Feature
