@@ -338,9 +338,22 @@ async def check_duplicate_job(url: str, chat_id: int, within_hours: int = 24) ->
 #### 2.2.4 Async Processing Layer
 **Technology:** Redis for queue (or Python `asyncio.Queue` for single-instance)
 
+**Task envelope (the queue protocol contract):**
+Every item on the `video_jobs` Redis list is a JSON-encoded dict with at minimum a `task` discriminator and a `job_id`. Additional fields are task-specific.
+
+```python
+# Task discriminators currently in use:
+{"task": "video",       "job_id": "..."}                              # main pipeline (short or long)
+{"task": "enrichment",  "job_id": "..."}                              # Phase 2 — user clicked ✨ Run Gemini
+{"task": "prd_auto",    "job_id": "..."}                              # Phase 3 auto slot (§14)
+{"task": "prd_intent",  "job_id": "...", "intent_text": "..."}        # Phase 3 intent slot (§14)
+```
+
+Dict-shaped task envelopes (not bare job_id strings) are the foundation that lets the worker dispatch to multiple processor types from a single queue. **Issue ordering:** the queue protocol change is a foundational refactor that lands before the Mini-PRD feature — every existing enqueue site converts to the envelope shape and the worker grows the dispatch switch before any PRD-specific code is added.
+
 **Queue Configuration:**
 ```python
-# Using Redis
+import json
 import redis.asyncio as redis
 
 queue = redis.Redis(
@@ -350,48 +363,63 @@ queue = redis.Redis(
     decode_responses=True
 )
 
-async def enqueue_job(job_id: str):
-    """Add job to processing queue"""
-    await queue.lpush("video_jobs", job_id)
-    logger.info("job_queued", extra={"job_id": job_id})
+async def enqueue(task: dict) -> None:
+    """Add task to processing queue. `task` must include 'task' and 'job_id' keys."""
+    assert "task" in task and "job_id" in task, "invalid task envelope"
+    await queue.lpush("video_jobs", json.dumps(task))
+    logger.info("task_queued", extra={"task": task["task"], "job_id": task["job_id"]})
 
-async def dequeue_job() -> Optional[str]:
-    """Blocking pop from queue (30s timeout)"""
+async def dequeue() -> Optional[dict]:
+    """Blocking pop from queue (30s timeout). Returns parsed task envelope."""
     result = await queue.brpop("video_jobs", timeout=30)
-    if result:
-        return result[1]  # (queue_name, job_id)
-    return None
+    if not result:
+        return None
+    return json.loads(result[1])  # (queue_name, raw_json)
 ```
 
 **Worker Process:**
 ```python
 async def worker():
-    """Background worker that processes jobs from queue"""
+    """Background worker that processes tasks from queue"""
     logger.info("worker_started")
-    
+    await reaper.release_stale_prd_locks()   # boot-time reaper, see §14.4
+
     while True:
         try:
-            job_id = await dequeue_job()
-            if not job_id:
+            task = await dequeue()
+            if not task:
                 continue
-            
+
+            job_id = task["job_id"]
             job = await get_job(job_id)
-            logger.info("job_started", extra={
+            logger.info("task_started", extra={
+                "task": task["task"],
                 "job_id": job_id,
                 "content_type": job.content_type,
-                "attempt": job.attempt
+                "attempt": job.attempt,
             })
-            
+
             start_time = time.time()
-            
+
             try:
-                await update_job_status(job_id, 'processing')
-                
-                # Route to appropriate pipeline
-                if job.content_type == 'short':
-                    result = await process_short_video(job)
+                # Dispatch on task discriminator
+                if task["task"] == "video":
+                    await update_job_status(job_id, 'processing')
+                    if job.content_type == 'short':
+                        result = await process_short_video(job)
+                    else:
+                        result = await process_long_video(job)   # Phase 1 only
+                elif task["task"] == "enrichment":
+                    result = await run_gemini_enrichment(job)    # tail-calls prd_auto if Tutorial
+                elif task["task"] == "prd_auto":
+                    await processors.prd.run_auto(job_id)
+                    continue   # PRD writes its own status; skip finalize_job/send_success_message below
+                elif task["task"] == "prd_intent":
+                    await processors.prd.run_intent(job_id, task["intent_text"])
+                    continue
                 else:
-                    result = await process_long_video(job)
+                    logger.error("unknown_task", extra={"task": task["task"], "job_id": job_id})
+                    continue
                 
                 # Finalize job
                 await finalize_job(job, result)
@@ -1902,7 +1930,17 @@ ngrok http 8000
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
      -d "url=https://your-ngrok-url.ngrok.io/webhook"
 
-# 10. Test the bot
+# 10. Register bot commands with BotFather (one-time, for autocomplete in Telegram)
+# Open chat with @BotFather, run /setcommands, select your bot, then paste:
+#
+#   spec - Generate PRD for a long video (last 4 chars of job ID, optional intent text)
+#   cancel - Cancel pending intent capture
+#   find - Search Second Brain links by query
+#   rebuild - Rebuild Second Brain graph from scratch
+#
+# These commands work without registration; registration only adds the autocomplete UX.
+
+# 11. Test the bot
 # Send a video URL to your Telegram bot
 ```
 
@@ -3030,6 +3068,8 @@ numpy>=1.26
 
 A third AI call on the long-video pipeline transforms a tutorial transcript into a structured, implementable mini-PRD (Project / Goals / Tech Stack / Features / Phases / Open Questions). The feature serves the common workflow: *"I watched this tutorial — now give me a buildable spec for the project I want to make from it."*
 
+**Greenfield assumption:** This project's database is created from `CREATE TABLE` statements at first boot. There is no migration runner — schema changes are made directly to the DDL in `database.py`. The PRD columns added to `jobs` and the new `chat_state` table land in the initial schema, not as an `ALTER TABLE` migration. If the bot is later deployed against an existing `jobs.db`, the operator runs a one-off `ALTER TABLE` script. No Alembic, no migration table.
+
 Two slots per job:
 - **`prd_auto`** — extraction PRD. Fires automatically when enrichment classifies the video as `"Technical Tutorial"`. One per job, never overwritten by another auto run.
 - **`prd_intent`** — user-directed PRD. The user supplies a project direction ("desktop app for image processing") and a new PRD is generated from the same transcript with that intent baked in. Single mutable slot; each new intent overwrites the previous (intentional — users iterate on a single working PRD, not a graveyard of variants).
@@ -3196,7 +3236,56 @@ Field constraints:
 
 The `{job_id_last4}` suffix in the filename matches the `/spec I4N9` recovery syntax — same identifier in chat and Drive. `drive_file_id` is cached on the `jobs` row per slot; regeneration uses `files.update` (stable URL, no orphaned files).
 
-Markdown render of the JSON follows the section order: `# {project}` → `## Goals` (bullets) → `## Tech Stack` (table: Name | Category | URL | Rationale) → `## Features` (bullets with optional user-story sub-line) → `## Phases` (numbered, with deliverables sub-bullets) → `## Open Questions` (bullets with context sub-line).
+**Markdown render template** (Jinja-style; lives in `utils/markdown.py::build_prd_markdown(prd_json, source_video_url, source_transcript_url, intent_text=None)`):
+
+```markdown
+# {{ prd.project }}
+
+**Source video:** {{ source_video_url }}
+**Source transcript:** {{ source_transcript_url }}
+{% if intent_text %}**Your direction:** _{{ intent_text }}_{% endif %}
+
+## Goals
+{% for goal in prd.goals %}
+- {{ goal }}
+{% endfor %}
+
+## Tech Stack
+
+| Name | Category | URL | Rationale |
+|------|----------|-----|-----------|
+{% for t in prd.tech_stack %}
+| {{ t.name }} | {{ t.category }} | {% if t.url %}[{{ t.url }}]({{ t.url }}){% else %}—{% endif %} | {{ t.rationale }} |
+{% endfor %}
+
+## Features
+{% for f in prd.features %}
+### {{ f.name }}
+{{ f.description }}
+{% if f.user_story %}
+> **User story:** {{ f.user_story }}
+{% endif %}
+{% endfor %}
+
+## Implementation Phases
+{% for p in prd.phases %}
+### Phase {{ p.phase }} — {{ p.name }}
+{{ p.description }}
+
+**Deliverables:**
+{% for d in p.deliverables %}
+- {{ d }}
+{% endfor %}
+{% endfor %}
+
+## Open Questions
+{% for q in prd.open_questions %}
+- **{{ q.question }}**
+  _{{ q.context }}_
+{% endfor %}
+```
+
+Renders to a self-contained `.md` file that opens cleanly in Drive viewer, Obsidian, Cursor, or any markdown viewer. The frontmatter (`Source video`, `Source transcript`, optional `Your direction`) is required — it provides the provenance the user needs to verify the PRD against the original video.
 
 ### 14.10 v2 Path — `PRD_INCLUDE_FRAMES`
 
@@ -3256,8 +3345,9 @@ async def handle_spec(chat_id: int, args: str) -> None:
         await reply("Usage: /spec <last-4-chars-of-job-id> [project direction]")
         return
 
-    # Per-chat scope; most recent wins on collision
-    rows = await db.execute("""
+    # Per-chat scope; most recent wins on collision.
+    # Two-step lookup so we can give a useful message when suffix matches a SHORT video.
+    long_rows = await db.execute("""
         SELECT id, title FROM jobs
         WHERE chat_id = ?
           AND id LIKE '%' || ?
@@ -3267,17 +3357,26 @@ async def handle_spec(chat_id: int, args: str) -> None:
         LIMIT 1
     """, (chat_id, suffix))
 
-    if not rows:
+    if not long_rows:
+        # Check for a short-video match before falling back to "no job found"
+        short_rows = await db.execute("""
+            SELECT id FROM jobs
+            WHERE chat_id = ? AND id LIKE '%' || ? AND content_type = 'short'
+            LIMIT 1
+        """, (chat_id, suffix))
+        if short_rows:
+            await reply(f"📐 PRD is only available for long videos. Job {suffix} is a short.")
+            return
         recent = await fetch_recent_long_jobs(chat_id, limit=5)
         await reply(f"No job ending in {suffix} found.\nLast 5 jobs in this chat:\n" + format_list(recent))
         return
 
-    job_id, title = rows[0]
+    job_id, title = long_rows[0]
     if intent:
-        await queue.lpush("video_jobs", {"task": "prd_intent", "job_id": job_id, "intent_text": intent})
+        await enqueue({"task": "prd_intent", "job_id": job_id, "intent_text": intent})
         await reply(f'📐 PRD for: "{title}" — generating with your direction…')
     else:
-        await queue.lpush("video_jobs", {"task": "prd_auto", "job_id": job_id})
+        await enqueue({"task": "prd_auto", "job_id": job_id})
         await reply(f'📐 PRD for: "{title}" — generating auto extraction…')
 ```
 
@@ -3309,6 +3408,8 @@ Append-only, one row per generation. Columns:
 
 Independent of `SHEETS_ID_LONG` — that sheet stays focused on transcript+enrichment per the existing convention.
 
+**Not in v1 scope:** The long-video sheet has a `fillTopics` Apps Script (`scripts/apps-script-in-sheet.js`) for backfilling missing `ai_topic` values. The PRD sheet has no equivalent — `intent_text` is user-supplied at generation time (no backfill semantic exists), and the auto-extraction PRD's `project` field is already derived from the JSON output. If a similar maintenance workflow becomes needed (e.g. retroactively regenerating PRDs with a new prompt version), add a standalone CLI script rather than Apps Script.
+
 ### 14.16 New Environment Variables
 
 | Variable | Default | Description |
@@ -3321,7 +3422,36 @@ Independent of `SHEETS_ID_LONG` — that sheet stays focused on transcript+enric
 | `PRD_AUTO_MODEL` | `gemini-2.5-flash` | Model for the auto extraction slot |
 | `PRD_INTENT_MODEL` | `gemini-2.5-pro` | Model for the user-directed intent slot |
 
-### 14.17 Testing
+### 14.17 Logging Schema
+
+All PRD events use structlog with the `prd.*` namespace so they can be filtered as a group (`jq 'select(.event | startswith("prd."))'`). Pinning event names up-front prevents per-issue drift.
+
+| Event | When | Required fields |
+|-------|------|-----------------|
+| `prd.auto.enqueued` | Enrichment tail-call after Tutorial classification | `job_id`, `chat_id` |
+| `prd.intent.enqueued` | User submits intent via reply or `/spec` with text | `job_id`, `chat_id`, `intent_text_len` |
+| `prd.lock_acquired` | Atomic UPDATE succeeded (slot was NULL/error and cooldown passed) | `job_id`, `slot` (`auto`/`intent`), `model` |
+| `prd.lock_contention` | UPDATE returned 0 rows (already generating or complete) | `job_id`, `slot`, `reason` (`in_flight`/`already_complete`/`cooldown`) |
+| `prd.gemini.fallback` | Free key failed; falling back to paid | `job_id`, `slot`, `model`, `error_class` |
+| `prd.gemini.success` | Model returned valid JSON | `job_id`, `slot`, `model`, `latency_ms`, `input_chars`, `output_chars` |
+| `prd.gemini.both_keys_failed` | Both free and paid keys exhausted | `job_id`, `slot`, `model`, `last_error` |
+| `prd.parse_failed` | Model returned text that didn't conform to schema | `job_id`, `slot`, `raw_excerpt` (first 200 chars) |
+| `prd.drive.uploaded` | Drive write succeeded; `drive_file_id` cached | `job_id`, `slot`, `drive_url`, `bytes` |
+| `prd.drive.failed` | Drive write failed; status stays `generating` until reaper or manual retry | `job_id`, `slot`, `error_class` |
+| `prd.sheets.appended` | Row appended to `SHEETS_ID_PRD` | `job_id`, `slot` |
+| `prd.brain.dispatched` | `brain.ingest_links()` task created (fire-and-forget) | `job_id`, `slot`, `link_count` |
+| `prd.reaper.released` | Boot-time reaper reset a stale lock | `job_id`, `slot`, `stale_for_seconds` |
+| `prd.spec.no_match` | `/spec <suffix>` found no eligible job | `chat_id`, `suffix` |
+| `prd.spec.short_video_rejected` | `/spec <suffix>` matched a short video | `chat_id`, `suffix`, `job_id` |
+| `prd.spec.matched` | `/spec <suffix>` resolved to a job | `chat_id`, `suffix`, `job_id`, `slot` |
+| `prd.chat_state.armed` | ✍️ Text your intent → ForceReply + state row written | `chat_id`, `job_id` |
+| `prd.chat_state.consumed` | User's reply matched the awaiting-intent state | `chat_id`, `job_id`, `intent_text_len` |
+| `prd.chat_state.expired_or_missed` | Reply arrived after `expires_at` or never came | `chat_id`, `job_id`, `expired_at` |
+| `prd.chat_state.canceled_by_url` | New video URL cleared the state | `chat_id`, `job_id` |
+
+`intent_text` itself is **not** logged (treat as user PII). `intent_text_len` is the only signal. `raw_excerpt` on parse failure is the only place model output appears in logs and is hard-capped at 200 chars.
+
+### 14.18 Testing
 
 **Unit tests (no network):**
 - `sample_transcript()` head/middle/tail boundaries; edge case `len == cap` (no truncation); `len == cap+1` (sampling kicks in)
@@ -3330,7 +3460,8 @@ Independent of `SHEETS_ID_LONG` — that sheet stays focused on transcript+enric
 - Webhook routing in `awaiting_intent` mode: text → intent, slash → command, URL alone → new job, URL inside text → intent content
 - JSON schema validation: `category` enum violations, missing `open_questions[].context`, empty `phases[].deliverables[]`
 - Boot reaper: stale `'generating'` row older than 10 min → reset to `'error'`; fresh `'generating'` row → untouched
-- `/spec` suffix matching: no match → recent-jobs reply; single match → confirm-in-reply; multiple matches → most-recent-wins
+- `/spec` suffix matching: no match → recent-jobs reply; short-video match → "PRD is only available for long videos" reply; single long match → confirm-in-reply; multiple long matches → most-recent-wins
+- Logging: every event in §14.17 fires with the required fields; `intent_text` is never present in any log record
 
 **Integration tests** (gated behind `RUN_INTEGRATION=1`):
 - Real Gemini Flash + Pro returning schema-valid JSON for a known transcript
