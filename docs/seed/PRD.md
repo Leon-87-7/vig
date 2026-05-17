@@ -3147,51 +3147,122 @@ await brain.ingest_links(
 
 Long sheet column shape (verified from real rows): `url, video_id, title, channel, description_links_raw, char_count, drive_file_id, drive_url, fetched_at, status, ai_objective, ai_action_points, ai_tools, ai_category, ai_topic, ai_market_data`. Note the long sheet has **no `job_id` column** — `video_id` is the YouTube video ID (e.g. `qZkX_gIlwsY`) and is what ties a row to its source.
 
-**The wrong path (rejected):** `description_links_raw` is bare URLs from the YouTube description box — mostly sponsor links, creator socials, affiliate codes, course CTAs. Too shallow to use as the backfill brain feed (see §13.10 feed quality hierarchy). The substantive long-video signal lives in `ai_tools`, not in description links.
+**The wrong path (rejected):** `description_links_raw` is bare URLs from the YouTube description box — mostly sponsor links, creator socials, affiliate codes, course CTAs. Too shallow to use as the backfill brain feed (see §13.10 feed quality hierarchy). The substantive long-video signal lives in `ai_tools`.
 
-**The historical `ai_tools` problem:** rows produced under the old enrichment prompt have `ai_tools` shaped `[type] name: description | ...` with no `url` field. The new prompt (§2) requires URLs per tool. So historical rows must be **re-enriched** with the new prompt to gain URL-bearing tools[] before brain ingestion.
+**The historical `ai_tools` problem:** rows produced under the old enrichment prompt have `ai_tools` shaped `[type] name: description | ...` with **no `url` field**. The names, types, and descriptions are already model-curated and good quality — only the URL is missing.
 
-**Re-enrichment path (chosen):** every historical row has a `drive_url` pointing to its transcript `.md` on Drive (the `drive_file_id` column is the cached ID for direct API access). Backfill fetches the transcript text, runs it through the new enrichment prompt, parses the URL-bearing tools[], and ingests to brain. One Gemini call per historical long video — bounded, one-time, produces brain nodes in the same shape as new videos.
+**URL-resolution path (chosen):** parse the existing `ai_tools` column into `[{name, type, description}]` triples, send just the **name list** to Gemini with a tiny URL-resolution prompt, merge the returned URLs back onto the original triples, ingest URL-bearing entries to brain. ~50 input tokens per row instead of ~10k for full re-enrichment; ~100× cheaper, ~6× faster, no Drive reads needed, reuses the legacy curation.
+
+**Parser for legacy `ai_tools`:**
 
 ```python
 import re
 
-# `ai_tools` in the legacy row is captured as audit context only; brain ingestion does not parse it.
-# We re-derive structured tools[] from the transcript itself.
+# Format: "[type] name: description | [type] name: description | ..."
+# - `name` may contain inline parens like "Tavi (api.tavi.com)" — preserved as-is; URL resolver handles it
+# - description ends at the next " | [" or end-of-string
+TOOL_REC = re.compile(
+    r"\[(?P<type>[^\]]+)\]\s*(?P<name>[^:]+?):\s*(?P<desc>.+?)(?=\s*\|\s*\[|\s*$)",
+    re.DOTALL,
+)
 
-async def reenrich_historical_long_row(row) -> list[dict]:
-    """Fetch the cached transcript, run the new enrichment prompt, return URL-bearing tools[]."""
-    if row.status != "ok":
+def parse_legacy_ai_tools(ai_tools: str) -> list[dict]:
+    if not ai_tools:
         return []
-    transcript_md = await drive.read_file_text(row.drive_file_id)   # see services/drive.py
-    transcript = strip_transcript_frontmatter(transcript_md)         # drop the # Title + **Channel:** lines
-    enrichment = await gemini_text_enrich(transcript, title=row.title)   # same function used in live pipeline
-    # Keep only tools whose new-prompt resolution actually produced a URL
     return [
-        {"url": t["url"], "label": t["name"], "description": t.get("description")}
-        for t in enrichment.tools
-        if t.get("url")
+        {"type": m["type"].strip(), "name": m["name"].strip(), "description": m["desc"].strip()}
+        for m in TOOL_REC.finditer(ai_tools)
     ]
+```
 
-# Per-row ingestion call
-links = await reenrich_historical_long_row(row)
+**URL resolution helper** (lives in `services/gemini.py::resolve_tool_urls(tools)`):
+
+```python
+async def resolve_tool_urls(tools: list[dict]) -> list[dict]:
+    """
+    Input:  [{"type": ..., "name": ..., "description": ...}, ...]
+    Output: same shape with "url" key added (str or None) on each entry.
+    """
+    if not tools:
+        return []
+    name_list = "\n".join(f"- [{t['type']}] {t['name']}" for t in tools)
+    response = await gemini_call(URL_RESOLUTION_PROMPT.format(tools=name_list), model="gemini-2.5-flash")
+    resolved = _extract_json(response)   # [{"name": "...", "url": "..." or null}, ...]
+    url_by_name = {r["name"]: r.get("url") for r in resolved}
+    return [{**t, "url": url_by_name.get(t["name"])} for t in tools]
+```
+
+**The URL Resolution Prompt** (copy-paste into a fresh Gemini session for testing, or template into `services/gemini.py`):
+
+```text
+You are a URL resolution assistant.
+
+For each tool listed below, return its canonical homepage URL.
+
+## RULES
+
+1. Return the OFFICIAL HOMEPAGE URL (https://...) for well-known products: open-source libraries, public frameworks, public SaaS services, named APIs, public GitHub repositories, IDE extensions, CLI tools, model providers.
+   Examples: n8n → https://n8n.io, Claude → https://claude.ai, OpenAI → https://openai.com, LangChain → https://langchain.com, GitHub → https://github.com, OpenWeatherMap → https://openweathermap.org, Tavily → https://tavily.com, Pinecone → https://pinecone.io.
+
+2. For market tickers (entries with type "symbol" or names like "$AAPL", "$TSLA"), return https://finance.yahoo.com/quote/{TICKER} (uppercase, no dollar sign).
+
+3. Prefer the canonical homepage. Do NOT return docs pages, blog posts, social media, npm/pypi listings, or pricing pages when a homepage exists.
+
+4. Return null (JSON null, not the string "null") for:
+   - Generic concepts that are not products: "HTTP Request", "API Documentation", "REST API", "JSON", "Curl Command", "OAuth", "WebSocket"
+   - Tools so obscure or ambiguous that you cannot confidently identify the canonical URL
+   - Anything you would have to guess at
+
+5. Do NOT guess. If you are not confident a URL is correct, return null. A null is always better than a wrong URL.
+
+6. If the name already contains an inline URL fragment in parens (e.g. "Tavi (api.tavi.com)"), use that fragment as a strong hint but still return the full canonical homepage (e.g. https://tavily.com), not the fragment.
+
+## OUTPUT FORMAT
+
+Respond with ONLY a JSON array. No markdown fences, no commentary, no explanation before or after.
+
+Each output object has exactly two keys: "name" (the tool name exactly as given in the input, character-for-character) and "url" (string or null).
+
+[
+  {{"name": "n8n", "url": "https://n8n.io"}},
+  {{"name": "HTTP Request", "url": null}}
+]
+
+## INPUT
+
+{tools}
+```
+
+**Per-row ingestion call:**
+
+```python
+if row.status != "ok":
+    continue
+tools = parse_legacy_ai_tools(row.ai_tools)
+if not tools:
+    continue
+tools_with_urls = await resolve_tool_urls(tools)
+links = [
+    {"url": t["url"], "label": t["name"], "description": t["description"]}
+    for t in tools_with_urls
+    if t.get("url")            # drop None URLs (concepts, obscure tools)
+]
 if not links:
-    continue   # tools without URLs, or empty transcript, or status != 'ok'
+    continue
 await brain.ingest_links(
     links=links,
-    topic=row.ai_topic or row.title,             # legacy ai_topic stays useful as the topic field
+    topic=row.ai_topic or row.title,             # legacy ai_topic is still the right topic
     source_job_id=f"backfill_long_{row.video_id}",
 )
 ```
 
-`strip_transcript_frontmatter()` is a small helper that removes the markdown header block from the `.md` file (the `# Title` + `**Channel:** …` + `**Char count:** …` + `---` lines) so only the raw transcript reaches the model. Lives in `utils/markdown.py` alongside `build_transcript_markdown()`.
-
 **Operational notes specific to long backfill:**
-- **Cost ceiling:** N historical long videos × 1 Gemini enrichment call each. Bounded and predictable (e.g. 200 videos ≈ 200 Flash calls ≈ negligible cost).
-- **Drive read rate-limits:** Drive API allows ~1000 reads/100s per user. For typical backfill scale this is non-issue; for larger archives, add `await asyncio.sleep(0.1)` between row reads.
-- **Failure tolerance:** if `drive.read_file_text(drive_file_id)` fails (file deleted, permission changed) → log + skip that row, continue. Don't abort the whole backfill on per-row failures.
-- **Skip rows where re-enrichment returns zero URL-bearing tools** — accept that some historical videos genuinely don't have well-known products to canonicalize (general educational content, market analysis without named platforms).
-- **Idempotent:** soft dedup in `brain.ingest_links` means re-running the backfill after a parser fix only bumps `seen_count` on existing links — no duplicate nodes.
+- **Cost ceiling:** N historical long videos × 1 small Gemini call each (~50 input + ~200 output tokens per row). For 200 historical videos ≈ ~50k total tokens ≈ effectively free on Flash.
+- **No Drive reads:** legacy `ai_tools` is already in the sheet — backfill never touches Drive. Removes the `drive.read_file_text()` failure mode entirely.
+- **Reuses legacy curation:** name + type + description carry over verbatim from the old enrichment; only `url` is newly resolved. Means the labels brain stores are the exact strings the user has been seeing in their long-pipeline Telegram messages for months — consistent with their existing mental model.
+- **Bounded by old extraction:** if the old prompt missed a tool the new prompt would have caught, backfill won't surface it. Acceptable — backfill is best-effort historical seeding, not perfect reconstruction. New videos go through the full new enrichment prompt and get the upgraded extraction.
+- **Idempotent:** soft dedup in `brain.ingest_links` means re-running after a fix only bumps `seen_count` — no duplicate nodes.
+- **Null tolerance:** ~30–50% of legacy tools resolve to null (generic concepts and obscure names). The filter `if t.get("url")` drops them silently. Expected, not an error condition.
 
 **Run-once script structure** (`scripts/backfill_brain.py`):
 
