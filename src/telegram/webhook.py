@@ -94,5 +94,5 @@ async def webhook(
         message_id=message_id,
     )
     await queue.enqueue({"task": "video", "job_id": job_id})
-    await send_message(chat_id, f"📥 Received! Job ID: {job_id}")
+    await send_message(chat_id, f"job_{job_id[-4:]}:\n📥 Received! Job ID: {job_id}")
     return {"ok": True}

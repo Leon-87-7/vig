@@ -41,7 +41,7 @@ async def _dispatch(task: dict) -> None:
             await database.update_job_status(job_id, "error")
             try:
                 from src.telegram.sender import send_message
-                await send_message(job["chat_id"], "❌ Processing failed. Please try again.")
+                await send_message(job["chat_id"], f"job_{job_id[-4:]}:\n❌ Processing failed. Please try again.")
             except Exception:
                 pass
     else:

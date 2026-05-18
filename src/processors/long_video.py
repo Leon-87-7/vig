@@ -20,8 +20,10 @@ async def run(job: dict) -> None:
     chat_id = job["chat_id"]
     url = job["url"]
 
+    tag = f"job_{job_id[-4:]}:"
+
     await database.update_job_status(job_id, "processing")
-    await send_message(chat_id, "🔊 Analyzing your video, It is on it's way 🪽🪽")
+    await send_message(chat_id, f"{tag}\n🔊 Analyzing your video, It is on it's way 🪽🪽")
 
     # 1. Fetch transcript + metadata in parallel
     transcript_resp, meta_resp = await asyncio.gather(
@@ -53,7 +55,7 @@ async def run(job: dict) -> None:
     slug = slugify(title) or "untitled"
     md_text = build_transcript_markdown(title, channel, views, video_id, url, transcript)
 
-    await send_message(chat_id, "🍪 video is in-progress. Transcript done, now sent to Drive")
+    await send_message(chat_id, f"{tag}\n🍪 video is in-progress. Transcript done, now sent to Drive")
 
     file_id, drive_url = await upload_file(md_text, f"{slug}.md", settings.GOOGLE_DRIVE_FOLDER_LONG)
 
@@ -66,11 +68,11 @@ async def run(job: dict) -> None:
     )
 
     # 5. Telegram delivery sequence
-    await send_document(chat_id, md_text.encode(), filename=f"{slug}.md", caption="📜 The transcript is here")
-    await send_message(chat_id, "✅ Transcript saved to Drive!")
+    await send_document(chat_id, md_text.encode(), filename=f"{slug}.md", caption=f"{tag}\n📜 The transcript is here")
+    await send_message(chat_id, f"{tag}\n✅ Transcript saved to Drive!")
     await send_inline_keyboard(
         chat_id,
-        "Run Gemini analysis on this video?",
+        f"{tag}\nRun Gemini analysis on this video?",
         buttons=[
             [
                 {"text": "👎 No Thanks", "callback_data": f"gemini_no:{job_id}"},

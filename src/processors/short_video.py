@@ -52,24 +52,29 @@ def _build_links_message(links: list[dict]) -> str:
     return f"🔗 Links Found:\n{labeled}\n\n---\n\n🔗 Quick Links:\n{bare}"
 
 
+def _tag(job_id: str) -> str:
+    return f"job_{job_id[-4:]}:"
+
+
 async def run(job: dict) -> None:
     """End-to-end short-video pipeline."""
     job_id = job["id"]
     chat_id = job["chat_id"]
     url = job["url"]
     started = time.time()
+    tag = _tag(job_id)
 
     await database.update_job_status(job_id, "processing")
-    await send_message(chat_id, "🔊 Processing your short video...")
+    await send_message(chat_id, f"{tag}\n🔊 Processing your short video...")
 
     # 1. Fetch frames from sidecar
     frame_resp = await frames.fetch_frames(url)
     if "error" in frame_resp:
         err = frame_resp["error"]
         if err.get("type") == "too_long":
-            await send_message(chat_id, "❌ Video too long for short pipeline (max 3 minutes).")
+            await send_message(chat_id, f"{tag}\n❌ Video too long for short pipeline (max 3 minutes).")
         else:
-            await send_message(chat_id, f"❌ Frame extraction failed: {err.get('message', 'unknown error')}")
+            await send_message(chat_id, f"{tag}\n❌ Frame extraction failed: {err.get('message', 'unknown error')}")
         raise RuntimeError(f"frame_service_error: {err}")
 
     raw_frames = frame_resp.get("frames", [])
@@ -78,7 +83,7 @@ async def run(job: dict) -> None:
     title = frame_resp.get("title", "")
 
     if not raw_frames:
-        await send_message(chat_id, "❌ No frames extracted from video.")
+        await send_message(chat_id, f"{tag}\n❌ No frames extracted from video.")
         raise RuntimeError("no_frames_extracted")
 
     # 2. Gemini Vision analysis
@@ -112,11 +117,11 @@ async def run(job: dict) -> None:
     import base64
     best_frame_b64 = raw_frames[main_idx]["base64"]
     best_frame_bytes = base64.b64decode(best_frame_b64)
-    await send_photo(chat_id, best_frame_bytes, caption=f"🖼️Main frame: {summary}")
+    await send_photo(chat_id, best_frame_bytes, caption=f"{tag}\n🖼️ Main frame: {summary}")
 
     # 7. Send links message (if any)
     if links:
-        await send_message(chat_id, _build_links_message(links))
+        await send_message(chat_id, f"{tag}\n{_build_links_message(links)}")
 
     # 8. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job
