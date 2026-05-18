@@ -2,6 +2,15 @@
 
 Video Intelligence Bot — a Python (FastAPI + SQLite + Redis) service replacing a 60+ node n8n workflow. Telegram bot that processes short videos (Instagram Reels, YouTube Shorts, TikTok) and long videos (YouTube), runs them through Gemini Vision / Text enrichment, stores results in Google Drive + Sheets, and accumulates a semantic link graph (Second Brain). See `docs/seed/PRD.md`, `docs/seed/ARCHITECTURE.md`, `docs/seed/TECHSTACK.md` for full spec.
 
+## Navigating the PRD
+
+`docs/seed/PRD.md` is ~3900 lines. Never read it top-to-bottom. Use the two-step lookup:
+
+1. **Find the section** — read lines 16–115 (the TOC table) to map a topic to a section number and line.
+2. **Jump to it** — `Read(file, offset=<line>, limit=80)` or grep: `grep -n "§14.6" docs/seed/PRD.md` returns the exact line, then read from there.
+
+Every `##` / `###` / `####` heading is preceded by a `<!-- §N.M -->` anchor comment, so grep always lands one line above the heading.
+
 ## Agent skills
 
 ### Issue tracker

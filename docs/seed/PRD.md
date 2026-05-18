@@ -1,37 +1,153 @@
 # Video Intelligence Bot - Product Requirements Document (PRD)
 
 ## Document Information
+
 - **Version:** 1.0
 - **Last Updated:** May 11, 2026
 - **Author:** Leon Eidelman (Technical Architecture)
 - **Status:** Draft for Implementation
 - **Project Type:** Portfolio + Personal Tool
 
-- **Relevant Files:** 
-- "C:\Users\leone\Desktop\codeKitchen\yt_scrap\The Video Intelligence Bot __prod.json"
+- **Relevant Files:**
+- "C:\Users\leone\Desktop\codeKitchen\yt_scrap\The Video Intelligence Bot \_\_prod.json"
 - "C:\Users\leone\Desktop\codeKitchen\yt_scrap\transcript_server.py"
 - "C:\Users\leone\n8n-local\docker-compose.yml"
+
 ---
+
+## Table of Contents
+
+| Section | Title                                                    | Line |
+| ------- | -------------------------------------------------------- | ---- |
+| §1      | Executive Summary                                        | 119  |
+| §1.1    | Problem Statement                                        | 123  |
+| §1.2    | Proposed Solution                                        | 135  |
+| §1.3    | Success Metrics                                          | 147  |
+| §2      | System Architecture                                      | 159  |
+| §2.1    | High-Level Architecture                                  | 163  |
+| §2.2    | Component Specifications                                 | 211  |
+| §2.2.1  | Telegram Bot Layer                                       | 215  |
+| §2.2.2  | API Layer                                                | 251  |
+| §2.2.3  | Job Management Layer                                     | 318  |
+| §2.2.4  | Async Processing Layer                                   | 478  |
+| §2.2.5  | Short Video Pipeline                                     | 640  |
+| §2.2.6  | Long Video Pipeline                                      | 898  |
+| §2.2.7  | Output Layer                                             | 1238 |
+| §3      | User Experience                                          | 1427 |
+| §3.1    | User Flow - Short Video                                  | 1431 |
+| §3.2    | User Flow - Long Video                                   | 1454 |
+| §3.3    | User Flow - Unsupported URL                              | 1504 |
+| §3.4    | Message Templates                                        | 1525 |
+| §4      | Technical Specifications                                 | 1753 |
+| §4.1    | Technology Stack                                         | 1757 |
+| §4.2    | Environment Configuration                                | 1772 |
+| §4.3    | Project Structure                                        | 1833 |
+| §4.4    | Docker Compose Configuration                             | 1892 |
+| §4.5    | Dockerfile                                               | 1952 |
+| §4.6    | Requirements.txt                                         | 1982 |
+| §4.7    | Logging Schema                                           | 2001 |
+| §4.8    | Performance Requirements                                 | 2066 |
+| §4.9    | Error Handling Strategy                                  | 2080 |
+| §5      | Deployment & Operations                                  | 2134 |
+| §5.1    | Local Development Setup                                  | 2138 |
+| §5.2    | Production Deployment (VPS)                              | 2194 |
+| §5.3    | Health Monitoring                                        | 2231 |
+| §5.4    | Backup & Recovery                                        | 2299 |
+| §6      | Testing Strategy                                         | 2337 |
+| §6.1    | Unit Tests                                               | 2341 |
+| §6.2    | Integration Tests                                        | 2404 |
+| §6.3    | End-to-End Tests                                         | 2441 |
+| §6.4    | Load Testing                                             | 2487 |
+| §7      | Security Considerations                                  | 2567 |
+| §7.1    | Authentication & Authorization                           | 2571 |
+| §7.2    | Input Validation                                         | 2607 |
+| §7.3    | Rate Limiting                                            | 2710 |
+| §7.4    | Data Privacy                                             | 2766 |
+| §7.5    | Secrets Management                                       | 2832 |
+| §8      | Migration from n8n                                       | 2871 |
+| §8.1    | Migration Strategy                                       | 2875 |
+| §8.2    | Rollback Plan                                            | 2907 |
+| §8.3    | Data Export from Google Sheets                           | 2929 |
+| §9      | Future Enhancements                                      | 2978 |
+| §9.1    | Short-Term (Next 3 Months)                               | 2984 |
+| §9.2    | Long-Term (6-12 Months)                                  | 3041 |
+| §10     | Success Criteria & KPIs                                  | 3094 |
+| §10.1   | Technical Metrics                                        | 3098 |
+| §10.2   | Operational Metrics                                      | 3111 |
+| §10.3   | User Experience Metrics                                  | 3123 |
+| §11     | Risks & Mitigations                                      | 3136 |
+| §12     | Open Questions                                           | 3153 |
+| §13     | Second Brain Feature                                     | 3175 |
+| §13.1   | Overview                                                 | 3182 |
+| §13.2   | New Module: `brain.py`                                   | 3190 |
+| §13.3   | Database Schema                                          | 3215 |
+| §13.4   | Title Resolution                                         | 3253 |
+| §13.5   | Ingestion Flow                                           | 3265 |
+| §13.6   | Obsidian `.md` Format                                    | 3286 |
+| §13.7   | Semantic Search                                          | 3314 |
+| §13.8   | Refresh Worker                                           | 3349 |
+| §13.9   | `/rebuild-graph` Command                                 | 3370 |
+| §13.10  | Pipeline Integration Points                              | 3384 |
+| §13.11  | New Dependencies                                         | 3408 |
+| §13.12  | New Environment Variables                                | 3417 |
+| §13.13  | Testing                                                  | 3429 |
+| §13.14  | Graph Model — Links as Nodes (v1) / Videos as Nodes (v2) | 3446 |
+| §13.15  | One-off Backfill from Existing Sheets                    | 3467 |
+| §14     | Mini-PRD Feature                                         | 3671 |
+| §14.1   | Overview                                                 | 3678 |
+| §14.2   | Trigger Surfaces                                         | 3691 |
+| §14.3   | Auto-fire Mechanism                                      | 3705 |
+| §14.4   | Race Protection (atomic slot lock)                       | 3725 |
+| §14.5   | Prompt Inputs                                            | 3763 |
+| §14.6   | Transcript Truncation                                    | 3780 |
+| §14.7   | Model Selection and Fallback Chain                       | 3803 |
+| §14.8   | Output JSON Schema                                       | 3814 |
+| §14.9   | Drive Layout                                             | 3865 |
+| §14.10  | v2 Path — `PRD_INCLUDE_FRAMES`                           | 3940 |
+| §14.11  | Telegram Delivery (Q12)                                  | 3946 |
+| §14.12  | `chat_state` Lifecycle                                   | 3969 |
+| §14.13  | `/spec` Command                                          | 3994 |
+| §14.14  | Failure Handling                                         | 4047 |
+| §14.15  | Sheets Logging (`SHEETS_ID_PRD`)                         | 4059 |
+| §14.16  | New Environment Variables                                | 4079 |
+| §14.17  | Logging Schema                                           | 4093 |
+| §14.18  | Testing                                                  | 4124 |
+| §15     | Appendices                                               | 4147 |
+
+---
+
+<!-- §1 -->
 
 ## 1. Executive Summary
 
+<!-- §1.1 -->
+
 ### 1.1 Problem Statement
+
 The current n8n-based video intelligence workflow has become unmaintainable due to:
+
 - **Mixed concerns** across 60+ nodes handling Telegram bot UX, job state, frame analysis, transcript extraction, AI enrichment, and storage
 - **Google Sheets as transactional database** causing latency and complexity
 - **Repetitive field mapping** and status updates scattered across multiple branches
 - **Poor observability** - difficult debugging in visual workflow canvas
 - **Docker networking inconsistencies** between hardcoded IPs (`10.0.0.4`) and container aliases (`host.docker.internal`)
 
+<!-- §1.2 -->
+
 ### 1.2 Proposed Solution
+
 Replace the n8n workflow with a standalone Python service (FastAPI + SQLite + Redis) that:
+
 - Separates concerns into clear architectural layers
 - Uses proper database for job state management
 - Provides structured logging and observability
 - Maintains Telegram bot integration with improved UX
 - Reduces codebase from 60+ visual nodes to ~500 lines of maintainable Python
 
+<!-- §1.3 -->
+
 ### 1.3 Success Metrics
+
 - **Maintainability:** Time to implement feature changes reduced by 70%
 - **Reliability:** Job failure rate < 2%
 - **Performance:** Average job processing time < 30 seconds for short videos, < 90 seconds for long videos
@@ -40,7 +156,11 @@ Replace the n8n workflow with a standalone Python service (FastAPI + SQLite + Re
 
 ---
 
+<!-- §2 -->
+
 ## 2. System Architecture
+
+<!-- §2.1 -->
 
 ### 2.1 High-Level Architecture
 
@@ -88,12 +208,18 @@ Replace the n8n workflow with a standalone Python service (FastAPI + SQLite + Re
 └─────────────────────────────────────────────────────────────┘
 ```
 
+<!-- §2.2 -->
+
 ### 2.2 Component Specifications
 
+<!-- §2.2.1 -->
+
 #### 2.2.1 Telegram Bot Layer
+
 **Technology:** `httpx` for direct Telegram API calls (no wrapper library)
 
 **Responsibilities:**
+
 - Receive webhook POST from Telegram servers
 - Parse incoming message for video URLs
 - Send immediate acknowledgment to user
@@ -101,18 +227,20 @@ Replace the n8n workflow with a standalone Python service (FastAPI + SQLite + Re
 - Format and send completion/error messages with inline keyboards
 
 **Key Interfaces:**
+
 ```python
 async def handle_webhook(update: TelegramUpdate) -> Response:
     """Process incoming Telegram webhook"""
-    
+
 async def send_message(chat_id: int, text: str, reply_markup: Optional[dict]) -> None:
     """Send message to Telegram user"""
-    
+
 async def handle_callback_query(callback_query: CallbackQuery) -> None:
     """Handle inline button clicks (retry actions)"""
 ```
 
 **Webhook Security:**
+
 ```python
 # Validate incoming webhooks using secret token
 def validate_telegram_request(request: Request) -> bool:
@@ -120,7 +248,10 @@ def validate_telegram_request(request: Request) -> bool:
     return secret == os.getenv("TELEGRAM_WEBHOOK_SECRET")
 ```
 
+<!-- §2.2.2 -->
+
 #### 2.2.2 API Layer
+
 **Technology:** FastAPI with `uvicorn` ASGI server
 
 **Endpoints:**
@@ -132,6 +263,7 @@ def validate_telegram_request(request: Request) -> bool:
 | `/jobs/{job_id}` | GET | Query job status (internal) | API key |
 
 **Request/Response Flow:**
+
 1. Telegram sends POST to `/webhook`
 2. API validates URL format and content type
 3. Creates job record in database with status `pending`
@@ -141,27 +273,28 @@ def validate_telegram_request(request: Request) -> bool:
 7. On completion, sends result via Telegram API
 
 **Example Webhook Handler:**
+
 ```python
 @app.post("/webhook")
 async def webhook(request: Request):
     # Validate request
     if not validate_telegram_request(request):
         raise HTTPException(status_code=403, detail="Invalid token")
-    
+
     # Parse Telegram update
     update = await request.json()
     message = update.get("message", {})
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "")
-    
+
     # Validate URL
     if not is_valid_video_url(text):
         await send_message(chat_id, "❌ Invalid video URL")
         return {"ok": True}
-    
+
     # Detect content type
     content_type = detect_content_type(text)
-    
+
     # Create job
     job_id = await create_job(
         chat_id=chat_id,
@@ -169,23 +302,27 @@ async def webhook(request: Request):
         content_type=content_type,
         message_id=message.get("message_id")
     )
-    
+
     # Queue for processing
     await queue.put(job_id)
-    
+
     # Send acknowledgment
     await send_message(
         chat_id=chat_id,
         text="📥 Received! Processing your video...\nYou'll be notified when complete."
     )
-    
+
     return {"ok": True}
 ```
 
+<!-- §2.2.3 -->
+
 #### 2.2.3 Job Management Layer
+
 **Technology:** SQLite (or PostgreSQL for production scale)
 
 **Database Schema:**
+
 ```sql
 CREATE TABLE jobs (
     id TEXT PRIMARY KEY,                -- YYYYMMDD_HHMMSS_XXXX (e.g. 20260516_143022_A3F9)
@@ -221,7 +358,7 @@ CREATE TABLE jobs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
-    
+
     CHECK(content_type IN ('short', 'long')),
     CHECK(status IN ('pending', 'processing', 'transcript_done', 'enriching', 'complete', 'error', 'cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating', 'complete', 'error')),
@@ -245,6 +382,7 @@ CREATE TABLE IF NOT EXISTS chat_state (
 ```
 
 **State Machine:**
+
 ```
 pending → processing → complete
     ↓          ↓
@@ -269,6 +407,7 @@ PRD slot lifecycles (independent of jobs.status; tracked on prd_auto_status / pr
 ```
 
 **Job CRUD Operations:**
+
 ```python
 async def create_job(chat_id: int, url: str, content_type: str, message_id: int) -> str:
     """Create new job record, return job_id"""
@@ -291,18 +430,18 @@ async def update_job_status(job_id: str, status: str, **kwargs) -> None:
     """Update job status and optional fields"""
     set_clause = "status = ?, updated_at = CURRENT_TIMESTAMP"
     params = [status]
-    
+
     for key, value in kwargs.items():
         set_clause += f", {key} = ?"
         params.append(value)
-    
+
     params.append(job_id)
-    
+
     async with db.connection() as conn:
         await conn.execute(f"""
             UPDATE jobs SET {set_clause} WHERE id = ?
         """, params)
-    
+
     logger.info("job_status_updated", extra={"job_id": job_id, "status": status})
 
 async def increment_attempt(job_id: str) -> int:
@@ -316,26 +455,30 @@ async def increment_attempt(job_id: str) -> int:
 ```
 
 **Deduplication Strategy:**
+
 ```python
 async def check_duplicate_job(url: str, chat_id: int, within_hours: int = 24) -> Optional[Job]:
     """Check if URL was processed recently by this user"""
     async with db.connection() as conn:
         row = await conn.execute("""
-            SELECT * FROM jobs 
-            WHERE url = ? 
-              AND chat_id = ? 
+            SELECT * FROM jobs
+            WHERE url = ?
+              AND chat_id = ?
               AND status = 'complete'
               AND created_at > datetime('now', '-{} hours')
             ORDER BY created_at DESC
             LIMIT 1
         """.format(within_hours), (url, chat_id))
-        
+
         if row:
             return Job.from_row(row)
         return None
 ```
 
+<!-- §2.2.4 -->
+
 #### 2.2.4 Async Processing Layer
+
 **Technology:** Redis for queue (or Python `asyncio.Queue` for single-instance)
 
 **Task envelope (the queue protocol contract):**
@@ -352,6 +495,7 @@ Every item on the `video_jobs` Redis list is a JSON-encoded dict with at minimum
 Dict-shaped task envelopes (not bare job_id strings) are the foundation that lets the worker dispatch to multiple processor types from a single queue. **Issue ordering:** the queue protocol change is a foundational refactor that lands before the Mini-PRD feature — every existing enqueue site converts to the envelope shape and the worker grows the dispatch switch before any PRD-specific code is added.
 
 **Queue Configuration:**
+
 ```python
 import json
 import redis.asyncio as redis
@@ -378,6 +522,7 @@ async def dequeue() -> Optional[dict]:
 ```
 
 **Worker Process:**
+
 ```python
 async def worker():
     """Background worker that processes tasks from queue"""
@@ -420,35 +565,35 @@ async def worker():
                 else:
                     logger.error("unknown_task", extra={"task": task["task"], "job_id": job_id})
                     continue
-                
+
                 # Finalize job
                 await finalize_job(job, result)
-                
+
                 processing_time = int((time.time() - start_time) * 1000)
                 await update_job_status(
-                    job_id, 
+                    job_id,
                     'complete',
                     drive_url=result.drive_url,
                     processing_time_ms=processing_time,
                     completed_at=datetime.utcnow()
                 )
-                
+
                 await send_success_message(job, result)
-                
+
                 logger.info("job_complete", extra={
                     "job_id": job_id,
                     "processing_time_ms": processing_time
                 })
-                
+
             except RetryableError as e:
                 # Handle retryable errors (API timeouts, rate limits)
                 await handle_retryable_error(job, e)
-                
+
             except Exception as e:
                 # Handle permanent failures
                 logger.exception("job_error", extra={"job_id": job_id})
                 await handle_job_error(job, e)
-        
+
         except Exception as e:
             logger.exception("worker_error", extra={"error": str(e)})
             await asyncio.sleep(5)  # Brief pause before continuing
@@ -456,16 +601,16 @@ async def worker():
 async def handle_retryable_error(job: Job, error: Exception):
     """Handle errors that should trigger retry"""
     attempt = await increment_attempt(job.id)
-    
+
     if attempt < 3:
         # Exponential backoff: 5s, 15s, 45s
         delay = 5 * (3 ** (attempt - 1))
         await asyncio.sleep(delay)
-        
+
         # Re-queue job
         await update_job_status(job.id, 'pending', error_msg=str(error))
         await enqueue_job(job.id)
-        
+
         logger.info("job_retry_scheduled", extra={
             "job_id": job.id,
             "attempt": attempt,
@@ -483,6 +628,7 @@ async def handle_job_error(job: Job, error: Exception):
 ```
 
 **Concurrency Control:**
+
 ```python
 # Multiple workers can be spawned
 async def start_workers(count: int = 3):
@@ -491,24 +637,29 @@ async def start_workers(count: int = 3):
     await asyncio.gather(*workers)
 ```
 
+<!-- §2.2.5 -->
+
 #### 2.2.5 Short Video Pipeline
+
 **Dependencies:**
+
 - Local frame extraction service (`localhost:5151/short_frames`)
 - Gemini 2.5 Flash Vision API
 - Brave Search API (optional)
 
 **Processing Steps:**
+
 ```python
 async def process_short_video(job: Job) -> Result:
     """Process short-form video using frame analysis"""
-    
+
     # 1. Extract frames from video
     frames = await extract_frames(job.url)
     logger.info("frames_extracted", extra={
         "job_id": job.id,
         "frame_count": len(frames)
     })
-    
+
     # 2. Analyze frames with Gemini Vision
     analysis = await gemini_vision_analyze(frames, job.url)
     logger.info("vision_analysis_complete", extra={
@@ -516,7 +667,7 @@ async def process_short_video(job: Job) -> Result:
         "links_found": len(analysis.links),
         "text_overlays": len(analysis.text_overlays)
     })
-    
+
     # 3. Verify links with Brave Search (optional)
     if config.ENABLE_BRAVE_SEARCH and analysis.links:
         verified_links = await verify_links(analysis.links)
@@ -526,10 +677,10 @@ async def process_short_video(job: Job) -> Result:
         })
     else:
         verified_links = analysis.links
-    
+
     # 4. Build markdown summary
     markdown = build_short_video_markdown(job, analysis, verified_links)
-    
+
     # 5. Upload to Google Drive
     drive_url = await upload_to_drive(
         content=markdown,
@@ -539,7 +690,7 @@ async def process_short_video(job: Job) -> Result:
         "job_id": job.id,
         "drive_url": drive_url
     })
-    
+
     return Result(
         drive_url=drive_url,
         markdown=markdown,
@@ -552,6 +703,7 @@ async def process_short_video(job: Job) -> Result:
 ```
 
 **Frame Extraction Service Contract:**
+
 ```http
 GET http://${FRAME_SERVICE_URL}/short_frames?url=<encoded>&interval=1.0&max_frames=20&max_width=768
 
@@ -584,16 +736,18 @@ Response (error):
 **Duration limit:** 180 seconds (3 minutes). Videos longer than 180s return `{"error": {"type": "too_long", ...}}` — reject before frame extraction is attempted.
 
 **Platform detection** is performed inside `transcript_server.py` using yt-dlp's `extractor_key` field and the source URL path:
+
 - `extractor_key == "Youtube"` and `/shorts/` in URL → `youtube_shorts`
 - `extractor_key == "TikTok"` → `tiktok`
 - `extractor_key == "Instagram"` → `instagram_reels`
 - else → `unknown`
 
 **Gemini Vision Analysis:**
+
 ```python
 async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysis:
     """Analyze video frames using Gemini 2.5 Flash Vision"""
-    
+
     # Build request with frames
     contents = [
         {
@@ -604,7 +758,7 @@ async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysi
             ]
         }
     ]
-    
+
     # System instruction for better token efficiency
     system_instruction = """
     You are a video content analyzer. Extract:
@@ -612,7 +766,7 @@ async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysi
     2. Product names, brands, logos
     3. URLs, social media handles
     4. Key visual themes
-    
+
     Respond ONLY with valid JSON matching this schema:
     {
       "text_overlays": ["text1", "text2"],
@@ -621,7 +775,7 @@ async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysi
       "themes": ["theme1", "theme2"]
     }
     """
-    
+
     response = await gemini_client.generate_content(
         model="gemini-2.5-flash",
         contents=contents,
@@ -631,7 +785,7 @@ async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysi
             "max_output_tokens": 2048
         }
     )
-    
+
     # Parse JSON response
     try:
         result = json.loads(response.text)
@@ -649,17 +803,18 @@ async def gemini_vision_analyze(frames: List[Frame], source_url: str) -> Analysi
 ```
 
 **Brave Search Verification:**
+
 ```python
 async def verify_links(links: List[str]) -> List[VerifiedLink]:
     """Verify and enrich links using Brave Search"""
     verified = []
-    
+
     for link in links[:5]:  # Limit to top 5 links
         try:
             # Search for the domain/brand
             query = extract_domain(link)
             results = await brave_search(query, count=1)
-            
+
             if results:
                 verified.append(VerifiedLink(
                     url=link,
@@ -678,15 +833,16 @@ async def verify_links(links: List[str]) -> List[VerifiedLink]:
                 "error": str(e)
             })
             verified.append(VerifiedLink(url=link, verified=False))
-    
+
     return verified
 ```
 
 **Markdown Generation:**
+
 ```python
 def build_short_video_markdown(job: Job, analysis: Analysis, links: List[VerifiedLink]) -> str:
     """Build markdown summary for short video analysis"""
-    
+
     md = f"""# Short Video Analysis
 
 **Source:** {job.url}
@@ -711,7 +867,7 @@ def build_short_video_markdown(job: Job, analysis: Analysis, links: List[Verifie
 ## 🔗 Extracted Links
 
 """
-    
+
     if links:
         for link in links:
             md += f"\n### {link.url}\n"
@@ -721,7 +877,7 @@ def build_short_video_markdown(job: Job, analysis: Analysis, links: List[Verifie
                 md += "*Could not verify this link*\n"
     else:
         md += "No links detected in video.\n"
-    
+
     md += f"""
 ---
 
@@ -735,16 +891,21 @@ def build_short_video_markdown(job: Job, analysis: Analysis, links: List[Verifie
 
 *Generated by Video Intelligence Bot*
 """
-    
+
     return md
 ```
 
+<!-- §2.2.6 -->
+
 #### 2.2.6 Long Video Pipeline
+
 **Dependencies:**
+
 - Local transcript extraction service (`localhost:5151/transcript`)
 - Gemini 2.5 Flash Text API
 
 **Processing Steps (two-phase, user-gated):**
+
 ```python
 async def process_long_video(job: Job) -> None:
     """
@@ -848,6 +1009,7 @@ async def run_gemini_enrichment(job: Job) -> None:
 ```
 
 **Transcript Service Contract:**
+
 ```http
 GET http://${TRANSCRIPT_SERVICE_URL}/transcript?url=<encoded>
 
@@ -871,6 +1033,7 @@ Response (error — also an array, check for "error" key):
 ```
 
 **Metadata Service Contract:**
+
 ```http
 GET http://${TRANSCRIPT_SERVICE_URL}/metadata?url=<encoded>
 
@@ -915,6 +1078,7 @@ LABEL_KEYWORDS = {
 ```
 
 Rules:
+
 1. Extract all `https?://` URLs from description via regex
 2. Strip trailing punctuation and non-ASCII chars (YouTube embeds zero-width spaces)
 3. Skip if hostname matches `GENERIC_ROOTS` with fewer than 2 path segments (except `github.com` — only bare root is blocked, user profiles and repos pass through)
@@ -924,7 +1088,8 @@ Rules:
 7. Output: `[{label: str|None, url: str}]`
 
 **Gemini Text Enrichment (free key → paid key fallback):**
-```python
+
+````python
 MAX_TRANSCRIPT_CHARS = 12_000  # safety gate before sending to Gemini
 
 async def gemini_text_enrich(transcript: str, title: str) -> Enrichment:
@@ -1022,9 +1187,10 @@ def _parse_enrichment(data: dict) -> Enrichment:
         tools_str=tools_str,
         market_data=data.get("market_data", ""),
     )
-```
+````
 
 **Transcript Markdown Format** (Phase 1 — raw transcript only, no enrichment):
+
 ```python
 def slugify(s: str) -> str:
     return re.sub(r"^_+|_+$", "", re.sub(r"[^a-z0-9]+", "_", s.lower()))[:80]
@@ -1051,6 +1217,7 @@ def build_transcript_markdown(
 **Filename:** `{slugify(title) or 'untitled'}.md` — slugified title, not job ID.
 
 **Enrichment Telegram Message Format** (Phase 2 — sent after Gemini completes):
+
 ```
 =📺 {title}
 🗃️ {category}
@@ -1068,9 +1235,12 @@ def build_transcript_markdown(
 
 The tools list renders each entry's type in brackets (`[tool]`, `[repo]`, `[library]`, `[service]`) or as `$` for stock symbols. Pipe-joined storage format is converted back to bullet points for Telegram display.
 
+<!-- §2.2.7 -->
+
 #### 2.2.7 Output Layer
 
 **Google Drive Integration:**
+
 ```python
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -1078,46 +1248,46 @@ from googleapiclient.http import MediaInMemoryUpload
 
 async def upload_to_drive(content: str, filename: str) -> str:
     """Upload markdown file to Google Drive, return shareable link"""
-    
+
     # Load service account credentials
     creds = service_account.Credentials.from_service_account_file(
         'service-account.json',
         scopes=['https://www.googleapis.com/auth/drive.file']
     )
-    
+
     service = build('drive', 'v3', credentials=creds)
-    
+
     # Prepare file metadata
     file_metadata = {
         'name': filename,
         'mimeType': 'text/markdown',
         'parents': [config.DRIVE_FOLDER_ID]
     }
-    
+
     # Upload file
     media = MediaInMemoryUpload(
         content.encode('utf-8'),
         mimetype='text/markdown',
         resumable=True
     )
-    
+
     file = service.files().create(
         body=file_metadata,
         media_body=media,
         fields='id,webViewLink'
     ).execute()
-    
+
     # Make file accessible with link
     service.permissions().create(
         fileId=file['id'],
         body={'type': 'anyone', 'role': 'reader'}
     ).execute()
-    
+
     logger.info("drive_upload_success", extra={
         "file_id": file['id'],
         "filename": filename
     })
-    
+
     return file['webViewLink']
 ```
 
@@ -1125,10 +1295,10 @@ async def upload_to_drive(content: str, filename: str) -> str:
 
 Two separate sheets — one per pipeline — used for reporting only (not transactional):
 
-| Pipeline | Sheet ID | Columns written |
-|----------|----------|-----------------|
-| Short | `GOOGLE_SHEETS_ID_SHORT` | id, chat_id, url, title, platform, drive_url, processing_time_ms, created_at |
-| Long | `GOOGLE_SHEETS_ID_LONG` | id, chat_id, url, title, channel, views, ai_category, ai_topic, ai_objective, ai_action_points, ai_tools, ai_market_data, drive_url, created_at |
+| Pipeline | Sheet ID                 | Columns written                                                                                                                                 |
+| -------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Short    | `GOOGLE_SHEETS_ID_SHORT` | id, chat_id, url, title, platform, drive_url, processing_time_ms, created_at                                                                    |
+| Long     | `GOOGLE_SHEETS_ID_LONG`  | id, chat_id, url, title, channel, views, ai_category, ai_topic, ai_objective, ai_action_points, ai_tools, ai_market_data, drive_url, created_at |
 
 ```python
 async def log_to_sheets(job: Job):
@@ -1146,10 +1316,11 @@ async def log_to_sheets(job: Job):
 A Google Apps Script bound to the long-video sheet adds an "AI Tools → Fill missing topics" menu item. It scans rows that have `ai_objective` but no `ai_topic` and calls Gemini to generate a 2–5 word topic. This is a manual maintenance tool, not part of the main pipeline. The script reads `GEMINI_API_KEY` from Apps Script Script Properties.
 
 **Telegram Response Formatting:**
+
 ```python
 async def send_success_message(job: Job, result: Result):
     """Send completion message to user"""
-    
+
     # Format metadata based on content type
     if job.content_type == 'short':
         details = f"""**Detected:**
@@ -1161,7 +1332,7 @@ async def send_success_message(job: Job, result: Result):
 • Duration: {format_duration(result.metadata['duration_seconds'])}
 • {result.metadata['word_count']:,} words transcribed
 • {result.metadata['key_points']} key insights extracted"""
-    
+
     message = f"""✅ **{'Short Video' if job.content_type == 'short' else 'Transcript'} Analysis Complete**
 
 📄 [View Full Report]({result.drive_url})
@@ -1170,7 +1341,7 @@ async def send_success_message(job: Job, result: Result):
 
 ⏱️ Processed in {job.processing_time_ms/1000:.1f}s
 """
-    
+
     await telegram_send(
         chat_id=job.chat_id,
         text=message,
@@ -1180,7 +1351,7 @@ async def send_success_message(job: Job, result: Result):
 
 async def send_error_message(job: Job, error: Exception, final: bool = False):
     """Send error message with optional retry button"""
-    
+
     if final:
         message = f"""❌ **Processing Failed (Final)**
 
@@ -1188,7 +1359,7 @@ Error: {str(error)}
 
 The video could not be processed after {job.attempt} attempts.
 Please verify the URL and try again."""
-        
+
         keyboard = None
     else:
         message = f"""❌ **Processing Failed**
@@ -1196,7 +1367,7 @@ Please verify the URL and try again."""
 Error: {str(error)}
 
 Attempt {job.attempt} of 3"""
-        
+
         keyboard = {
             'inline_keyboard': [[
                 {
@@ -1205,7 +1376,7 @@ Attempt {job.attempt} of 3"""
                 }
             ]]
         }
-    
+
     await telegram_send(
         chat_id=job.chat_id,
         text=message,
@@ -1214,6 +1385,7 @@ Attempt {job.attempt} of 3"""
 ```
 
 **Telegram API Client:**
+
 ```python
 import httpx
 
@@ -1225,25 +1397,25 @@ async def telegram_send(
     reply_to_message_id: Optional[int] = None
 ):
     """Send message via Telegram Bot API"""
-    
+
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
-    
+
     payload = {
         'chat_id': chat_id,
         'text': text,
         'parse_mode': parse_mode
     }
-    
+
     if reply_markup:
         payload['reply_markup'] = reply_markup
-    
+
     if reply_to_message_id:
         payload['reply_to_message_id'] = reply_to_message_id
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload, timeout=10.0)
         response.raise_for_status()
-        
+
     logger.info("telegram_message_sent", extra={
         "chat_id": chat_id,
         "message_preview": text[:50]
@@ -1252,7 +1424,11 @@ async def telegram_send(
 
 ---
 
+<!-- §3 -->
+
 ## 3. User Experience
+
+<!-- §3.1 -->
 
 ### 3.1 User Flow - Short Video (YouTube Shorts / Instagram Reel / TikTok)
 
@@ -1274,6 +1450,8 @@ async def telegram_send(
     🔗 Quick Links:
     url"
 ```
+
+<!-- §3.2 -->
 
 ### 3.2 User Flow - Long Video (YouTube)
 
@@ -1323,6 +1501,8 @@ async def telegram_send(
            PRD result message arrives — buttons: [✍️ Text your intent]  (auto sub-button suppressed)
 ```
 
+<!-- §3.3 -->
+
 ### 3.3 User Flow - Unsupported URL
 
 ```
@@ -1342,20 +1522,25 @@ async def telegram_send(
 | `instagram.com/p/{id}` (carousel) | rejected |
 | anything else | rejected |
 
+<!-- §3.4 -->
+
 ### 3.4 Message Templates
 
 **Short video — ack:**
+
 ```
 {job_id}
 ```
 
 **Short video — completion message 1 (sendPhoto):**
+
 ```
 [frame image attached]
 Caption: 🖼️Main frame: {gemini_vision_summary}
 ```
 
 **Short video — completion message 2 (sendMessage, only if links found):**
+
 ```
 🔗 Links Found:
 • Label Name — one-line description
@@ -1366,16 +1551,19 @@ https://example.com
 ```
 
 **Long video — ack:**
+
 ```
 🔊 Analyzing your video, It is on it's way 🪽🪽
 ```
 
 **Long video — transcript done progress:**
+
 ```
 🍪 video is in-progress. Transcript done, now sent to Drive
 ```
 
 **Long video — transcript ready (3 messages):**
+
 ```
 [sendDocument: {slug}.md, caption "📜 The transcript is here"]
 
@@ -1387,11 +1575,13 @@ Row 2: [📐 Build Spec]
 ```
 
 **Long video — enrichment running:**
+
 ```
 🍪 now bakin' by Gemini
 ```
 
 **Long video — enrichment complete:**
+
 ```
 =📺 {title}
 🗃️ {category}
@@ -1404,9 +1594,11 @@ Row 2: [📐 Build Spec]
 • [type] name (url): description
 📄 Transcript
 ```
-*(📄 Transcript is a hyperlink to the Drive file URL)*
+
+_(📄 Transcript is a hyperlink to the Drive file URL)_
 
 **Error with retry (short pipeline):**
+
 ```
 ❌ Processing Failed
 
@@ -1418,6 +1610,7 @@ Attempt {n} of 3
 ```
 
 **Permanent failure:**
+
 ```
 ❌ Processing Failed (Final)
 
@@ -1426,23 +1619,27 @@ Please verify the URL and try again.
 ```
 
 **Enrichment double-failure (both Gemini keys failed):**
+
 ```
 ⚠️ Gemini failed to enrich: {title}
 ```
 
 **Enrichment message — passive PRD footer (appended to the enrichment template above):**
+
 ```
 📐 Build Spec available — /spec {job_id_last4} or use the button below.
 [📐 Build Spec]
 ```
 
 **Build Spec sub-menu (sent after user clicks 📐 Build Spec):**
+
 ```
 How would you like to build the spec?
 [🤖 Build auto Spec]  [✍️ Text your intent]
 ```
 
 **Intent ForceReply prompt (sent after user clicks ✍️ Text your intent):**
+
 ```
 [ForceReply markup set]
 Reply with your project direction.
@@ -1452,6 +1649,7 @@ Example: "desktop app for agentic image processing"
 ```
 
 **PRD result — auto slot (sendDocument + summary):**
+
 ```
 [sendDocument: {slug}_{job_id_last4}_auto.md, caption "📐 Auto-generated PRD"]
 
@@ -1469,6 +1667,7 @@ Example: "desktop app for agentic image processing"
 ```
 
 **PRD result — intent slot (sendDocument + summary):**
+
 ```
 [sendDocument: {slug}_{job_id_last4}_intent.md, caption "📐 PRD with your direction: _{intent_text}_"]
 
@@ -1486,28 +1685,33 @@ Example: "desktop app for agentic image processing"
 ```
 
 **PRD double-failure (manual / /spec trigger only — silent for auto-fire):**
+
 ```
 ⚠️ PRD generation failed (both Gemini keys exhausted).
 Try /spec {job_id_last4} in a few minutes.
 ```
 
 **PRD parse failure (model returned invalid JSON):**
+
 ```
 ⚠️ PRD generation produced invalid output.
 Please try /spec {job_id_last4} with different intent.
 ```
 
 **PRD cooldown (user retried intent slot within 15s of previous completion):**
+
 ```
 📐 Last PRD just generated. Read it first, then /spec again if you want to refine.
 ```
 
 **PRD lock conflict (user clicked auto button while one is already generating):**
+
 ```
 📐 PRD already generating, hang tight.
 ```
 
 **`/spec` — no match for suffix:**
+
 ```
 No job ending in {suffix} found.
 Last 5 jobs in this chat:
@@ -1517,44 +1721,55 @@ Last 5 jobs in this chat:
 ```
 
 **`/spec` — collision (most recent wins, confirm in reply):**
+
 ```
 📐 PRD for: "{video_title_of_most_recent_match}"
 {normal PRD result message follows}
 ```
 
 **`/cancel` — clears chat_state:**
+
 ```
 ✍️ Intent canceled.
 ```
 
 **Intent state interrupted by new video URL:**
+
 ```
 🔄 Started new job; previous intent canceled.
 {normal new-job ack follows}
 ```
 
 **Intent too short (<3 chars):**
+
 ```
 📐 Intent too short. Reply with at least a few words describing your project direction.
 ```
-*(chat_state stays armed; next message is still treated as intent)*
+
+_(chat_state stays armed; next message is still treated as intent)_
 
 ---
 
+<!-- §4 -->
+
 ## 4. Technical Specifications
+
+<!-- §4.1 -->
 
 ### 4.1 Technology Stack
 
-| Layer | Technology | Version | Justification |
-|-------|-----------|---------|---------------|
-| Web Framework | FastAPI | 0.110+ | Async native, automatic OpenAPI docs, high performance |
-| Database | SQLite | 3.40+ | Embedded, zero-config, sufficient for <10k jobs/day |
-| Queue | Redis | 7.0+ | Simple pub/sub, persistent, multi-worker support |
-| HTTP Client | httpx | 0.27+ | Async HTTP client for Telegram/external APIs |
-| Gemini API | google-generativeai | 0.7+ | Official Google SDK |
-| Google APIs | google-api-python-client | 2.120+ | Drive/Sheets integration |
-| Logging | structlog | 24.1+ | Structured JSON logs for parsing |
-| Deployment | Docker Compose | 2.24+ | Reproducible local environment |
+| Layer         | Technology               | Version | Justification                                          |
+| ------------- | ------------------------ | ------- | ------------------------------------------------------ |
+| Web Framework | FastAPI                  | 0.110+  | Async native, automatic OpenAPI docs, high performance |
+| Database      | SQLite                   | 3.40+   | Embedded, zero-config, sufficient for <10k jobs/day    |
+| Queue         | Redis                    | 7.0+    | Simple pub/sub, persistent, multi-worker support       |
+| HTTP Client   | httpx                    | 0.27+   | Async HTTP client for Telegram/external APIs           |
+| Gemini API    | google-generativeai      | 0.7+    | Official Google SDK                                    |
+| Google APIs   | google-api-python-client | 2.120+  | Drive/Sheets integration                               |
+| Logging       | structlog                | 24.1+   | Structured JSON logs for parsing                       |
+| Deployment    | Docker Compose           | 2.24+   | Reproducible local environment                         |
+
+<!-- §4.2 -->
 
 ### 4.2 Environment Configuration
 
@@ -1615,6 +1830,8 @@ MAX_RETRY_ATTEMPTS=3
 
 > **Note on service URLs:** The existing `transcript_server.py` is accessed at different addresses depending on caller context. In the n8n workflow, short-frame calls used the hardcoded LAN IP `10.0.0.4:5151` while transcript/metadata calls used `host.docker.internal:5151`. The Python replacement should configure both via env vars and default to the same host if running outside Docker.
 
+<!-- §4.3 -->
+
 ### 4.3 Project Structure
 
 ```
@@ -1672,6 +1889,8 @@ video-intelligence-bot/
 └── service-account.json         # Google API credentials (not in git)
 ```
 
+<!-- §4.4 -->
+
 ### 4.4 Docker Compose Configuration
 
 ```yaml
@@ -1683,7 +1902,7 @@ services:
     container_name: video-bot-api
     env_file: .env
     ports:
-      - "8000:8000"
+      - '8000:8000'
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
@@ -1714,7 +1933,7 @@ services:
     image: redis:7-alpine
     container_name: video-bot-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -1729,6 +1948,8 @@ networks:
   video-bot-network:
     driver: bridge
 ```
+
+<!-- §4.5 -->
 
 ### 4.5 Dockerfile
 
@@ -1758,6 +1979,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
+<!-- §4.6 -->
+
 ### 4.6 Requirements.txt
 
 ```txt
@@ -1775,6 +1998,8 @@ python-dotenv==1.0.1
 aiosqlite==0.19.0
 ```
 
+<!-- §4.7 -->
+
 ### 4.7 Logging Schema
 
 ```json
@@ -1791,6 +2016,7 @@ aiosqlite==0.19.0
 ```
 
 **Key Events to Log:**
+
 - `job_created` - User submitted URL
 - `job_queued` - Added to processing queue
 - `job_started` - Worker picked up job
@@ -1804,6 +2030,7 @@ aiosqlite==0.19.0
 - `retry_triggered` - Job re-queued for retry
 
 **Structured Logging Setup:**
+
 ```python
 import structlog
 
@@ -1824,6 +2051,7 @@ logger = structlog.get_logger()
 ```
 
 **Log Queries:**
+
 ```bash
 # Find all failed jobs in the last hour
 cat logs/app.log | jq 'select(.event=="job_error" and .timestamp > "2026-05-11T11:00:00")'
@@ -1835,21 +2063,26 @@ cat logs/app.log | jq 'select(.event=="job_complete") | {content_type, processin
 cat logs/app.log | jq 'select(.event=="job_complete")' | jq -r '.timestamp[0:13]' | sort | uniq -c
 ```
 
+<!-- §4.8 -->
+
 ### 4.8 Performance Requirements
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Webhook response time | < 200ms | p95 latency |
-| Short video processing | < 30s | p50 latency |
-| Long video processing | < 90s | p50 latency |
-| Job failure rate | < 2% | Errors / total jobs |
-| Queue lag | < 5 jobs | Current queue depth |
-| Database query time | < 50ms | p95 latency |
-| Worker uptime | > 99% | Availability |
+| Metric                 | Target   | Measurement         |
+| ---------------------- | -------- | ------------------- |
+| Webhook response time  | < 200ms  | p95 latency         |
+| Short video processing | < 30s    | p50 latency         |
+| Long video processing  | < 90s    | p50 latency         |
+| Job failure rate       | < 2%     | Errors / total jobs |
+| Queue lag              | < 5 jobs | Current queue depth |
+| Database query time    | < 50ms   | p95 latency         |
+| Worker uptime          | > 99%    | Availability        |
+
+<!-- §4.9 -->
 
 ### 4.9 Error Handling Strategy
 
 **Error Classification:**
+
 ```python
 class ErrorType(Enum):
     USER_ERROR = "user_error"              # Invalid input, no retry
@@ -1880,6 +2113,7 @@ SYSTEM_ERRORS = {
 ```
 
 **Retry Policy:**
+
 ```python
 RETRY_CONFIG = {
     'max_attempts': 3,
@@ -1897,7 +2131,11 @@ def calculate_backoff_delay(attempt: int) -> int:
 
 ---
 
+<!-- §5 -->
+
 ## 5. Deployment & Operations
+
+<!-- §5.1 -->
 
 ### 5.1 Local Development Setup
 
@@ -1953,6 +2191,8 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 # Send a video URL to your Telegram bot
 ```
 
+<!-- §5.2 -->
+
 ### 5.2 Production Deployment (VPS)
 
 ```bash
@@ -1988,14 +2228,17 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 docker-compose logs -f --tail=100
 ```
 
+<!-- §5.3 -->
+
 ### 5.3 Health Monitoring
 
 **Health Check Endpoint:**
+
 ```python
 @app.get("/health")
 async def health_check():
     """Comprehensive health check"""
-    
+
     # Check database
     try:
         async with db.connection() as conn:
@@ -2003,7 +2246,7 @@ async def health_check():
         db_status = "healthy"
     except Exception as e:
         db_status = f"unhealthy: {str(e)}"
-    
+
     # Check Redis
     try:
         await redis.ping()
@@ -2012,14 +2255,14 @@ async def health_check():
     except Exception as e:
         redis_status = f"unhealthy: {str(e)}"
         queue_depth = None
-    
+
     # Check worker status (via Redis heartbeat)
     worker_last_heartbeat = await redis.get("worker:heartbeat")
     worker_healthy = (
-        worker_last_heartbeat and 
+        worker_last_heartbeat and
         (time.time() - float(worker_last_heartbeat)) < 60
     )
-    
+
     overall_status = (
         "healthy" if all([
             db_status == "healthy",
@@ -2027,7 +2270,7 @@ async def health_check():
             worker_healthy
         ]) else "degraded"
     )
-    
+
     return {
         "status": overall_status,
         "timestamp": datetime.utcnow().isoformat(),
@@ -2042,6 +2285,7 @@ async def health_check():
 ```
 
 **Metrics to Monitor:**
+
 ```python
 # Add Prometheus metrics (optional)
 from prometheus_client import Counter, Histogram, Gauge
@@ -2052,9 +2296,12 @@ queue_depth = Gauge('queue_depth', 'Current queue depth')
 worker_count = Gauge('active_workers', 'Number of active workers')
 ```
 
+<!-- §5.4 -->
+
 ### 5.4 Backup & Recovery
 
 **Database Backup:**
+
 ```bash
 # Automated daily backup (add to crontab)
 0 3 * * * docker exec video-bot-api sqlite3 /app/data/jobs.db ".backup '/app/data/backups/jobs_$(date +\%Y\%m\%d).db'"
@@ -2064,15 +2311,17 @@ worker_count = Gauge('active_workers', 'Number of active workers')
 ```
 
 **Redis Persistence:**
+
 ```yaml
 # In docker-compose.yml
 redis:
   command: redis-server --appendonly yes --appendfsync everysec
   volumes:
-    - redis_data:/data  # Persisted to disk
+    - redis_data:/data # Persisted to disk
 ```
 
 **Recovery Procedure:**
+
 ```bash
 # Restore database from backup
 docker-compose down
@@ -2085,7 +2334,11 @@ docker exec video-bot-api sqlite3 /app/data/jobs.db "PRAGMA integrity_check;"
 
 ---
 
+<!-- §6 -->
+
 ## 6. Testing Strategy
+
+<!-- §6.1 -->
 
 ### 6.1 Unit Tests
 
@@ -2133,7 +2386,7 @@ async def test_create_and_retrieve_job():
         content_type="short",
         message_id=67890
     )
-    
+
     job = await get_job(job_id)
     assert job.chat_id == 12345
     assert job.status == "pending"
@@ -2142,11 +2395,13 @@ async def test_create_and_retrieve_job():
 async def test_update_job_status():
     job_id = await create_job(12345, "https://test.com/video.mp4", "short", 67890)
     await update_job_status(job_id, "complete", drive_url="https://drive.google.com/...")
-    
+
     job = await get_job(job_id)
     assert job.status == "complete"
     assert job.drive_url is not None
 ```
+
+<!-- §6.2 -->
 
 ### 6.2 Integration Tests
 
@@ -2168,9 +2423,9 @@ async def test_webhook_creates_job():
         }, headers={
             "X-Telegram-Bot-Api-Secret-Token": "test-secret"
         })
-        
+
         assert response.status_code == 200
-        
+
         # Verify job created
         # (Query database to confirm)
 
@@ -2183,6 +2438,8 @@ async def test_health_endpoint():
         assert "status" in data
 ```
 
+<!-- §6.3 -->
+
 ### 6.3 End-to-End Tests
 
 ```python
@@ -2194,18 +2451,18 @@ from tests.fixtures import mock_telegram_bot, mock_gemini_api
 @pytest.mark.asyncio
 async def test_short_video_full_pipeline(mock_telegram_bot, mock_gemini_api):
     """Test complete short video processing flow"""
-    
+
     # 1. Submit URL via webhook
     job_id = await submit_video_url("https://test.com/short.mp4", chat_id=12345)
-    
+
     # 2. Wait for processing
     await asyncio.sleep(5)
-    
+
     # 3. Verify job completed
     job = await get_job(job_id)
     assert job.status == "complete"
     assert job.drive_url is not None
-    
+
     # 4. Verify Telegram message sent
     assert mock_telegram_bot.messages_sent == 2  # Acknowledgment + completion
 
@@ -2213,19 +2470,21 @@ async def test_short_video_full_pipeline(mock_telegram_bot, mock_gemini_api):
 @pytest.mark.asyncio
 async def test_retry_on_failure():
     """Test retry mechanism on transient failures"""
-    
+
     # Configure mock to fail twice, succeed on third attempt
     mock_gemini.set_failure_count(2)
-    
+
     job_id = await submit_video_url("https://test.com/video.mp4", chat_id=12345)
-    
+
     # Wait for retries
     await asyncio.sleep(70)  # 5s + 15s + 45s + processing
-    
+
     job = await get_job(job_id)
     assert job.status == "complete"
     assert job.attempt == 3
 ```
+
+<!-- §6.4 -->
 
 ### 6.4 Load Testing
 
@@ -2236,15 +2495,15 @@ import time
 
 async def load_test(concurrent_users: int = 50, duration_seconds: int = 60):
     """Simulate concurrent users submitting videos"""
-    
+
     start_time = time.time()
     jobs_submitted = 0
     jobs_completed = 0
     jobs_failed = 0
-    
+
     async def submit_job(user_id: int):
         nonlocal jobs_submitted, jobs_completed, jobs_failed
-        
+
         while time.time() - start_time < duration_seconds:
             try:
                 job_id = await submit_video_url(
@@ -2252,25 +2511,25 @@ async def load_test(concurrent_users: int = 50, duration_seconds: int = 60):
                     chat_id=user_id
                 )
                 jobs_submitted += 1
-                
+
                 # Wait for completion (with timeout)
                 job = await wait_for_job_completion(job_id, timeout=120)
-                
+
                 if job.status == "complete":
                     jobs_completed += 1
                 else:
                     jobs_failed += 1
-                    
+
             except Exception as e:
                 jobs_failed += 1
                 logger.error(f"Load test error: {e}")
-            
+
             await asyncio.sleep(1)  # 1 req/sec per user
-    
+
     # Spawn concurrent users
     tasks = [submit_job(i) for i in range(concurrent_users)]
     await asyncio.gather(*tasks)
-    
+
     # Report results
     print(f"""
 Load Test Results:
@@ -2288,6 +2547,7 @@ if __name__ == "__main__":
 ```
 
 **Expected Results:**
+
 ```
 Load Test Results:
 - Duration: 60s
@@ -2304,11 +2564,16 @@ Average Processing Time: 28.3s (short), 72.1s (long)
 
 ---
 
+<!-- §7 -->
+
 ## 7. Security Considerations
+
+<!-- §7.1 -->
 
 ### 7.1 Authentication & Authorization
 
 **Telegram Webhook Validation:**
+
 ```python
 def validate_telegram_webhook(request: Request) -> bool:
     """Validate incoming webhook using secret token"""
@@ -2326,6 +2591,7 @@ async def webhook(request: Request):
 ```
 
 **API Key for Internal Endpoints:**
+
 ```python
 def verify_api_key(api_key: str = Header(..., alias="X-API-Key")):
     """Verify API key for internal endpoints"""
@@ -2338,9 +2604,12 @@ async def get_job_status(job_id: str):
     return job.dict()
 ```
 
+<!-- §7.2 -->
+
 ### 7.2 Input Validation
 
 **URL Validation & SSRF Prevention:**
+
 ```python
 import re
 from urllib.parse import urlparse
@@ -2358,22 +2627,22 @@ URL_PATTERN = re.compile(
 
 def is_valid_video_url(url: str) -> bool:
     """Validate URL and prevent SSRF attacks"""
-    
+
     # Basic format check
     if not URL_PATTERN.match(url):
         return False
-    
+
     parsed = urlparse(url)
-    
+
     # Check scheme
     if parsed.scheme not in ALLOWED_SCHEMES:
         return False
-    
+
     # Prevent SSRF - block internal IPs
     if parsed.hostname in BLOCKED_HOSTS:
         logger.warning("ssrf_attempt_blocked", extra={"url": url})
         return False
-    
+
     # Block private IP ranges
     if parsed.hostname:
         try:
@@ -2384,11 +2653,12 @@ def is_valid_video_url(url: str) -> bool:
                 return False
         except ValueError:
             pass  # Not an IP, hostname is fine
-    
+
     return True
 ```
 
 **URL Pipeline Routing:**
+
 ```python
 from urllib.parse import urlparse
 from typing import Literal
@@ -2437,37 +2707,40 @@ Test cases:
 | `instagram.com/p/abc` | rejected |
 | `twitter.com/...` | rejected |
 
+<!-- §7.3 -->
+
 ### 7.3 Rate Limiting
 
 **Per-User Rate Limiting:**
+
 ```python
 from datetime import datetime, timedelta
 
 class RateLimiter:
     """Simple in-memory rate limiter"""
-    
+
     def __init__(self, requests_per_hour: int = 10):
         self.requests_per_hour = requests_per_hour
         self.requests = {}  # {chat_id: [timestamp, ...]}
-    
+
     async def is_allowed(self, chat_id: int) -> bool:
         """Check if user is within rate limit"""
         now = datetime.utcnow()
         hour_ago = now - timedelta(hours=1)
-        
+
         # Get user's recent requests
         if chat_id not in self.requests:
             self.requests[chat_id] = []
-        
+
         # Remove requests older than 1 hour
         self.requests[chat_id] = [
             ts for ts in self.requests[chat_id] if ts > hour_ago
         ]
-        
+
         # Check limit
         if len(self.requests[chat_id]) >= self.requests_per_hour:
             return False
-        
+
         # Add current request
         self.requests[chat_id].append(now)
         return True
@@ -2477,22 +2750,25 @@ rate_limiter = RateLimiter(requests_per_hour=10)
 @app.post("/webhook")
 async def webhook(request: Request):
     # ... validation ...
-    
+
     chat_id = message.get("chat", {}).get("id")
-    
+
     if not await rate_limiter.is_allowed(chat_id):
         await send_message(
             chat_id=chat_id,
             text="⚠️ Rate limit exceeded. You can submit 10 videos per hour.\nPlease try again later."
         )
         return {"ok": True}
-    
+
     # ... process request ...
 ```
+
+<!-- §7.4 -->
 
 ### 7.4 Data Privacy
 
 **Minimal Data Storage:**
+
 ```python
 # Only store essential data, no personal info
 CREATE TABLE jobs (
@@ -2505,25 +2781,26 @@ CREATE TABLE jobs (
 ```
 
 **URL Sanitization:**
+
 ```python
 def sanitize_url_for_logging(url: str) -> str:
     """Remove sensitive parameters from URL before logging"""
     parsed = urlparse(url)
-    
+
     # Remove query parameters that might contain tokens
     sensitive_params = ['token', 'key', 'auth', 'session', 'api_key']
-    
+
     if parsed.query:
         from urllib.parse import parse_qs, urlencode
         params = parse_qs(parsed.query)
-        
+
         # Remove sensitive params
         filtered = {k: v for k, v in params.items() if k.lower() not in sensitive_params}
-        
+
         # Reconstruct URL
         clean_query = urlencode(filtered, doseq=True)
         return parsed._replace(query=clean_query).geturl()
-    
+
     return url
 
 # Use in logging
@@ -2534,10 +2811,11 @@ logger.info("job_created", extra={
 ```
 
 **Google Drive Permissions:**
+
 ```python
 async def upload_to_drive(content: str, filename: str) -> str:
     # ... upload file ...
-    
+
     # Set permission to "anyone with link" (not public indexed)
     service.permissions().create(
         fileId=file['id'],
@@ -2547,13 +2825,16 @@ async def upload_to_drive(content: str, filename: str) -> str:
             'withLink': True  # Not discoverable without link
         }
     ).execute()
-    
+
     return file['webViewLink']
 ```
+
+<!-- §7.5 -->
 
 ### 7.5 Secrets Management
 
 **Never Commit Secrets:**
+
 ```bash
 # .gitignore
 .env
@@ -2564,6 +2845,7 @@ secrets/
 ```
 
 **Environment Variables Only:**
+
 ```python
 # config.py
 from pydantic_settings import BaseSettings
@@ -2573,7 +2855,7 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str
     gemini_api_key: str
     google_application_credentials: str
-    
+
     class Config:
         env_file = ".env"
         case_sensitive = False
@@ -2586,51 +2868,65 @@ config = Settings()
 
 ---
 
+<!-- §8 -->
+
 ## 8. Migration from n8n
+
+<!-- §8.1 -->
 
 ### 8.1 Migration Strategy
 
 **Phase 1: Parallel Run (Week 1-2)**
+
 - Deploy Python service with different Telegram bot token (test bot)
 - Process same URLs through both n8n and Python
 - Compare outputs for accuracy and performance
 - Fix any discrepancies
 
 **Phase 2: Gradual Cutover (Week 3)**
+
 - Route 10% of traffic to Python service (random sampling)
 - Monitor error rates, processing time, user complaints
 - If stable for 48h, increase to 50%
 - If stable for 48h, increase to 100%
 
 **Phase 3: Data Migration (Week 4)**
+
 - Export historical job data from Google Sheets
 - Import into SQLite database
 - Verify data integrity
 - Archive n8n workflow JSON
 
 **Phase 4: Decommission (Week 5)**
+
 - Stop n8n workflow completely
 - Remove n8n Docker containers
 - Update all documentation
 - Monitor Python service for 1 week
+
+<!-- §8.2 -->
 
 ### 8.2 Rollback Plan
 
 If Python service fails in production:
 
 1. **Immediate:** Redirect Telegram webhook back to n8n
+
    ```bash
    curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
         -d "url=https://n8n-instance.com/webhook/video-bot"
    ```
 
 2. **Investigate:** Check Python service logs
+
    ```bash
    docker-compose logs -f --tail=500 api worker
    ```
 
 3. **Fix:** Address issues in development environment
 4. **Retry:** Repeat migration phases after fixes
+
+<!-- §8.3 -->
 
 ### 8.3 Data Export from Google Sheets
 
@@ -2648,29 +2944,29 @@ async def export_sheets_to_sqlite():
         scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
     )
     service = build('sheets', 'v4', credentials=creds)
-    
+
     # Read all rows
     result = service.spreadsheets().values().get(
         spreadsheetId=config.SHEETS_ID,
         range='Jobs!A2:I'  # Assuming headers in row 1
     ).execute()
-    
+
     rows = result.get('values', [])
-    
+
     # Insert into SQLite
     conn = sqlite3.connect('data/jobs.db')
     cursor = conn.cursor()
-    
+
     for row in rows:
         cursor.execute("""
-            INSERT OR IGNORE INTO jobs 
+            INSERT OR IGNORE INTO jobs
             (id, chat_id, url, content_type, status, drive_url, processing_time_ms, created_at, completed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, row)
-    
+
     conn.commit()
     conn.close()
-    
+
     print(f"Exported {len(rows)} jobs from Sheets to SQLite")
 
 if __name__ == "__main__":
@@ -2679,27 +2975,33 @@ if __name__ == "__main__":
 
 ---
 
+<!-- §9 -->
+
 ## 9. Future Enhancements
 
 > **Note:** The Second Brain feature (semantic link graph, Obsidian vault, `/find`, `/rebuild-graph`) is **approved and fully designed** — see Section 13 for the complete spec. It is not listed here.
 
+<!-- §9.1 -->
+
 ### 9.1 Short-Term (Next 3 Months)
 
 **1. Duplicate Detection Enhancement**
+
 ```python
 # Add URL hash column for faster lookups
 CREATE INDEX idx_url_hash ON jobs(url);
 
 # Check if URL was processed in last 24h
-SELECT * FROM jobs 
-WHERE url = ? 
-  AND status = 'complete' 
+SELECT * FROM jobs
+WHERE url = ?
+  AND status = 'complete'
   AND created_at > datetime('now', '-24 hours')
-ORDER BY created_at DESC 
+ORDER BY created_at DESC
 LIMIT 1;
 ```
 
 **2. User Preferences**
+
 ```python
 # New table for user settings
 CREATE TABLE user_preferences (
@@ -2712,32 +3014,36 @@ CREATE TABLE user_preferences (
 ```
 
 **3. Job History Command**
+
 ```python
 # Telegram command: /history
 @app.message_handler(commands=['history'])
 async def show_history(message):
     chat_id = message.chat.id
-    
+
     jobs = await db.execute("""
-        SELECT url, status, created_at 
-        FROM jobs 
-        WHERE chat_id = ? 
-        ORDER BY created_at DESC 
+        SELECT url, status, created_at
+        FROM jobs
+        WHERE chat_id = ?
+        ORDER BY created_at DESC
         LIMIT 10
     """, (chat_id,))
-    
+
     text = "📋 Your Recent Jobs:\n\n"
     for job in jobs:
         status_emoji = "✅" if job['status'] == 'complete' else "❌"
         text += f"{status_emoji} {job['url'][:50]}...\n"
         text += f"   {job['created_at']}\n\n"
-    
+
     await send_message(chat_id, text)
 ```
+
+<!-- §9.2 -->
 
 ### 9.2 Long-Term (6-12 Months)
 
 **1. Batch Processing**
+
 ```python
 # Accept playlist URLs
 # Telegram command: /batch
@@ -2746,6 +3052,7 @@ async def show_history(message):
 ```
 
 **2. Web Dashboard**
+
 ```python
 # Simple FastAPI + HTML dashboard
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -2758,6 +3065,7 @@ async def dashboard():
 ```
 
 **3. Multi-Language Support**
+
 ```python
 # Detect video language, translate transcript
 from deep_translator import GoogleTranslator
@@ -2765,15 +3073,16 @@ from deep_translator import GoogleTranslator
 async def translate_if_needed(text: str, target_lang: str = 'en') -> str:
     # Detect language
     detected = detect_language(text)
-    
+
     if detected != target_lang:
         translated = GoogleTranslator(source=detected, target=target_lang).translate(text)
         return translated
-    
+
     return text
 ```
 
 **4. Real-Time Streaming**
+
 ```python
 # Process live YouTube streams
 # Send periodic updates (every 5 minutes)
@@ -2782,54 +3091,66 @@ async def translate_if_needed(text: str, target_lang: str = 'en') -> str:
 
 ---
 
+<!-- §10 -->
+
 ## 10. Success Criteria & KPIs
+
+<!-- §10.1 -->
 
 ### 10.1 Technical Metrics
 
-| Metric | Current (n8n) | Target (Python) | Measurement |
-|--------|---------------|-----------------|-------------|
-| Codebase size | 60+ nodes | < 600 LOC Python | Lines of code |
-| Avg processing time (short) | ~35s | < 30s | p50 latency |
-| Avg processing time (long) | ~95s | < 90s | p50 latency |
-| Job failure rate | ~5% | < 2% | Failed / total jobs |
-| Time to add feature | ~2-3 days | < 4 hours | Developer survey |
-| Deployment time | ~20 min | < 5 min | `docker-compose up` |
+| Metric                      | Current (n8n) | Target (Python)  | Measurement         |
+| --------------------------- | ------------- | ---------------- | ------------------- |
+| Codebase size               | 60+ nodes     | < 600 LOC Python | Lines of code       |
+| Avg processing time (short) | ~35s          | < 30s            | p50 latency         |
+| Avg processing time (long)  | ~95s          | < 90s            | p50 latency         |
+| Job failure rate            | ~5%           | < 2%             | Failed / total jobs |
+| Time to add feature         | ~2-3 days     | < 4 hours        | Developer survey    |
+| Deployment time             | ~20 min       | < 5 min          | `docker-compose up` |
+
+<!-- §10.2 -->
 
 ### 10.2 Operational Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Uptime | > 99% | Weekly availability |
-| MTTR (Mean Time To Recovery) | < 10 minutes | Incident logs |
-| Database query time | < 50ms (p95) | Structured logs |
-| Queue lag | < 5 jobs | Real-time monitoring |
-| Worker crashes | 0 per week | Health checks |
+| Metric                       | Target       | Measurement          |
+| ---------------------------- | ------------ | -------------------- |
+| Uptime                       | > 99%        | Weekly availability  |
+| MTTR (Mean Time To Recovery) | < 10 minutes | Incident logs        |
+| Database query time          | < 50ms (p95) | Structured logs      |
+| Queue lag                    | < 5 jobs     | Real-time monitoring |
+| Worker crashes               | 0 per week   | Health checks        |
+
+<!-- §10.3 -->
 
 ### 10.3 User Experience Metrics
 
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Acknowledgment latency | < 1s | Webhook response time |
-| Error message clarity | User survey > 8/10 | Post-error feedback |
-| Retry success rate | > 80% | Retry → complete % |
-| Drive link availability | 100% | Link click success |
+| Metric                  | Target             | Measurement           |
+| ----------------------- | ------------------ | --------------------- |
+| Acknowledgment latency  | < 1s               | Webhook response time |
+| Error message clarity   | User survey > 8/10 | Post-error feedback   |
+| Retry success rate      | > 80%              | Retry → complete %    |
+| Drive link availability | 100%               | Link click success    |
 
 ---
+
+<!-- §11 -->
 
 ## 11. Risks & Mitigations
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| Gemini API rate limits | High | Medium | Queue management, backoff, alert before limit |
-| Frame extraction service crashes | High | Low | Health checks, auto-restart, timeout handling |
-| SQLite database corruption | High | Very Low | Daily backups, WAL mode, integrity checks |
-| Telegram API changes | Medium | Low | Version pinning, monitor changelog |
-| Google Drive quota exceeded | Medium | Medium | Monitor usage, implement cleanup policy |
-| Worker process hangs | Medium | Low | Job timeout, watchdog, auto-restart |
-| Redis connection loss | Medium | Low | Connection pooling, retry logic, fallback to asyncio.Queue |
-| Local machine downtime | High | High (laptop) | Document VPS migration path, accept risk for portfolio |
+| Risk                             | Impact | Probability   | Mitigation                                                 |
+| -------------------------------- | ------ | ------------- | ---------------------------------------------------------- |
+| Gemini API rate limits           | High   | Medium        | Queue management, backoff, alert before limit              |
+| Frame extraction service crashes | High   | Low           | Health checks, auto-restart, timeout handling              |
+| SQLite database corruption       | High   | Very Low      | Daily backups, WAL mode, integrity checks                  |
+| Telegram API changes             | Medium | Low           | Version pinning, monitor changelog                         |
+| Google Drive quota exceeded      | Medium | Medium        | Monitor usage, implement cleanup policy                    |
+| Worker process hangs             | Medium | Low           | Job timeout, watchdog, auto-restart                        |
+| Redis connection loss            | Medium | Low           | Connection pooling, retry logic, fallback to asyncio.Queue |
+| Local machine downtime           | High   | High (laptop) | Document VPS migration path, accept risk for portfolio     |
 
 ---
+
+<!-- §12 -->
 
 ## 12. Open Questions
 
@@ -2851,10 +3172,14 @@ async def translate_if_needed(text: str, target_lang: str = 'en') -> str:
 
 ---
 
+<!-- §13 -->
+
 ## 13. Second Brain Feature
 
 **Status:** Approved — implement after core pipelines are stable.  
 **Design doc:** `docs/seed/2026-05-15-second-brain-design.md`
+
+<!-- §13.1 -->
 
 ### 13.1 Overview
 
@@ -2862,11 +3187,14 @@ Every processed video produces extracted links (short pipeline: Gemini Vision li
 
 Users can search across all accumulated links via Telegram (`/find <query>`) or HTTP (`GET /links/search`), and manually trigger a full graph rebuild via `/rebuild-graph`.
 
+<!-- §13.2 -->
+
 ### 13.2 New Module: `brain.py`
 
 Single-responsibility module — touches only SQLite, the Gemini Embedding API, and Drive. No Telegram or job logic inside it.
 
 **Public async functions:**
+
 ```python
 async def init_db(db_path: str) -> None
     # Create links table if absent, then run Drive pre-flight write check
@@ -2884,14 +3212,17 @@ async def refresh_stale_links() -> None
     # APScheduler cron target: re-embed and re-rank oldest links in corpus
 ```
 
+<!-- §13.3 -->
+
+### 13.3 Database Schema
+
 **Drive pre-flight write check (runs inside `init_db`):**
 On FastAPI startup, write then immediately delete `.brain_preflight.tmp` in `GOOGLE_DRIVE_FOLDER_BRAIN`. Catches wrong folder ID (404), missing service account share (403), or read-only folder (403 on insert). Failure crashes startup with:
+
 ```
 brain.preflight_failed reason=<error> folder=<GOOGLE_DRIVE_FOLDER_BRAIN>
 Hint: ensure the folder is shared with the service account email and has write access.
 ```
-
-### 13.3 Database Schema
 
 New table in the same SQLite database as `jobs`:
 
@@ -2912,11 +3243,14 @@ CREATE TABLE IF NOT EXISTS links (
 ```
 
 **Key invariants:**
+
 - One row per URL (soft dedup enforced in code, no DB UNIQUE constraint)
 - On dedup hit: `seen_count += 1`, `last_seen_at = now()`, update Drive `.md` — but **do not touch `updated_at`** (that column belongs exclusively to the refresh worker so popular links don't appear perpetually fresh)
 - `topic` and `embedding` reflect the first sighting only — never re-derived on dedup
 - `drive_file_id` cached after first write; refresh worker uses `files.update` directly, skipping `files.list`
 - `EMBEDDING_DIM = 768` constant at top of `brain.py`; every blob's byte length is validated on load (`len(blob) != 768 * 4` → log warning, set to NULL, let refresh worker repair)
+
+<!-- §13.4 -->
 
 ### 13.4 Title Resolution
 
@@ -2925,18 +3259,22 @@ Links have no inherent title (especially from short videos). Resolution order:
 1. Title already present in link data → use as-is
 2. GitHub URL → extract `owner/repo` from path (e.g. `github.com/vercel/next.js` → `vercel/next.js`)
 3. Other URL → strip `www.` and TLD (e.g. `docs.tailwindcss.com` → `docs.tailwindcss`, `react.dev` → `react`)
-4. Pass hint + video topic to Gemini text client: *"Give a short title (max 5 words) for a link to `{hint}` found in a video about `{topic}`."*
+4. Pass hint + video topic to Gemini text client: _"Give a short title (max 5 words) for a link to `{hint}` found in a video about `{topic}`."_
 5. Gemini failure → fall back to URL hint as title (never block ingestion on this)
+
+<!-- §13.5 -->
 
 ### 13.5 Ingestion Flow
 
 Called fire-and-forget at the end of both pipelines:
+
 ```python
 # In pipeline.py, after links are extracted:
 asyncio.create_task(brain.ingest_links(links, topic=job.ai_topic, source_job_id=job.id))
 ```
 
 Per link:
+
 1. Soft dedup — if URL exists: `seen_count += 1`, `last_seen_at = now()`, update Drive `.md`, skip rest
 2. Resolve title (see §13.4)
 3. Build embedding document: `f"{url} {title} {topic}"`
@@ -2944,6 +3282,8 @@ Per link:
 5. Insert row
 6. Load all non-NULL embeddings into numpy matrix, compute cosine similarity → top-3 with score ≥ `BRAIN_MIN_SCORE`, excluding self
 7. Write Obsidian `.md` to `GOOGLE_DRIVE_FOLDER_BRAIN`
+
+<!-- §13.6 -->
 
 ### 13.6 Obsidian `.md` Format
 
@@ -2961,6 +3301,7 @@ Filename: `{title_slug}.md`
 **Last seen:** {last_seen_at}
 
 ## Related
+
 - [[{related_title_1}]]
 - [[{related_title_2}]]
 - [[{related_title_3}]]
@@ -2970,14 +3311,18 @@ Filename: `{title_slug}.md`
 - If source job's `drive_url` is NULL: render `**Source report:** _(unavailable)_`
 - User opens `GOOGLE_DRIVE_FOLDER_BRAIN` as their Obsidian vault via Google Drive desktop app; `[[wiki-links]]` become graph edges automatically
 
+<!-- §13.7 -->
+
 ### 13.7 Semantic Search
 
 **Telegram: `/find <query>`**
+
 1. Embed query with `text-embedding-004`
 2. Load all non-NULL embeddings from SQLite into numpy matrix
 3. Cosine similarity → results ≥ `BRAIN_MIN_SCORE`, top-5, sorted descending
 4. No results → reply: `No relevant links found in your brain.`
 5. Reply format:
+
 ```
 🔗 *react* — docs.react.dev
    Topic: React hooks deep dive
@@ -2989,28 +3334,40 @@ Filename: `{title_slug}.md`
 ```
 
 **HTTP: `GET /links/search?q=<query>&k=5`** (max k=20)
+
 ```json
 [
-  {"title": "react", "url": "https://react.dev", "topic": "React hooks deep dive", "score": 0.91}
+  {
+    "title": "react",
+    "url": "https://react.dev",
+    "topic": "React hooks deep dive",
+    "score": 0.91
+  }
 ]
 ```
+
+<!-- §13.8 -->
 
 ### 13.8 Refresh Worker
 
 **Schedule:** APScheduler cron `0 9 * * 0,3` (9 AM UTC, Sunday and Wednesday), registered on FastAPI startup.
 
 **Effective batch size:**
+
 ```python
 effective_batch = min(500, max(BRAIN_REFRESH_BATCH, corpus_size // 20))
 ```
 
 **Behaviour per run:**
+
 1. Compute `effective_batch`. Pull that many rows prioritising repair cases: `WHERE embedding IS NULL OR drive_file_id IS NULL ORDER BY updated_at ASC`, then fill remaining slots with oldest healthy rows
 2. For NULL-embedding rows: regenerate embedding before proceeding
 3. Recompute top-3 similar links against full corpus
 4. Rewrite Drive `.md` via cached `drive_file_id` (`files.update`). If NULL: `files.list` by filename, or create new file; persist resulting ID
 5. Update `updated_at = now()`
 6. Log: `brain.refresh done batch={n} repaired={r} duration={ms}ms`
+
+<!-- §13.9 -->
 
 ### 13.9 `/rebuild-graph` Command
 
@@ -3024,27 +3381,31 @@ Telegram command + `POST /links/rebuild` HTTP endpoint.
 
 The same `_rebuild_lock` is checked by `refresh_stale_links` — if held, the scheduled refresh skips and waits for the next cron slot (no concurrent Drive writers).
 
+<!-- §13.10 -->
+
 ### 13.10 Pipeline Integration Points
 
-| Pipeline | When | Call |
-|----------|------|------|
-| Short | After Gemini Vision links extracted | `asyncio.create_task(brain.ingest_links(links, topic, job_id))` |
-| Long — Phase 1 | After description links extracted | `asyncio.create_task(brain.ingest_links(links, topic, job_id))` |
-| Long — Phase 2 (enrichment) | After enrichment JSON parsed | `asyncio.create_task(brain.ingest_links([{url: t.url, label: t.name} for t in tools if t.url], topic=ai_topic, source_job_id=job_id))` |
-| Long — Phase 3 (PRD) | After PRD JSON parsed (both slots) | `asyncio.create_task(brain.ingest_links([{url: t.url, label: t.name} for t in tech_stack if t.url], topic=prd.project, source_job_id=job_id))` |
-| `main.py` startup | Before serving requests | `await brain.init_db()` + register APScheduler |
+| Pipeline                    | When                                | Call                                                                                                                                           |
+| --------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Short                       | After Gemini Vision links extracted | `asyncio.create_task(brain.ingest_links(links, topic, job_id))`                                                                                |
+| Long — Phase 1              | After description links extracted   | `asyncio.create_task(brain.ingest_links(links, topic, job_id))`                                                                                |
+| Long — Phase 2 (enrichment) | After enrichment JSON parsed        | `asyncio.create_task(brain.ingest_links([{url: t.url, label: t.name} for t in tools if t.url], topic=ai_topic, source_job_id=job_id))`         |
+| Long — Phase 3 (PRD)        | After PRD JSON parsed (both slots)  | `asyncio.create_task(brain.ingest_links([{url: t.url, label: t.name} for t in tech_stack if t.url], topic=prd.project, source_job_id=job_id))` |
+| `main.py` startup           | Before serving requests             | `await brain.init_db()` + register APScheduler                                                                                                 |
 
 **Symmetry note:** All four model-extracted link sources (short Vision, long description, long enrichment tools, long PRD tech_stack) feed brain through the same fire-and-forget call. Soft dedup means a tool appearing in multiple sources for the same video produces `seen_count += 1` per source — stronger signal, not duplicate noise.
 
 **Feed quality hierarchy for long videos:**
 
-| Feed | Quality | Why |
-|------|---------|-----|
-| **Phase 2 — `ai_tools[]` URLs** | **High** (primary) | Model-curated list of tools the video actually teaches, with type classification and per-tool description. The STEP 4 URL Resolution Rules (§2 enrichment prompt) make the `url` field required for every named product; this is the dominant long-video brain feed. |
-| Phase 3 — `prd.tech_stack[]` URLs | High | Same shape as ai_tools but more deliberate (Pro model on intent slot). Adds whatever the user-directed PRD includes. Reinforces ai_tools nodes via dedup `seen_count`. |
-| Phase 1 — `description_links_raw` URLs | Low (secondary) | Whatever the creator put in the YouTube description — mostly sponsor links, Patreon/social, course CTAs, affiliate codes. Occasionally substantive (a repo for the demo project). Kept in the feed because (a) the rare substantive link matters, (b) brain's `seen_count` and cosine similarity naturally weight signal over noise, (c) removing the path adds a code change that has to be re-justified if you change your mind later. |
+| Feed                                   | Quality            | Why                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 2 — `ai_tools[]` URLs**        | **High** (primary) | Model-curated list of tools the video actually teaches, with type classification and per-tool description. The STEP 4 URL Resolution Rules (§2 enrichment prompt) make the `url` field required for every named product; this is the dominant long-video brain feed.                                                                                                                                                                     |
+| Phase 3 — `prd.tech_stack[]` URLs      | High               | Same shape as ai_tools but more deliberate (Pro model on intent slot). Adds whatever the user-directed PRD includes. Reinforces ai_tools nodes via dedup `seen_count`.                                                                                                                                                                                                                                                                   |
+| Phase 1 — `description_links_raw` URLs | Low (secondary)    | Whatever the creator put in the YouTube description — mostly sponsor links, Patreon/social, course CTAs, affiliate codes. Occasionally substantive (a repo for the demo project). Kept in the feed because (a) the rare substantive link matters, (b) brain's `seen_count` and cosine similarity naturally weight signal over noise, (c) removing the path adds a code change that has to be re-justified if you change your mind later. |
 
 The hierarchy is the rationale for §13.15 backfill choosing **re-enrichment of historical transcripts** over leaning on `description_links_raw` from historical sheets — the substantive long-video signal lives in `ai_tools` (with the new URL-resolution rules in §2), not in the description link column.
+
+<!-- §13.11 -->
 
 ### 13.11 New Dependencies
 
@@ -3053,19 +3414,24 @@ apscheduler>=3.10
 numpy>=1.26
 ```
 
+<!-- §13.12 -->
+
 ### 13.12 New Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GOOGLE_DRIVE_FOLDER_BRAIN` | — | Drive folder ID for Obsidian vault `.md` files |
-| `BRAIN_REFRESH_BATCH` | `50` | Floor for effective batch size per refresh run |
-| `GEMINI_EMBEDDING_MODEL` | `text-embedding-004` | Embedding model name (pinned) |
-| `BRAIN_MIN_SCORE` | `0.5` | Minimum cosine similarity for search results and graph edges |
-| `GEMINI_BRAIN_API_KEY` | falls back to `GEMINI_FREE_API_KEY` | Separate key to isolate brain quota from pipeline quota |
+| Variable                    | Default                             | Description                                                  |
+| --------------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| `GOOGLE_DRIVE_FOLDER_BRAIN` | —                                   | Drive folder ID for Obsidian vault `.md` files               |
+| `BRAIN_REFRESH_BATCH`       | `50`                                | Floor for effective batch size per refresh run               |
+| `GEMINI_EMBEDDING_MODEL`    | `text-embedding-004`                | Embedding model name (pinned)                                |
+| `BRAIN_MIN_SCORE`           | `0.5`                               | Minimum cosine similarity for search results and graph edges |
+| `GEMINI_BRAIN_API_KEY`      | falls back to `GEMINI_FREE_API_KEY` | Separate key to isolate brain quota from pipeline quota      |
+
+<!-- §13.13 -->
 
 ### 13.13 Testing
 
 **Unit tests (no network):** Use `FakeDrive` and `FakeGemini` doubles.
+
 - Cosine similarity ranking, `BRAIN_MIN_SCORE` filtering, self-exclusion, empty corpus
 - Soft dedup: same URL twice → one row, `seen_count == 2`, `updated_at` unchanged
 - Title resolution: existing title preserved; GitHub extracts `owner/repo`; non-GitHub strips TLD; Gemini failure falls back to URL hint
@@ -3073,25 +3439,32 @@ numpy>=1.26
 - `_rebuild_lock` blocks concurrent `/rebuild-graph`; refresh skips if lock held
 
 **Integration tests** (gated behind `RUN_INTEGRATION=1`):
+
 - `text-embedding-004` returns expected shape/dtype; bytes round-trip correctly through SQLite BLOB
 - Title-gen prompt returns non-empty short string
+
+<!-- §13.14 -->
 
 ### 13.14 Graph Model — Links as Nodes (v1) / Videos as Nodes (v2)
 
 **v1 (current):** Each row in `links` is one **URL**. A video that extracted 50 links creates 50 brain nodes. Each node records:
+
 - `url` — the link itself (the identity of the node)
 - `source_job` — the job_id of the video that **first introduced** this URL (single column, not a list — first sighting wins; subsequent appearances bump `seen_count` and `last_seen_at` only)
 - `topic` — the topic of that first-sighting video
 
-The `## Related` section in each Obsidian `.md` is the **top-3 URLs across the entire corpus** whose embeddings are most cosine-similar to this URL's embedding. Those neighbors come from semantic content similarity — *not* "other links from the same video." A node for `aniapi.com` might link to other anime APIs from the same source video, or to a `crunchyroll.com` node from a different video processed months earlier, whichever the embedding clusters closer.
+The `## Related` section in each Obsidian `.md` is the **top-3 URLs across the entire corpus** whose embeddings are most cosine-similar to this URL's embedding. Those neighbors come from semantic content similarity — _not_ "other links from the same video." A node for `aniapi.com` might link to other anime APIs from the same source video, or to a `crunchyroll.com` node from a different video processed months earlier, whichever the embedding clusters closer.
 
 **Direction navigation in v1:**
+
 - **Link → its source video:** rendered in the node's `.md` body as `**Source video:** {url}` and `**Source report:** {drive_url}`. Always available.
-- **Video → its child links:** *not* surfaced in the brain UI. Available via SQL (`SELECT * FROM links WHERE source_job = ?`) or by re-opening the video's original Drive report (short pipeline analysis or long pipeline transcript, which both already contain the link list).
+- **Video → its child links:** _not_ surfaced in the brain UI. Available via SQL (`SELECT * FROM links WHERE source_job = ?`) or by re-opening the video's original Drive report (short pipeline analysis or long pipeline transcript, which both already contain the link list).
 
 **Why not video-as-node in v1:** The video's own Drive report already serves as the "all links from this video" view. Adding video nodes would double corpus size (1 video node + N link nodes), force a different embedding doc shape (title + topic + transcript excerpt vs. url + title + topic), and make `/find` ranking awkward (link hits and video hits are semantically different objects competing in one result list).
 
 **v2 path (deferred — implement when /find feels link-fragmented):** Promote videos to first-class brain nodes alongside link nodes. A `/find <query>` would return either a video ("the tutorial that taught this") or a link, with appropriate ranking. New row shape in `links` table (or new `video_nodes` table); embedding doc becomes `f"{title} {topic} {transcript_excerpt}"`. The `## Related` section on a video node lists semantically-related videos; on a link node, still lists semantically-related links. **Trigger to revisit:** when `/find` results consistently surface individual tool URLs from a tutorial when the user actually wanted the tutorial itself.
+
+<!-- §13.15 -->
 
 ### 13.15 One-off Backfill from Existing Sheets
 
@@ -3100,6 +3473,7 @@ When the bot deploys against an existing user with months of historical jobs in 
 **Per-row ingestion logic — short Sheet (`SHEETS_ID_SHORT`):**
 
 The short Sheet stores all links from one video in two cells:
+
 - **Col 10** — Telegram-formatted message: `🔗 *Links Found:*` followed by per-link blocks `• *Label* — description\n  🔗 url`. Capped near 4096 chars (Telegram message limit); long lists end with `_(truncated — see Drive summary for full list)_` and may cut mid-URL.
 - **Col 11** — Bare URL list, one per line. Always complete (no truncation).
 
@@ -3129,6 +3503,7 @@ def parse_short_links(col_10: str, col_11: str) -> list[dict]:
 ```
 
 Per-row ingestion call:
+
 ```python
 links = parse_short_links(row.col_10, row.col_11)
 if not links:
@@ -3257,6 +3632,7 @@ await brain.ingest_links(
 ```
 
 **Operational notes specific to long backfill:**
+
 - **Cost ceiling:** N historical long videos × 1 small Gemini call each (~50 input + ~200 output tokens per row). For 200 historical videos ≈ ~50k total tokens ≈ effectively free on Flash.
 - **No Drive reads:** legacy `ai_tools` is already in the sheet — backfill never touches Drive. Removes the `drive.read_file_text()` failure mode entirely.
 - **Reuses legacy curation:** name + type + description carry over verbatim from the old enrichment; only `url` is newly resolved. Means the labels brain stores are the exact strings the user has been seeing in their long-pipeline Telegram messages for months — consistent with their existing mental model.
@@ -3284,6 +3660,7 @@ async def main():
 ```
 
 **Operational notes:**
+
 - **Rate-limit awareness:** the script will trigger embedding calls for every new (non-duplicate) URL. Hundreds-to-thousands of `text-embedding-004` requests. Run during a quiet window; brain's `GEMINI_BRAIN_API_KEY` should be set so backfill quota doesn't compete with live pipeline quota.
 - **Idempotent:** soft dedup in `brain.ingest_links` means re-running the script doesn't create duplicates — URLs already in `links` table just bump `seen_count`. Safe to re-run after fixing a parser bug.
 - **Truncation acceptance:** the rare row where col 10 was truncated mid-URL produces a few brain nodes with `label=None` (URL hint or Gemini title-gen fills in). No special handling — outliers don't justify backfill complexity; refresh worker re-embeds over time.
@@ -3291,32 +3668,41 @@ async def main():
 
 ---
 
+<!-- §14 -->
+
 ## 14. Mini-PRD Feature
 
 **Status:** Approved — implement after enrichment is stable.
 **Trigger to revisit:** if frame extraction for long videos becomes available (see §14.10 — `PRD_INCLUDE_FRAMES` v2 path).
 
+<!-- §14.1 -->
+
 ### 14.1 Overview
 
-A third AI call on the long-video pipeline transforms a tutorial transcript into a structured, implementable mini-PRD (Project / Goals / Tech Stack / Features / Phases / Open Questions). The feature serves the common workflow: *"I watched this tutorial — now give me a buildable spec for the project I want to make from it."*
+A third AI call on the long-video pipeline transforms a tutorial transcript into a structured, implementable mini-PRD (Project / Goals / Tech Stack / Features / Phases / Open Questions). The feature serves the common workflow: _"I watched this tutorial — now give me a buildable spec for the project I want to make from it."_
 
 **Greenfield assumption:** This project's database is created from `CREATE TABLE` statements at first boot. There is no migration runner — schema changes are made directly to the DDL in `database.py`. The PRD columns added to `jobs` and the new `chat_state` table land in the initial schema, not as an `ALTER TABLE` migration. If the bot is later deployed against an existing `jobs.db`, the operator runs a one-off `ALTER TABLE` script. No Alembic, no migration table.
 
 Two slots per job:
+
 - **`prd_auto`** — extraction PRD. Fires automatically when enrichment classifies the video as `"Technical Tutorial"`. One per job, never overwritten by another auto run.
 - **`prd_intent`** — user-directed PRD. The user supplies a project direction ("desktop app for image processing") and a new PRD is generated from the same transcript with that intent baked in. Single mutable slot; each new intent overwrites the previous (intentional — users iterate on a single working PRD, not a graveyard of variants).
 
+<!-- §14.2 -->
+
 ### 14.2 Trigger Surfaces
 
-| Trigger | Slot | Path |
-|---------|------|------|
-| Tail-call from enrichment processor when `ai_category == "Technical Tutorial"` | `prd_auto` | Automatic; silent on failure |
-| 📐 Build Spec button → 🤖 Build auto Spec | `prd_auto` | Manual; user-facing failure message |
-| 📐 Build Spec button → ✍️ Text your intent → ForceReply | `prd_intent` | Manual; user-facing failure message |
-| `/spec {job_id_last4}` slash command | `prd_auto` | Manual recovery |
-| `/spec {job_id_last4} {intent text}` slash command | `prd_intent` | Manual recovery |
+| Trigger                                                                        | Slot         | Path                                |
+| ------------------------------------------------------------------------------ | ------------ | ----------------------------------- |
+| Tail-call from enrichment processor when `ai_category == "Technical Tutorial"` | `prd_auto`   | Automatic; silent on failure        |
+| 📐 Build Spec button → 🤖 Build auto Spec                                      | `prd_auto`   | Manual; user-facing failure message |
+| 📐 Build Spec button → ✍️ Text your intent → ForceReply                        | `prd_intent` | Manual; user-facing failure message |
+| `/spec {job_id_last4}` slash command                                           | `prd_auto`   | Manual recovery                     |
+| `/spec {job_id_last4} {intent text}` slash command                             | `prd_intent` | Manual recovery                     |
 
 The 📐 Build Spec button appears on both Phase 1 (transcript_done) and Phase 2 (enrichment) messages. On PRD result messages, the button reduces to `[✍️ Text your intent]` — the auto sub-button is suppressed because `prd_auto_drive_url` is already populated.
+
+<!-- §14.3 -->
 
 ### 14.3 Auto-fire Mechanism
 
@@ -3335,6 +3721,8 @@ elif task["task"] == "prd_auto":
 elif task["task"] == "prd_intent":
     await processors.prd.run_intent(task["job_id"], task["intent_text"])
 ```
+
+<!-- §14.4 -->
 
 ### 14.4 Race Protection (atomic slot lock)
 
@@ -3361,6 +3749,7 @@ WHERE id = ?
 (Second `?` binds `PRD_INTENT_COOLDOWN_SECONDS`, default 15.) Cooldown violation → reply "📐 Last PRD just generated. Read it first, then /spec again if you want to refine."
 
 **Boot-time reaper** (runs once at worker startup):
+
 ```sql
 UPDATE jobs
 SET prd_auto_status = 'error'
@@ -3368,22 +3757,27 @@ WHERE prd_auto_status = 'generating'
   AND updated_at < datetime('now', '-10 minutes');
 -- same for prd_intent_status
 ```
+
 Releases orphaned locks from worker crashes.
+
+<!-- §14.5 -->
 
 ### 14.5 Prompt Inputs
 
 Per Q7 (locked design): PRD prompt sees transcript + enrichment scaffolding **when available**.
 
-| Field | Source | When present |
-|-------|--------|--------------|
-| `transcript` | `jobs.transcript` (or sampled, see §14.6) | Always |
-| `metadata` | `jobs.title`, `jobs.url`, channel, views, upload_date | Always |
-| `ai_category`, `ai_topic`, `ai_objective` | enrichment JSON on `jobs` row | Only if enrichment ran |
-| `ai_action_points[]`, `ai_tools[]` | enrichment JSON on `jobs` row | Only if enrichment ran |
-| `intent_text` | user's reply text or `/spec` argument | Only for `prd_intent` slot |
-| `frames[]` | `transcript_server.py /short_frames` *(v2)* | Only if `PRD_INCLUDE_FRAMES=true` (default off) |
+| Field                                     | Source                                                | When present                                    |
+| ----------------------------------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `transcript`                              | `jobs.transcript` (or sampled, see §14.6)             | Always                                          |
+| `metadata`                                | `jobs.title`, `jobs.url`, channel, views, upload_date | Always                                          |
+| `ai_category`, `ai_topic`, `ai_objective` | enrichment JSON on `jobs` row                         | Only if enrichment ran                          |
+| `ai_action_points[]`, `ai_tools[]`        | enrichment JSON on `jobs` row                         | Only if enrichment ran                          |
+| `intent_text`                             | user's reply text or `/spec` argument                 | Only for `prd_intent` slot                      |
+| `frames[]`                                | `transcript_server.py /short_frames` _(v2)_           | Only if `PRD_INCLUDE_FRAMES=true` (default off) |
 
-If enrichment scaffolding is absent (user clicked 📐 Build Spec without ✨ Run Gemini), prompt falls back to transcript-only mode with the system message: *"No prior extractions available — derive Tech Stack and Features directly from the transcript."*
+If enrichment scaffolding is absent (user clicked 📐 Build Spec without ✨ Run Gemini), prompt falls back to transcript-only mode with the system message: _"No prior extractions available — derive Tech Stack and Features directly from the transcript."_
+
+<!-- §14.6 -->
 
 ### 14.6 Transcript Truncation (when > `PRD_MAX_TRANSCRIPT_CHARS`)
 
@@ -3406,14 +3800,18 @@ def sample_transcript(text: str, cap: int = 60_000) -> str:
 
 The `[...truncated...]` markers tell the model gaps exist — it can populate `open_questions[]` honestly with "implementation details between Phase 1 setup and Phase 2 core may not be captured."
 
+<!-- §14.7 -->
+
 ### 14.7 Model Selection and Fallback Chain
 
-| Slot | Model | Fallback chain |
-|------|-------|----------------|
-| `prd_auto` | `gemini-2.5-flash` (env `PRD_AUTO_MODEL`) | Free key → Paid key → silent error (auto-fire) / user message (manual) |
-| `prd_intent` | `gemini-2.5-pro` (env `PRD_INTENT_MODEL`) | Free key → Paid key → user message |
+| Slot         | Model                                     | Fallback chain                                                         |
+| ------------ | ----------------------------------------- | ---------------------------------------------------------------------- |
+| `prd_auto`   | `gemini-2.5-flash` (env `PRD_AUTO_MODEL`) | Free key → Paid key → silent error (auto-fire) / user message (manual) |
+| `prd_intent` | `gemini-2.5-pro` (env `PRD_INTENT_MODEL`) | Free key → Paid key → user message                                     |
 
 Rationale: auto fires for every Technical Tutorial — Flash keeps default cost low and latency under ~3s. Intent represents an explicit user investment — Pro's deeper reasoning improves phase ordering and gap identification at the cost of ~10s latency, which the user is already prepared to wait for.
+
+<!-- §14.8 -->
 
 ### 14.8 Output JSON Schema (enforced via Gemini `responseSchema`)
 
@@ -3441,7 +3839,11 @@ Rationale: auto fires for every Technical Tutorial — Flash keeps default cost 
       "phase": 1,
       "name": "Skeleton & local pipeline",
       "description": "Electron window rendering + agent loop running locally with stubbed tools.",
-      "deliverables": ["Electron window with React renderer", "Stubbed agent loop", "Local file IO"]
+      "deliverables": [
+        "Electron window with React renderer",
+        "Stubbed agent loop",
+        "Local file IO"
+      ]
     }
   ],
   "open_questions": [
@@ -3454,16 +3856,19 @@ Rationale: auto fires for every Technical Tutorial — Flash keeps default cost 
 ```
 
 Field constraints:
+
 - `tech_stack[].category` enum: `language | framework | library | service | tool | api` (matches enrichment `ai_tools[].type` shape for brain consistency)
 - `features[].user_story` nullable — component-style tutorials produce features without natural user stories; product-style tutorials produce them naturally
 - `open_questions[].context` required — forces honest gap reporting instead of fake questions
 - `phases[]` ordered (model writes phase 1 first); each phase requires non-empty `deliverables[]`
 
+<!-- §14.9 -->
+
 ### 14.9 Drive Layout
 
-| Slot | Filename | Folder |
-|------|----------|--------|
-| `prd_auto` | `{slug}_{job_id_last4}_auto.md` | `GOOGLE_DRIVE_FOLDER_PRD` |
+| Slot         | Filename                          | Folder                    |
+| ------------ | --------------------------------- | ------------------------- |
+| `prd_auto`   | `{slug}_{job_id_last4}_auto.md`   | `GOOGLE_DRIVE_FOLDER_PRD` |
 | `prd_intent` | `{slug}_{job_id_last4}_intent.md` | `GOOGLE_DRIVE_FOLDER_PRD` |
 
 The `{job_id_last4}` suffix in the filename matches the `/spec I4N9` recovery syntax — same identifier in chat and Drive. `drive_file_id` is cached on the `jobs` row per slot; regeneration uses `files.update` (stable URL, no orphaned files).
@@ -3478,56 +3883,75 @@ The `{job_id_last4}` suffix in the filename matches the `/spec I4N9` recovery sy
 {% if intent_text %}**Your direction:** _{{ intent_text }}_{% endif %}
 
 ## Goals
+
 {% for goal in prd.goals %}
+
 - {{ goal }}
-{% endfor %}
+  {% endfor %}
 
 ## Tech Stack
 
 | Name | Category | URL | Rationale |
-|------|----------|-----|-----------|
+| ---- | -------- | --- | --------- |
+
 {% for t in prd.tech_stack %}
 | {{ t.name }} | {{ t.category }} | {% if t.url %}[{{ t.url }}]({{ t.url }}){% else %}—{% endif %} | {{ t.rationale }} |
 {% endfor %}
 
 ## Features
+
 {% for f in prd.features %}
+
 ### {{ f.name }}
+
 {{ f.description }}
 {% if f.user_story %}
+
 > **User story:** {{ f.user_story }}
-{% endif %}
-{% endfor %}
+> {% endif %}
+> {% endfor %}
 
 ## Implementation Phases
+
 {% for p in prd.phases %}
+
 ### Phase {{ p.phase }} — {{ p.name }}
+
 {{ p.description }}
 
 **Deliverables:**
 {% for d in p.deliverables %}
+
 - {{ d }}
-{% endfor %}
-{% endfor %}
+  {% endfor %}
+  {% endfor %}
 
 ## Open Questions
+
 {% for q in prd.open_questions %}
+
 - **{{ q.question }}**
   _{{ q.context }}_
-{% endfor %}
+  {% endfor %}
 ```
 
 Renders to a self-contained `.md` file that opens cleanly in Drive viewer, Obsidian, Cursor, or any markdown viewer. The frontmatter (`Source video`, `Source transcript`, optional `Your direction`) is required — it provides the provenance the user needs to verify the PRD against the original video.
+
+<!-- §14.10 -->
 
 ### 14.10 v2 Path — `PRD_INCLUDE_FRAMES`
 
 Default off. The flag exists as an architectural placeholder; when flipped, the long-video pipeline will download the video via `yt-dlp` and call a new `/long_frames` endpoint on `transcript_server.py` (selection strategy TBD — likely transcript-keyword-triggered timestamps, capped at 10–12 frames per PRD). The PRD prompt gains a `frames=[]` parameter and is sent to a multimodal model. None of the columns, folders, sheet schema, or state machine change — only the prompt builder and a new sidecar route.
 
+<!-- §14.11 -->
+
 ### 14.11 Telegram Delivery (Q12)
 
 For each successful generation:
+
 1. `sendDocument` — the `.md` file with caption distinguishing slot (`"📐 Auto-generated PRD"` vs `"📐 PRD with your direction: _{intent}_"`)
 2. `sendMessage` — 4-line summary derived from JSON:
+
    ```
    📐 PRD ready: {project_one_liner}
 
@@ -3542,9 +3966,12 @@ For each successful generation:
    [✍️ Text your intent]
    ```
 
+<!-- §14.12 -->
+
 ### 14.12 `chat_state` Lifecycle (intent capture)
 
 Set when user clicks ✍️ Text your intent (writes/replaces the row per chat_id PK):
+
 ```python
 await db.execute("""
     INSERT OR REPLACE INTO chat_state
@@ -3554,6 +3981,7 @@ await db.execute("""
 ```
 
 Webhook routing order (per Q20 — lenient with smart escape):
+
 1. If message text starts with `/` → run as slash command; clear `chat_state` if present
 2. Else fetch `chat_state` for `chat_id`; if exists and `expires_at > now()`:
    - If entire message matches a video URL (`detect_pipeline()` returns `'short'` or `'long'`) → treat as new video upload; clear `chat_state`; reply `"🔄 Started new job; previous intent canceled."`
@@ -3562,6 +3990,8 @@ Webhook routing order (per Q20 — lenient with smart escape):
 3. Else → normal URL routing (`detect_pipeline()` etc.)
 
 Expired rows are not actively deleted — natural expiry through the `expires_at > now()` check. Periodic cleanup is optional (`DELETE FROM chat_state WHERE expires_at < datetime('now', '-1 day')`).
+
+<!-- §14.13 -->
 
 ### 14.13 `/spec` Command
 
@@ -3614,78 +4044,89 @@ async def handle_spec(chat_id: int, args: str) -> None:
 
 `/cancel` clears `chat_state` and replies `"✍️ Intent canceled."` `/start`, `/help` execute their standard handlers and also clear `chat_state` as a side effect.
 
+<!-- §14.14 -->
+
 ### 14.14 Failure Handling (per trigger)
 
-| Trigger | Both keys fail | Invalid JSON | Lock conflict | Cooldown violation |
-|---------|----------------|--------------|---------------|---------------------|
-| Auto-fire | Silent (log only) | Silent (log only) | Silent (already in flight or done) | N/A (only on intent slot) |
-| Manual 🤖 / ✍️ button | `⚠️ PRD generation failed…` | `⚠️ PRD generation produced invalid output…` | `📐 PRD already generating…` | `📐 Last PRD just generated…` |
-| `/spec` | `⚠️ PRD generation failed…` | `⚠️ PRD generation produced invalid output…` | `📐 PRD already generating…` | `📐 Last PRD just generated…` |
+| Trigger               | Both keys fail              | Invalid JSON                                 | Lock conflict                      | Cooldown violation            |
+| --------------------- | --------------------------- | -------------------------------------------- | ---------------------------------- | ----------------------------- |
+| Auto-fire             | Silent (log only)           | Silent (log only)                            | Silent (already in flight or done) | N/A (only on intent slot)     |
+| Manual 🤖 / ✍️ button | `⚠️ PRD generation failed…` | `⚠️ PRD generation produced invalid output…` | `📐 PRD already generating…`       | `📐 Last PRD just generated…` |
+| `/spec`               | `⚠️ PRD generation failed…` | `⚠️ PRD generation produced invalid output…` | `📐 PRD already generating…`       | `📐 Last PRD just generated…` |
 
 Parse failures do not burn the paid key on retry (model confusion is unlikely to resolve on the same prompt). API failures get one fallback attempt per key.
+
+<!-- §14.15 -->
 
 ### 14.15 Sheets Logging (`SHEETS_ID_PRD`)
 
 Append-only, one row per generation. Columns:
 
-| Column | Source |
-|--------|--------|
-| `job_id` | from `jobs.id` |
-| `video_url` | `jobs.url` |
-| `title` | `jobs.title` |
-| `slot` | `'auto'` or `'intent'` |
+| Column        | Source                                |
+| ------------- | ------------------------------------- |
+| `job_id`      | from `jobs.id`                        |
+| `video_url`   | `jobs.url`                            |
+| `title`       | `jobs.title`                          |
+| `slot`        | `'auto'` or `'intent'`                |
 | `intent_text` | NULL for auto; user's text for intent |
-| `drive_url` | the `.md` URL just written |
-| `created_at` | `datetime('now')` |
+| `drive_url`   | the `.md` URL just written            |
+| `created_at`  | `datetime('now')`                     |
 
 Independent of `SHEETS_ID_LONG` — that sheet stays focused on transcript+enrichment per the existing convention.
 
 **Not in v1 scope:** The long-video sheet has a `fillTopics` Apps Script (`scripts/apps-script-in-sheet.js`) for backfilling missing `ai_topic` values. The PRD sheet has no equivalent — `intent_text` is user-supplied at generation time (no backfill semantic exists), and the auto-extraction PRD's `project` field is already derived from the JSON output. If a similar maintenance workflow becomes needed (e.g. retroactively regenerating PRDs with a new prompt version), add a standalone CLI script rather than Apps Script.
 
+<!-- §14.16 -->
+
 ### 14.16 New Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GOOGLE_DRIVE_FOLDER_PRD` | — | Drive folder ID for `{slug}_{job_id_last4}_{slot}.md` files |
-| `GOOGLE_SHEETS_ID_PRD` | — | Sheet ID for append-only PRD audit log |
-| `PRD_MAX_TRANSCRIPT_CHARS` | `60000` | Cap before three-window sampling kicks in |
-| `PRD_INTENT_COOLDOWN_SECONDS` | `15` | Minimum delay between intent re-runs on the same job |
-| `PRD_INCLUDE_FRAMES` | `false` | v2 escape hatch — opt-in multimodal frames for long-video PRDs |
-| `PRD_AUTO_MODEL` | `gemini-2.5-flash` | Model for the auto extraction slot |
-| `PRD_INTENT_MODEL` | `gemini-2.5-pro` | Model for the user-directed intent slot |
+| Variable                      | Default            | Description                                                    |
+| ----------------------------- | ------------------ | -------------------------------------------------------------- |
+| `GOOGLE_DRIVE_FOLDER_PRD`     | —                  | Drive folder ID for `{slug}_{job_id_last4}_{slot}.md` files    |
+| `GOOGLE_SHEETS_ID_PRD`        | —                  | Sheet ID for append-only PRD audit log                         |
+| `PRD_MAX_TRANSCRIPT_CHARS`    | `60000`            | Cap before three-window sampling kicks in                      |
+| `PRD_INTENT_COOLDOWN_SECONDS` | `15`               | Minimum delay between intent re-runs on the same job           |
+| `PRD_INCLUDE_FRAMES`          | `false`            | v2 escape hatch — opt-in multimodal frames for long-video PRDs |
+| `PRD_AUTO_MODEL`              | `gemini-2.5-flash` | Model for the auto extraction slot                             |
+| `PRD_INTENT_MODEL`            | `gemini-2.5-pro`   | Model for the user-directed intent slot                        |
+
+<!-- §14.17 -->
 
 ### 14.17 Logging Schema
 
 All PRD events use structlog with the `prd.*` namespace so they can be filtered as a group (`jq 'select(.event | startswith("prd."))'`). Pinning event names up-front prevents per-issue drift.
 
-| Event | When | Required fields |
-|-------|------|-----------------|
-| `prd.auto.enqueued` | Enrichment tail-call after Tutorial classification | `job_id`, `chat_id` |
-| `prd.intent.enqueued` | User submits intent via reply or `/spec` with text | `job_id`, `chat_id`, `intent_text_len` |
-| `prd.lock_acquired` | Atomic UPDATE succeeded (slot was NULL/error and cooldown passed) | `job_id`, `slot` (`auto`/`intent`), `model` |
-| `prd.lock_contention` | UPDATE returned 0 rows (already generating or complete) | `job_id`, `slot`, `reason` (`in_flight`/`already_complete`/`cooldown`) |
-| `prd.gemini.fallback` | Free key failed; falling back to paid | `job_id`, `slot`, `model`, `error_class` |
-| `prd.gemini.success` | Model returned valid JSON | `job_id`, `slot`, `model`, `latency_ms`, `input_chars`, `output_chars` |
-| `prd.gemini.both_keys_failed` | Both free and paid keys exhausted | `job_id`, `slot`, `model`, `last_error` |
-| `prd.parse_failed` | Model returned text that didn't conform to schema | `job_id`, `slot`, `raw_excerpt` (first 200 chars) |
-| `prd.drive.uploaded` | Drive write succeeded; `drive_file_id` cached | `job_id`, `slot`, `drive_url`, `bytes` |
-| `prd.drive.failed` | Drive write failed; status stays `generating` until reaper or manual retry | `job_id`, `slot`, `error_class` |
-| `prd.sheets.appended` | Row appended to `SHEETS_ID_PRD` | `job_id`, `slot` |
-| `prd.brain.dispatched` | `brain.ingest_links()` task created (fire-and-forget) | `job_id`, `slot`, `link_count` |
-| `prd.reaper.released` | Boot-time reaper reset a stale lock | `job_id`, `slot`, `stale_for_seconds` |
-| `prd.spec.no_match` | `/spec <suffix>` found no eligible job | `chat_id`, `suffix` |
-| `prd.spec.short_video_rejected` | `/spec <suffix>` matched a short video | `chat_id`, `suffix`, `job_id` |
-| `prd.spec.matched` | `/spec <suffix>` resolved to a job | `chat_id`, `suffix`, `job_id`, `slot` |
-| `prd.chat_state.armed` | ✍️ Text your intent → ForceReply + state row written | `chat_id`, `job_id` |
-| `prd.chat_state.consumed` | User's reply matched the awaiting-intent state | `chat_id`, `job_id`, `intent_text_len` |
-| `prd.chat_state.expired_or_missed` | Reply arrived after `expires_at` or never came | `chat_id`, `job_id`, `expired_at` |
-| `prd.chat_state.canceled_by_url` | New video URL cleared the state | `chat_id`, `job_id` |
+| Event                              | When                                                                       | Required fields                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `prd.auto.enqueued`                | Enrichment tail-call after Tutorial classification                         | `job_id`, `chat_id`                                                    |
+| `prd.intent.enqueued`              | User submits intent via reply or `/spec` with text                         | `job_id`, `chat_id`, `intent_text_len`                                 |
+| `prd.lock_acquired`                | Atomic UPDATE succeeded (slot was NULL/error and cooldown passed)          | `job_id`, `slot` (`auto`/`intent`), `model`                            |
+| `prd.lock_contention`              | UPDATE returned 0 rows (already generating or complete)                    | `job_id`, `slot`, `reason` (`in_flight`/`already_complete`/`cooldown`) |
+| `prd.gemini.fallback`              | Free key failed; falling back to paid                                      | `job_id`, `slot`, `model`, `error_class`                               |
+| `prd.gemini.success`               | Model returned valid JSON                                                  | `job_id`, `slot`, `model`, `latency_ms`, `input_chars`, `output_chars` |
+| `prd.gemini.both_keys_failed`      | Both free and paid keys exhausted                                          | `job_id`, `slot`, `model`, `last_error`                                |
+| `prd.parse_failed`                 | Model returned text that didn't conform to schema                          | `job_id`, `slot`, `raw_excerpt` (first 200 chars)                      |
+| `prd.drive.uploaded`               | Drive write succeeded; `drive_file_id` cached                              | `job_id`, `slot`, `drive_url`, `bytes`                                 |
+| `prd.drive.failed`                 | Drive write failed; status stays `generating` until reaper or manual retry | `job_id`, `slot`, `error_class`                                        |
+| `prd.sheets.appended`              | Row appended to `SHEETS_ID_PRD`                                            | `job_id`, `slot`                                                       |
+| `prd.brain.dispatched`             | `brain.ingest_links()` task created (fire-and-forget)                      | `job_id`, `slot`, `link_count`                                         |
+| `prd.reaper.released`              | Boot-time reaper reset a stale lock                                        | `job_id`, `slot`, `stale_for_seconds`                                  |
+| `prd.spec.no_match`                | `/spec <suffix>` found no eligible job                                     | `chat_id`, `suffix`                                                    |
+| `prd.spec.short_video_rejected`    | `/spec <suffix>` matched a short video                                     | `chat_id`, `suffix`, `job_id`                                          |
+| `prd.spec.matched`                 | `/spec <suffix>` resolved to a job                                         | `chat_id`, `suffix`, `job_id`, `slot`                                  |
+| `prd.chat_state.armed`             | ✍️ Text your intent → ForceReply + state row written                       | `chat_id`, `job_id`                                                    |
+| `prd.chat_state.consumed`          | User's reply matched the awaiting-intent state                             | `chat_id`, `job_id`, `intent_text_len`                                 |
+| `prd.chat_state.expired_or_missed` | Reply arrived after `expires_at` or never came                             | `chat_id`, `job_id`, `expired_at`                                      |
+| `prd.chat_state.canceled_by_url`   | New video URL cleared the state                                            | `chat_id`, `job_id`                                                    |
 
 `intent_text` itself is **not** logged (treat as user PII). `intent_text_len` is the only signal. `raw_excerpt` on parse failure is the only place model output appears in logs and is hard-capped at 200 chars.
+
+<!-- §14.18 -->
 
 ### 14.18 Testing
 
 **Unit tests (no network):**
+
 - `sample_transcript()` head/middle/tail boundaries; edge case `len == cap` (no truncation); `len == cap+1` (sampling kicks in)
 - Atomic slot lock: concurrent `run_auto()` calls — only one acquires; second exits silently
 - Cooldown gate: two intent generations 14s apart → second rejected; 16s apart → both succeed
@@ -3696,11 +4137,14 @@ All PRD events use structlog with the `prd.*` namespace so they can be filtered 
 - Logging: every event in §14.17 fires with the required fields; `intent_text` is never present in any log record
 
 **Integration tests** (gated behind `RUN_INTEGRATION=1`):
+
 - Real Gemini Flash + Pro returning schema-valid JSON for a known transcript
 - Drive `files.create` then `files.update` round-trip via cached `drive_file_id`
 - Sheets `append` to `SHEETS_ID_PRD` produces a parseable row
 
 ---
+
+<!-- §15 -->
 
 ## 15. Appendices
 
@@ -3725,29 +4169,29 @@ All PRD events use structlog with the `prd.*` namespace so they can be filtered 
 
 ### Appendix C: Decision Log
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-05-11 | Use SQLite over PostgreSQL initially | Simpler deployment, sufficient for current scale (<10k jobs/day) |
-| 2026-05-11 | Keep Google Sheets for reporting only | Maintains historical data continuity, low migration risk |
-| 2026-05-11 | Use direct Telegram API over wrapper library | Full control, no wrapper library version conflicts |
-| 2026-05-11 | Implement retry via Telegram callbacks | Better UX than auto-retry, user confirms intent |
-| 2026-05-11 | Run on local machine (not VPS) | Portfolio project, accept downtime risk for simplicity |
-| 2026-05-11 | Use Redis for queue (not asyncio.Queue) | Enables multi-worker scaling if needed later |
+| Date       | Decision                                     | Rationale                                                        |
+| ---------- | -------------------------------------------- | ---------------------------------------------------------------- |
+| 2026-05-11 | Use SQLite over PostgreSQL initially         | Simpler deployment, sufficient for current scale (<10k jobs/day) |
+| 2026-05-11 | Keep Google Sheets for reporting only        | Maintains historical data continuity, low migration risk         |
+| 2026-05-11 | Use direct Telegram API over wrapper library | Full control, no wrapper library version conflicts               |
+| 2026-05-11 | Implement retry via Telegram callbacks       | Better UX than auto-retry, user confirms intent                  |
+| 2026-05-11 | Run on local machine (not VPS)               | Portfolio project, accept downtime risk for simplicity           |
+| 2026-05-11 | Use Redis for queue (not asyncio.Queue)      | Enables multi-worker scaling if needed later                     |
 
 ### Appendix D: Comparison with n8n Workflow
 
-| Aspect | n8n Workflow | Python Service | Winner |
-|--------|-------------|----------------|--------|
+| Aspect              | n8n Workflow                | Python Service                   | Winner |
+| ------------------- | --------------------------- | -------------------------------- | ------ |
 | **Maintainability** | 60+ nodes, visual spaghetti | ~500 LOC Python, clear structure | Python |
-| **Performance** | ~35s short, ~95s long | Target <30s, <90s | Python |
-| **Observability** | Limited logging, no metrics | Structured logs, queryable | Python |
-| **Debugging** | Click through nodes | Standard Python debugger | Python |
-| **Version Control** | Giant JSON blob | Standard git workflow | Python |
-| **Testing** | Manual only | Unit + integration + e2e | Python |
-| **Deployment** | Docker + n8n container | Docker only | Python |
-| **Learning Curve** | n8n-specific knowledge | Standard Python/FastAPI | Python |
-| **Flexibility** | Limited to n8n nodes | Unlimited with Python | Python |
-| **Cost** | Free (self-hosted) | Free (self-hosted) | Tie |
+| **Performance**     | ~35s short, ~95s long       | Target <30s, <90s                | Python |
+| **Observability**   | Limited logging, no metrics | Structured logs, queryable       | Python |
+| **Debugging**       | Click through nodes         | Standard Python debugger         | Python |
+| **Version Control** | Giant JSON blob             | Standard git workflow            | Python |
+| **Testing**         | Manual only                 | Unit + integration + e2e         | Python |
+| **Deployment**      | Docker + n8n container      | Docker only                      | Python |
+| **Learning Curve**  | n8n-specific knowledge      | Standard Python/FastAPI          | Python |
+| **Flexibility**     | Limited to n8n nodes        | Unlimited with Python            | Python |
+| **Cost**            | Free (self-hosted)          | Free (self-hosted)               | Tie    |
 
 **Verdict:** Python service wins on all technical dimensions. n8n has no advantages for this use case.
 
@@ -3756,6 +4200,7 @@ All PRD events use structlog with the `prd.*` namespace so they can be filtered 
 **Document Status:** ✅ Ready for Implementation
 
 **Next Steps:**
+
 1. Technical review (1 week)
 2. Set up development environment
 3. Implement MVP (2-3 weeks)
