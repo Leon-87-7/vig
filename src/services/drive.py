@@ -4,6 +4,8 @@ import asyncio
 from typing import Any
 
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
 
@@ -16,9 +18,22 @@ _SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
 
 def _build_service() -> Any:
-    creds = service_account.Credentials.from_service_account_file(
-        settings.GOOGLE_SERVICE_ACCOUNT_JSON, scopes=_SCOPES
-    )
+    # Prefer OAuth refresh token (required for personal Google accounts).
+    # Fall back to service account (works with Shared Drives / Workspace).
+    if settings.GOOGLE_OAUTH_REFRESH_TOKEN:
+        creds = Credentials(
+            token=None,
+            refresh_token=settings.GOOGLE_OAUTH_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_OAUTH_CLIENT_ID,
+            client_secret=settings.GOOGLE_OAUTH_CLIENT_SECRET,
+            scopes=_SCOPES,
+        )
+        creds.refresh(Request())
+    else:
+        creds = service_account.Credentials.from_service_account_file(
+            settings.GOOGLE_SERVICE_ACCOUNT_JSON, scopes=_SCOPES
+        )
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
@@ -30,7 +45,7 @@ def _upload_sync(content: str | bytes, filename: str, folder_id: str, mime_type:
     file_meta = {"name": filename, "parents": [folder_id]}
     result = (
         service.files()
-        .create(body=file_meta, media_body=media, fields="id,webViewLink")
+        .create(body=file_meta, media_body=media, fields="id,webViewLink", supportsAllDrives=True)
         .execute()
     )
     return result["id"], result["webViewLink"]
