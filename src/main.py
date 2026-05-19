@@ -24,6 +24,7 @@ async def _register_webhook() -> None:
     payload = {
         "url": f"{settings.WEBHOOK_URL.rstrip('/')}/webhook",
         "secret_token": settings.TELEGRAM_WEBHOOK_SECRET,
+        "allowed_updates": ["message", "callback_query"],
     }
     resp = await sender._http().post(tg_url, json=payload)
     data = resp.json()
