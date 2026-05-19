@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from src import database, queue
@@ -79,6 +81,38 @@ async def webhook(
     )
 
     if not chat_id or not text:
+        return {"ok": True}
+
+    # Telegram slash commands
+    if text.startswith("/find "):
+        query = text[6:].strip()
+        if not query:
+            await send_message(chat_id, "Usage: /find <query>")
+            return {"ok": True}
+        from src import brain
+        results = await brain.search_links(query, top_k=5)
+        if not results:
+            await send_message(chat_id, "No relevant links found in your brain.")
+        else:
+            lines = []
+            for r in results:
+                lines.append(f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}")
+            await send_message(chat_id, "\n\n".join(lines), parse_mode="Markdown")
+        return {"ok": True}
+
+    if text == "/rebuild-graph":
+        from src import brain
+        if brain._rebuild_lock.locked():
+            await send_message(chat_id, "Rebuild already in progress — please wait.")
+            return {"ok": True}
+        await send_message(chat_id, "Brain rebuild started — will take a few minutes")
+        async def _do_rebuild():
+            try:
+                n = await brain.rebuild_graph()
+                await send_message(chat_id, f"Graph rebuilt — {n} nodes written.")
+            except Exception:
+                await send_message(chat_id, "Rebuild failed. Check logs.")
+        asyncio.create_task(_do_rebuild())
         return {"ok": True}
 
     pipeline = detect_pipeline(text)

@@ -127,4 +127,8 @@ async def run(job: dict) -> None:
     refreshed = await database.get_job(job_id) or job
     asyncio.create_task(sheets.append_short_row({**refreshed, "platform": platform}))
 
+    if links and settings.GOOGLE_DRIVE_FOLDER_BRAIN:
+        from src import brain
+        asyncio.create_task(brain.ingest_links(links, topic=vision.get("summary", ""), source_job_id=job_id))
+
     log.info("short_video_complete", job_id=job_id, duration_ms=elapsed_ms)

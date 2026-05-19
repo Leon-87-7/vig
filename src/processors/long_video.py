@@ -98,4 +98,8 @@ async def run(job: dict) -> None:
         )
     )
 
+    if description_links and settings.GOOGLE_DRIVE_FOLDER_BRAIN:
+        from src import brain
+        asyncio.create_task(brain.ingest_links(description_links, topic=title, source_job_id=job_id))
+
     log.info("long_video_phase1_complete", job_id=job_id)
