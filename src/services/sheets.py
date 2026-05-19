@@ -47,16 +47,35 @@ def _append_sync(spreadsheet_id: str, values: list) -> None:
 
 
 async def append_short_row(job: dict) -> None:
-    """Append one row to GOOGLE_SHEETS_ID_SHORT. Columns: id, chat_id, url, title, platform, drive_url, processing_time_ms, created_at."""
+    """Append one row to GOOGLE_SHEETS_ID_SHORT.
+
+    Expected columns (must match sheet header order):
+    job_id, url, chat_id, status, platform, title, duration_s, frame_count,
+    best_frame_index, tools_message, links, tools_count, submitted_at,
+    processed_at, error_message
+    """
+    links_raw = job.get("links", [])
+    links_str = (
+        ", ".join(lnk.get("url", "") for lnk in links_raw)
+        if isinstance(links_raw, list)
+        else str(links_raw)
+    )
     row = [
         job.get("id", ""),
-        job.get("chat_id", ""),
         job.get("url", ""),
-        job.get("title", ""),
+        job.get("chat_id", ""),
+        job.get("status", ""),
         job.get("platform", ""),
-        job.get("drive_url", ""),
-        job.get("processing_time_ms", ""),
+        job.get("title", ""),
+        job.get("duration_s", ""),
+        job.get("frame_count", ""),
+        job.get("best_frame_index", ""),
+        job.get("tools_message", ""),
+        links_str,
+        job.get("tools_count", ""),
         job.get("created_at", ""),
+        job.get("completed_at", "") or job.get("updated_at", ""),
+        job.get("error_msg", ""),
     ]
     try:
         await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_SHORT, row)

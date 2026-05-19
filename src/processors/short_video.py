@@ -14,7 +14,9 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 
-def _build_analysis_markdown(job: dict, platform: str, video_id: str, summary: str, links: list[dict]) -> str:
+def _build_analysis_markdown(
+    job: dict, platform: str, video_id: str, summary: str, links: list[dict]
+) -> str:
     ts = datetime.now(timezone.utc).isoformat()
     parts = [
         f"# Short Video Analysis\n",
@@ -72,9 +74,13 @@ async def run(job: dict) -> None:
     if "error" in frame_resp:
         err = frame_resp["error"]
         if err.get("type") == "too_long":
-            await send_message(chat_id, f"{tag}\n❌ Video too long for short pipeline (max 3 minutes).")
+            await send_message(
+                chat_id, f"{tag}\n❌ Video too long for short pipeline (max 3 minutes)."
+            )
         else:
-            await send_message(chat_id, f"{tag}\n❌ Frame extraction failed: {err.get('message', 'unknown error')}")
+            await send_message(
+                chat_id, f"{tag}\n❌ Frame extraction failed: {err.get('message', 'unknown error')}"
+            )
         raise RuntimeError(f"frame_service_error: {err}")
 
     raw_frames = frame_resp.get("frames", [])
@@ -102,12 +108,15 @@ async def run(job: dict) -> None:
 
     # 4. Upload analysis markdown to Drive
     md_content = _build_analysis_markdown(job, platform, video_id, summary, links)
-    file_id, drive_url = await upload_file(md_content, f"{job_id}_short.md", settings.GOOGLE_DRIVE_FOLDER_SHORT)
+    file_id, drive_url = await upload_file(
+        md_content, f"{job_id}_short.md", settings.GOOGLE_DRIVE_FOLDER_SHORT
+    )
 
     # 5. Update job status
     elapsed_ms = int((time.time() - started) * 1000)
     await database.update_job_status(
-        job_id, "complete",
+        job_id,
+        "done",
         drive_url=drive_url,
         title=title,
         processing_time_ms=elapsed_ms,
@@ -115,6 +124,7 @@ async def run(job: dict) -> None:
 
     # 6. Send best frame photo
     import base64
+
     best_frame_b64 = raw_frames[main_idx]["base64"]
     best_frame_bytes = base64.b64decode(best_frame_b64)
     await send_photo(chat_id, best_frame_bytes, caption=f"{tag}\n🖼️ Main frame: {summary}")
@@ -125,10 +135,26 @@ async def run(job: dict) -> None:
 
     # 8. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job
-    asyncio.create_task(sheets.append_short_row({**refreshed, "platform": platform}))
+    asyncio.create_task(
+        sheets.append_short_row(
+            {
+                **refreshed,
+                "platform": platform,
+                "duration_s": frame_resp.get("duration", ""),
+                "frame_count": len(raw_frames),
+                "best_frame_index": main_idx,
+                "tools_message": summary,
+                "links": links,
+                "tools_count": len(links),
+            }
+        )
+    )
 
     if links and settings.GOOGLE_DRIVE_FOLDER_BRAIN:
         from src import brain
-        asyncio.create_task(brain.ingest_links(links, topic=vision.get("summary", ""), source_job_id=job_id))
+
+        asyncio.create_task(
+            brain.ingest_links(links, topic=vision.get("summary", ""), source_job_id=job_id)
+        )
 
     log.info("short_video_complete", job_id=job_id, duration_ms=elapsed_ms)
