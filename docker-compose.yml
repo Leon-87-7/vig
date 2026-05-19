@@ -1,6 +1,7 @@
 services:
   api:
     build: .
+    image: vig-app
     container_name: vig-api
     env_file: .env
     ports:
@@ -10,7 +11,8 @@ services:
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
     restart: unless-stopped
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000
     networks:
@@ -18,6 +20,7 @@ services:
 
   worker:
     build: .
+    image: vig-app
     container_name: vig-worker
     env_file: .env
     volumes:
@@ -25,7 +28,10 @@ services:
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      transcript-service:
+        condition: service_healthy
     restart: unless-stopped
     command: python -m src.worker
     networks:
