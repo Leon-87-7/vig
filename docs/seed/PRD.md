@@ -112,7 +112,16 @@
 | §14.16  | New Environment Variables                                | 4079 |
 | §14.17  | Logging Schema                                           | 4093 |
 | §14.18  | Testing                                                  | 4124 |
-| §15     | Appendices                                               | 4147 |
+| §15     | Photo Link Extraction Feature                            | 4147 |
+| §15.1   | Overview                                                 | 4154 |
+| §15.2   | Decisions                                                | 4163 |
+| §15.3   | Single-Photo Flow                                        | 4183 |
+| §15.4   | Batch-Photo Flow                                         | 4207 |
+| §15.5   | Redis Keys                                               | 4238 |
+| §15.6   | Files Changed                                            | 4248 |
+| §15.7   | New Environment Variables                                | 4270 |
+| §15.8   | Testing                                                  | 4275 |
+| §16     | Appendices                                               | 4295 |
 
 ---
 
@@ -4146,7 +4155,153 @@ All PRD events use structlog with the `prd.*` namespace so they can be filtered 
 
 <!-- §15 -->
 
-## 15. Appendices
+## 15. Photo Link Extraction Feature
+
+<!-- §15.1 -->
+
+### §15.1 Overview
+
+When a user uploads a photo (e.g. a screenshot of a Reel, TikTok, or any page with visible links), the bot uses Gemini Vision to extract URLs and domain names visible in the image and replies with the standard links-found message format.
+
+For batch uploads the user opens a 5-minute collection window with `/photoBatch-start`, sends any number of photos, then either sends `/photoBatch-end` or lets the timer expire — all collected images are sent to Gemini in one call.
+
+Pipeline depth is **inline** — no DB job, no queue, no Drive — but extracted links are ingested into the Second Brain (fire-and-forget) if `GOOGLE_DRIVE_FOLDER_BRAIN` is set.
+
+<!-- §15.2 -->
+
+### §15.2 Decisions
+
+| Question | Decision |
+|---|---|
+| Where are the links? | Visually embedded in the image (Gemini Vision OCR) |
+| Pipeline depth | Inline — no DB job, no queue, no Drive |
+| Brain ingest | Fire-and-forget via `brain.ingest_links` if `GOOGLE_DRIVE_FOLDER_BRAIN` is set |
+| No links found (single) | `"🔍 No links found in this image.\nThat is what I did see:\n{summary}"` |
+| No links found (batch) | `"🔍 No links found in this image."` (no summary) |
+| Acknowledgment | Send `"🔍 Scanning image for links..."` before the Gemini call |
+| Caption context | If the photo has a Telegram caption, pass it to Gemini as additional context |
+| Batch: photo sent during open window | Always queued — no individual processing |
+| Batch: `/photoBatch-start` during active window | Reset: discard collected photos, restart window, notify user |
+| Batch: `/photoBatch-end` with no active window | Send `"No active batch — use /photoBatch-start first."` |
+| Batch: `/photoBatch-end` with 0 photos | Send `"🔍 No links found in this image."` |
+| Batch start notification | `"📸 Batch mode started! The bus leaves at {HH:MM:SS} UTC."` |
+
+<!-- §15.3 -->
+
+### §15.3 Single-Photo Flow
+
+```
+User sends photo
+      │
+      ▼
+webhook: message.photo detected (BEFORE the `if not chat_id or not text` guard)
+      │
+      ├── batch active? ──► _add_to_batch(chat_id, file_id) → return {"ok": True}
+      │
+      └── otherwise ──► asyncio.create_task(_handle_single_photo(chat_id, file_id, caption))
+                               │
+                               ▼
+                         download_photo(file_id) → (bytes, mime_type)
+                               │
+                               ▼
+                         send "🔍 Scanning image for links..."
+                               │
+                               ▼
+                         call_gemini_photo_links([image], caption)
+                               │
+                    ┌──────────┴──────────┐
+                 links found          no links
+                    │                    │
+                    ▼                    ▼
+             build_links_message   "🔍 No links found..."
+             brain.ingest_links       + summary
+             (fire-and-forget)
+```
+
+<!-- §15.4 -->
+
+### §15.4 Batch-Photo Flow
+
+```
+User sends /photoBatch-start
+      │
+      ▼
+Redis: SET photo_batch_active:{chat_id} "1" EX 300
+Redis: DEL photo_batch_files:{chat_id}
+asyncio.create_task(_batch_auto_close(chat_id))   ← sleeps 300s
+send "📸 Batch mode started! The bus leaves at {HH:MM:SS} UTC."
+
+User sends photo(s) during window
+      │
+      ▼
+webhook: batch active → RPUSH photo_batch_files:{chat_id} {file_id}
+
+User sends /photoBatch-end  (or 300s elapses via _batch_auto_close)
+      │
+      ▼
+_process_batch(chat_id)
+      ├── LRANGE photo_batch_files → file_ids
+      ├── DEL both Redis keys
+      ├── download all photos
+      ├── send "📸 Processing {n} image(s)..."
+      ├── call_gemini_photo_links([img1, img2, ...])
+      │
+      ├─ links found ──► build_links_message + brain.ingest_links
+      └─ no links / 0 photos ──► "🔍 No links found in this image."
+```
+
+**Auto-close guard:** `_batch_auto_close` sleeps 300 s then checks `_is_batch_active` before firing `_process_batch`, preventing a double-fire if the user sent `/photoBatch-end` first.
+
+<!-- §15.5 -->
+
+### §15.5 Redis Keys
+
+| Key | Type | TTL | Purpose |
+|---|---|---|---|
+| `photo_batch_active:{chat_id}` | string `"1"` | 300 s | Signals an open batch window |
+| `photo_batch_files:{chat_id}` | list of `file_id` strings | 300 s | Accumulated photo file_ids |
+
+<!-- §15.6 -->
+
+### §15.6 Files Changed
+
+| File | Change |
+|---|---|
+| `src/services/gemini_photo.py` | **New.** `_PHOTO_PROMPT`, `_call_photo_sync`, `call_gemini_photo_links(images, free_key, paid_key, caption=None)`. Multi-image variant; no `main_frame_index`. Free→paid key fallback. |
+| `src/utils/markdown.py` | Added `build_links_message(links)` — promoted from `short_video._build_links_message` so both video and photo pipelines share it. |
+| `src/processors/short_video.py` | Removed private `_build_links_message`; imports from `utils.markdown` instead. |
+| `src/telegram/sender.py` | Added `download_photo(file_id) -> (bytes, mime_type)` — calls `getFile`, downloads from CDN, infers MIME from extension. |
+| `src/telegram/webhook.py` | Added Redis batch helpers (`_is_batch_active`, `_add_to_batch`, `_get_batch_files`, `_clear_batch`), `_handle_single_photo`, `_process_batch`, `_batch_auto_close`. Photo routing block before the `if not chat_id or not text` guard. `/photoBatch-start` and `/photoBatch-end` commands. |
+
+<!-- §15.7 -->
+
+### §15.7 New Environment Variables
+
+No new variables. Photo extraction reuses `GEMINI_FREE_API_KEY`, `GEMINI_PAID_API_KEY`, and `GOOGLE_DRIVE_FOLDER_BRAIN` (already required for Second Brain).
+
+<!-- §15.8 -->
+
+### §15.8 Testing
+
+Acceptance criteria (behaviour-based, verified manually):
+
+- [ ] Sending a screenshot with a visible URL triggers the links-found message
+- [ ] Sending a photo with no URLs triggers no-links message with Gemini summary
+- [ ] Photo with a Telegram caption — caption passed to Gemini as context
+- [ ] Links ingested into the Brain graph (fire-and-forget, only when `GOOGLE_DRIVE_FOLDER_BRAIN` is set)
+- [ ] `/photoBatch-start` opens a 5-min window and notifies with exact deadline timestamp
+- [ ] Photos sent during open window are queued, not processed individually
+- [ ] `/photoBatch-end` triggers immediate processing of all collected photos
+- [ ] Auto-close fires after 5 min if `/photoBatch-end` not sent
+- [ ] Re-opening an active window (`/photoBatch-start` again) resets it and discards previous photos
+- [ ] Non-photo messages are unaffected
+- [ ] `/photoBatch-end` with no active window returns the expected error message
+
+---
+
+<!-- §16 -->
+
+## 16. Appendices
 
 ### Appendix A: Glossary
 
