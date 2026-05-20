@@ -10,6 +10,7 @@ from src.services import brave, frames, gemini, sheets
 from src.services.drive import upload_file
 from src.telegram.sender import send_message, send_photo
 from src.utils.logger import get_logger
+from src.utils.markdown import build_links_message
 
 log = get_logger(__name__)
 
@@ -43,15 +44,6 @@ def _build_analysis_markdown(
                 parts.append(desc)
             parts.append(f"🔗 {lnk['url']}\n")
     return "\n".join(parts)
-
-
-def _build_links_message(links: list[dict]) -> str:
-    labeled = "\n".join(
-        f"• {lnk.get('label') or lnk['url']} — {lnk.get('description') or ''}\n  🔗 {lnk['url']}"
-        for lnk in links
-    )
-    bare = "\n".join(lnk["url"] for lnk in links)
-    return f"🔗 Links Found:\n{labeled}\n\n---\n\n🔗 Quick Links:\n{bare}"
 
 
 def _tag(job_id: str) -> str:
@@ -131,7 +123,7 @@ async def run(job: dict) -> None:
 
     # 7. Send links message (if any)
     if links:
-        await send_message(chat_id, f"{tag}\n{_build_links_message(links)}")
+        await send_message(chat_id, f"{tag}\n{build_links_message(links)}")
 
     # 8. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job

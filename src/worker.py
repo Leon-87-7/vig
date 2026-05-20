@@ -59,6 +59,13 @@ async def _dispatch(task: dict) -> None:
                 await send_message(job["chat_id"], f"job_{job_id[-4:]}:\n❌ Processing failed. Please try again.")
             except Exception:
                 pass
+    elif task_type == "prd_auto":
+        try:
+            from src.processors import prd as _prd
+            await _prd.run_auto(job_id)
+        except Exception:
+            log.exception("prd_auto_error", job_id=job_id)
+            # Silent failure — no user message for auto-fire
     else:
         log.error("unknown_task", task=task_type, job_id=job_id)
 
@@ -66,6 +73,9 @@ async def _dispatch(task: dict) -> None:
 async def loop() -> None:
     log.info("worker_started")
     await database.init_db()  # idempotent — safe if api container ran it first
+
+    from src.processors import prd as _prd
+    await _prd.reaper()
 
     while True:
         try:
