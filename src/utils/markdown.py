@@ -24,3 +24,12 @@ def build_transcript_markdown(
         f"---\n\n"
         f"{transcript}\n"
     )
+
+
+def build_links_message(links: list[dict]) -> str:
+    labeled = "\n".join(
+        f"• {lnk.get('label') or lnk['url']} — {lnk.get('description') or ''}\n  🔗 {lnk['url']}"
+        for lnk in links
+    )
+    bare = "\n".join(lnk["url"] for lnk in links)
+    return f"🔗 Links Found:\n{labeled}\n\n---\n\n🔗 Quick Links:\n{bare}"

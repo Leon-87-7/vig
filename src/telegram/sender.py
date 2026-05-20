@@ -129,3 +129,18 @@ async def answer_callback_query(callback_query_id: str, text: str | None = None)
         payload["text"] = text
     response = await _http().post(_endpoint("answerCallbackQuery"), json=payload)
     response.raise_for_status()
+
+
+async def download_photo(file_id: str) -> tuple[bytes, str]:
+    """Download a Telegram photo by file_id. Returns (raw_bytes, mime_type)."""
+    resp = await _http().get(
+        _endpoint("getFile"), params={"file_id": file_id}
+    )
+    resp.raise_for_status()
+    file_path: str = resp.json()["result"]["file_path"]
+    dl_url = f"{_API_BASE}/file/bot{settings.TELEGRAM_BOT_TOKEN}/{file_path}"
+    file_resp = await _http().get(dl_url)
+    file_resp.raise_for_status()
+    ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else "jpg"
+    mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+    return file_resp.content, mime_map.get(ext, "image/jpeg")

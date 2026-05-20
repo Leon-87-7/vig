@@ -3,17 +3,104 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from src import database, queue
 from src.config import settings
-from src.telegram.sender import answer_callback_query, send_message
+from src.telegram.sender import answer_callback_query, download_photo, send_message
 from src.utils.logger import get_logger
 from src.utils.validators import detect_pipeline
 
 log = get_logger(__name__)
 router = APIRouter()
+
+
+async def _is_batch_active(chat_id: int) -> bool:
+    return bool(await queue._client().get(f"photo_batch_active:{chat_id}"))
+
+
+async def _add_to_batch(chat_id: int, file_id: str) -> None:
+    client = queue._client()
+    await client.rpush(f"photo_batch_files:{chat_id}", file_id)
+    await client.expire(f"photo_batch_files:{chat_id}", 300)
+
+
+async def _get_batch_files(chat_id: int) -> list[str]:
+    return await queue._client().lrange(f"photo_batch_files:{chat_id}", 0, -1)
+
+
+async def _clear_batch(chat_id: int) -> None:
+    client = queue._client()
+    await client.delete(f"photo_batch_active:{chat_id}", f"photo_batch_files:{chat_id}")
+
+
+async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) -> None:
+    from src.services.gemini_photo import call_gemini_photo_links
+    from src.utils.markdown import build_links_message
+
+    await send_message(chat_id, "🔍 Scanning image for links...")
+    photo_bytes, mime_type = await download_photo(file_id)
+    result = await call_gemini_photo_links(
+        [{"bytes": photo_bytes, "mime_type": mime_type}],
+        settings.GEMINI_FREE_API_KEY,
+        settings.GEMINI_PAID_API_KEY,
+        caption,
+    )
+    links = result.get("links", [])
+    summary = result.get("summary", "")
+    if links:
+        await send_message(chat_id, build_links_message(links))
+        if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
+            from src import brain
+            asyncio.create_task(
+                brain.ingest_links(links, topic=summary, source_job_id=f"photo_{chat_id}")
+            )
+    else:
+        await send_message(
+            chat_id,
+            f"🔍 No links found in this image.\nThat is what I did see:\n{summary}",
+        )
+
+
+async def _process_batch(chat_id: int) -> None:
+    from src.services.gemini_photo import call_gemini_photo_links
+    from src.utils.markdown import build_links_message
+
+    file_ids = await _get_batch_files(chat_id)
+    await _clear_batch(chat_id)
+    if not file_ids:
+        await send_message(chat_id, "🔍 No links found in this image.")
+        return
+    await send_message(chat_id, f"📸 Processing {len(file_ids)} image(s)...")
+    images = []
+    for fid in file_ids:
+        b, mt = await download_photo(fid)
+        images.append({"bytes": b, "mime_type": mt})
+    result = await call_gemini_photo_links(
+        images, settings.GEMINI_FREE_API_KEY, settings.GEMINI_PAID_API_KEY
+    )
+    links = result.get("links", [])
+    if links:
+        await send_message(chat_id, build_links_message(links))
+        if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
+            from src import brain
+            asyncio.create_task(
+                brain.ingest_links(
+                    links,
+                    topic=result.get("summary", ""),
+                    source_job_id=f"photo_batch_{chat_id}",
+                )
+            )
+    else:
+        await send_message(chat_id, "🔍 No links found in this image.")
+
+
+async def _batch_auto_close(chat_id: int) -> None:
+    await asyncio.sleep(300)
+    if await _is_batch_active(chat_id):
+        await _process_batch(chat_id)
 
 
 async def _handle_callback(callback: dict) -> None:
@@ -80,6 +167,16 @@ async def webhook(
         text_len=len(text),
     )
 
+    photo = message.get("photo")
+    if photo and chat_id:
+        file_id = photo[-1]["file_id"]
+        caption = message.get("caption") or None
+        if await _is_batch_active(chat_id):
+            await _add_to_batch(chat_id, file_id)
+        else:
+            asyncio.create_task(_handle_single_photo(chat_id, file_id, caption))
+        return {"ok": True}
+
     if not chat_id or not text:
         return {"ok": True}
 
@@ -119,6 +216,22 @@ async def webhook(
                 await send_message(chat_id, "Rebuild failed. Check logs.")
 
         asyncio.create_task(_do_rebuild())
+        return {"ok": True}
+
+    if text == "/photoBatch-start":
+        client = queue._client()
+        await client.set(f"photo_batch_active:{chat_id}", "1", ex=300)
+        await client.delete(f"photo_batch_files:{chat_id}")
+        asyncio.create_task(_batch_auto_close(chat_id))
+        deadline = (datetime.now(timezone.utc) + timedelta(seconds=300)).strftime("%H:%M:%S")
+        await send_message(chat_id, f"📸 Batch mode started! The bus leaves at {deadline} UTC.")
+        return {"ok": True}
+
+    if text == "/photoBatch-end":
+        if not await _is_batch_active(chat_id):
+            await send_message(chat_id, "No active batch — use /photoBatch-start first.")
+            return {"ok": True}
+        asyncio.create_task(_process_batch(chat_id))
         return {"ok": True}
 
     pipeline = detect_pipeline(text)

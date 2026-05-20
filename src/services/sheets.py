@@ -125,3 +125,29 @@ async def append_long_row(
         log.info("sheets_long_appended", job_id=job.get("id"))
     except Exception:
         log.exception("sheets_long_failed", job_id=job.get("id"))
+
+
+async def append_prd_row(
+    *,
+    job_id: str,
+    video_url: str,
+    title: str,
+    drive_url: str,
+) -> None:
+    """Append one row to GOOGLE_SHEETS_ID_PRD.
+    Columns: job_id, video_url, title, slot, intent_text, drive_url, created_at
+    """
+    row = [
+        job_id,
+        video_url,
+        title,
+        "auto",
+        None,
+        drive_url,
+        datetime.now(timezone.utc).isoformat(),
+    ]
+    try:
+        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_PRD, row)
+        log.info("sheets_prd_appended", job_id=job_id)
+    except Exception:
+        log.exception("sheets_prd_failed", job_id=job_id)
