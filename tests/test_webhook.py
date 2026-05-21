@@ -440,3 +440,29 @@ async def test_spec_with_intent_enqueues_intent(temp_db, _patch_webhook_secret, 
     assert enq.await_args.args[0] == {"task": "prd_intent", "job_id": "20260101_120000_AAAA"}
     job = await db.get_job("20260101_120000_AAAA")
     assert job["prd_intent_text"] == "desktop app for image processing"
+
+
+@pytest.mark.asyncio
+async def test_intent_text_never_appears_in_log_records(temp_db, _patch_webhook_secret, monkeypatch, caplog):
+    """intent_text must never appear in any log record — only intent_text_len."""
+    import logging
+    from src import database as db
+    await _seed_job(temp_db, "J_PRIV", chat_id=100, transcript="t")
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_PRIV")
+    monkeypatch.setattr("src.queue.enqueue", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    # Suppress aiosqlite DEBUG logs which expose SQL parameters containing intent_text
+    logging.getLogger("aiosqlite").setLevel(logging.WARNING)
+    secret_intent = "Sphinx of black quartz judge my vow — please log only the length"
+    with caplog.at_level(logging.DEBUG):
+        await _post_webhook(secret_intent, chat_id=100)
+
+    for record in caplog.records:
+        assert secret_intent not in record.getMessage(), (
+            f"intent_text leaked in log record: {record.getMessage()!r}"
+        )
+        for key, value in record.__dict__.items():
+            if isinstance(value, str) and secret_intent in value:
+                raise AssertionError(
+                    f"intent_text leaked in record attribute {key!r}: {value!r}"
+                )
