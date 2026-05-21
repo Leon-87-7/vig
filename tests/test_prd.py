@@ -15,6 +15,21 @@ from src.processors.prd import (
 )
 
 
+@pytest.fixture
+async def temp_db_for_prd():
+    """Create a temp SQLite file with the full schema applied, patched into settings."""
+    import os as _os
+    import tempfile as _tf
+    from unittest.mock import patch as _patch
+    fd, path = _tf.mkstemp(suffix=".db")
+    _os.close(fd)
+    with _patch("src.config.settings.DB_PATH", path):
+        from src import database as _db
+        await _db.init_db()
+        yield path
+    _os.unlink(path)
+
+
 # ---------------------------------------------------------------------------
 # sample_transcript
 # ---------------------------------------------------------------------------
@@ -261,3 +276,190 @@ def test_brain_filter_includes_with_url():
     assert len(brain_links) == 1
     assert brain_links[0]["url"] == "https://fastapi.tiangolo.com"
     assert brain_links[0]["label"] == "FastAPI"
+
+
+# ---------------------------------------------------------------------------
+# build_prd_markdown with intent_text (slice #7)
+# ---------------------------------------------------------------------------
+
+def test_build_prd_markdown_with_intent_text():
+    from src.processors.prd import build_prd_markdown
+    prd = {"project": "Demo App", "overview": "Short overview.", "phases": [], "open_questions": []}
+    md = build_prd_markdown(prd, intent_text="desktop app for agentic image processing")
+    assert "**Your direction:** _desktop app for agentic image processing_" in md
+    # Direction must appear shortly after the title line
+    lines = md.splitlines()
+    title_idx = next(i for i, l in enumerate(lines) if l.startswith("# PRD:"))
+    assert "Your direction" in lines[title_idx + 1] or "Your direction" in lines[title_idx + 2]
+
+
+def test_build_prd_markdown_without_intent_text():
+    from src.processors.prd import build_prd_markdown
+    prd = {"project": "Demo App", "phases": [], "open_questions": []}
+    md = build_prd_markdown(prd)
+    assert "Your direction" not in md
+
+
+# ---------------------------------------------------------------------------
+# build_summary_lines (slice #7)
+# ---------------------------------------------------------------------------
+
+def test_build_summary_lines_zero_overview_sentences():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "Demo App", "overview": "", "phases": [{"name": "P1", "deliverables": ["d"]}],
+           "features": [{"name": "f1"}, {"name": "f2"}]}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: Demo App", "1 phases, 2 features"]
+
+
+def test_build_summary_lines_one_overview_sentence():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "X", "overview": "This is a single sentence.", "phases": [], "features": []}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: X", "This is a single sentence.", "0 phases, 0 features"]
+
+
+def test_build_summary_lines_caps_at_two_overview_sentences():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "X", "overview": "One. Two. Three. Four.", "phases": [], "features": []}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: X", "One.", "Two.", "0 phases, 0 features"]
+
+
+# ---------------------------------------------------------------------------
+# reaper_intent (slice #7)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reaper_intent_resets_stale_generating_rows(temp_db_for_prd):
+    """A 'generating' row older than 10 minutes is reset to 'error'."""
+    import aiosqlite
+    from src.processors import prd
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_intent_status, updated_at) "
+            "VALUES ('J_STALE', 1, 'u', 'long', 'done', 'generating', datetime('now','-15 minutes'))"
+        )
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_intent_status, updated_at) "
+            "VALUES ('J_FRESH', 1, 'u', 'long', 'done', 'generating', datetime('now','-2 minutes'))"
+        )
+        await conn.commit()
+    await prd.reaper_intent()
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        conn.row_factory = aiosqlite.Row
+        cur = await conn.execute("SELECT id, prd_intent_status FROM jobs ORDER BY id")
+        rows = await cur.fetchall()
+    statuses = {r["id"]: r["prd_intent_status"] for r in rows}
+    assert statuses == {"J_FRESH": "generating", "J_STALE": "error"}
+
+
+# ---------------------------------------------------------------------------
+# run_auto_resend (slice #7, Task 8)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_run_auto_resend_uses_cached_json(temp_db_for_prd, monkeypatch):
+    """run_auto_resend reads cached JSON and calls update_file (not upload_file)."""
+    from unittest.mock import AsyncMock
+    import aiosqlite
+    from src.processors import prd
+
+    cached = '{"project":"Cached","overview":"","phases":[],"open_questions":[]}'
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_auto_status, "
+            "prd_auto_drive_file_id, prd_auto_drive_url, prd_auto_json) "
+            "VALUES ('J_CACHE', 1, 'u', 'long', 'done', 'done', 'DRIVE_ID_1', 'http://x', ?)",
+            (cached,),
+        )
+        await conn.commit()
+
+    updated = AsyncMock(return_value="http://x")
+    monkeypatch.setattr("src.services.drive.update_file", updated)
+    monkeypatch.setattr("src.telegram.sender.send_document", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_message", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
+
+    await prd.run_auto_resend("J_CACHE")
+
+    updated.assert_awaited_once()
+    args, _ = updated.await_args
+    assert args[0] == "DRIVE_ID_1"
+    assert "Cached" in args[1]  # rendered markdown contains project name
+
+
+# ---------------------------------------------------------------------------
+# run_intent cooldown gate (slice #7)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_intent_cooldown_blocks_within_15s(temp_db_for_prd, monkeypatch):
+    """Second run_intent within 15s of a successful run is blocked by the cooldown gate."""
+    import aiosqlite
+    from unittest.mock import AsyncMock
+    from src.processors import prd
+
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, "
+            "prd_intent_status, prd_intent_completed_at, prd_intent_text, transcript) "
+            "VALUES ('J_CD', 1, 'u', 'long', 'done', 'done', "
+            "datetime('now','-5 seconds'), 'first intent', 'transcript text')"
+        )
+        await conn.commit()
+
+    monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_message", AsyncMock())
+
+    await prd.run_intent("J_CD")
+
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await (await conn.execute(
+            "SELECT prd_intent_status FROM jobs WHERE id='J_CD'"
+        )).fetchone()
+    assert row["prd_intent_status"] == "done"  # unchanged — lock not acquired
+
+
+@pytest.mark.asyncio
+async def test_intent_cooldown_allows_after_15s(temp_db_for_prd, monkeypatch):
+    """Run > 15s after a previous completion acquires the lock."""
+    import aiosqlite
+    from unittest.mock import AsyncMock
+    from src.processors import prd
+
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, "
+            "prd_intent_status, prd_intent_completed_at, prd_intent_text, transcript) "
+            "VALUES ('J_OK', 1, 'u', 'long', 'done', 'done', "
+            "datetime('now','-30 seconds'), 'second intent', 'transcript text')"
+        )
+        await conn.commit()
+
+    monkeypatch.setattr(
+        "src.processors.prd._call_gemini_intent_sync",
+        lambda prompt, key: '{"project":"X","category":"Other","overview":"","phases":[],"open_questions":[]}',
+    )
+    monkeypatch.setattr("src.services.drive.upload_file", AsyncMock(return_value=("FID","URL")))
+    monkeypatch.setattr("src.services.drive.update_file", AsyncMock(return_value="URL"))
+    monkeypatch.setattr("src.services.sheets.append_prd_row", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_document", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_message", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.brain.ingest_links", AsyncMock())
+    from src.config import settings
+    monkeypatch.setattr(settings, "GOOGLE_DRIVE_FOLDER_BRAIN", "")
+    # Ensure at least one Gemini key is set so the loop body runs
+    monkeypatch.setattr(settings, "GEMINI_FREE_API_KEY", "free-key")
+
+    await prd.run_intent("J_OK")
+
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        conn.row_factory = aiosqlite.Row
+        row = await (await conn.execute(
+            "SELECT prd_intent_status, prd_intent_completed_at FROM jobs WHERE id='J_OK'"
+        )).fetchone()
+    assert row["prd_intent_status"] == "done"
+    assert row["prd_intent_completed_at"] is not None

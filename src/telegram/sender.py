@@ -122,6 +122,31 @@ async def send_inline_keyboard(
     return body.get("result", {})
 
 
+async def send_force_reply(
+    chat_id: int,
+    text: str,
+    *,
+    input_field_placeholder: str = "Your project direction...",
+) -> dict[str, Any]:
+    """Send a message that forces the user's next reply to address the bot."""
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "text": text,
+        "reply_markup": {
+            "force_reply": True,
+            "input_field_placeholder": input_field_placeholder,
+        },
+    }
+    response = await _http().post(_endpoint("sendMessage"), json=payload)
+    response.raise_for_status()
+    body = response.json()
+    if not body.get("ok"):
+        log.error("telegram_force_reply_failed", chat_id=chat_id, response=body)
+        raise RuntimeError(f"Telegram sendMessage (ForceReply) failed: {body!r}")
+    log.info("telegram_force_reply_sent", chat_id=chat_id)
+    return body.get("result", {})
+
+
 async def answer_callback_query(callback_query_id: str, text: str | None = None) -> None:
     """Acknowledge a Telegram callback query to dismiss the loading state."""
     payload: dict[str, Any] = {"callback_query_id": callback_query_id}

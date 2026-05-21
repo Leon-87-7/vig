@@ -65,7 +65,57 @@ async def _dispatch(task: dict) -> None:
             await _prd.run_auto(job_id)
         except Exception:
             log.exception("prd_auto_error", job_id=job_id)
-            # Silent failure — no user message for auto-fire
+            try:
+                job = await database.get_job(job_id)
+                if job and job.get("prd_auto_status") == "generating":
+                    async with database.connection() as conn:
+                        await conn.execute(
+                            "UPDATE jobs SET prd_auto_status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (job_id,),
+                        )
+                        await conn.commit()
+                if job:
+                    from src.telegram.sender import send_inline_keyboard
+                    await send_inline_keyboard(
+                        job["chat_id"],
+                        "⚠️ PRD generation failed unexpectedly.",
+                        buttons=[[{"text": "🔄 Retry", "callback_data": f"prd_retry_auto:{job_id}"}]],
+                    )
+            except Exception:
+                pass
+    elif task_type == "prd_auto_resend":
+        try:
+            from src.processors import prd as _prd
+            await _prd.run_auto_resend(job_id)
+        except Exception:
+            log.exception("prd_auto_resend_error", job_id=job_id)
+    elif task_type == "prd_intent":
+        try:
+            from src.processors import prd as _prd
+            await _prd.run_intent(job_id)
+        except Exception:
+            log.exception("prd_intent_error", job_id=job_id)
+            try:
+                job = await database.get_job(job_id)
+                if job and job.get("prd_intent_status") == "generating":
+                    async with database.connection() as conn:
+                        await conn.execute(
+                            "UPDATE jobs SET prd_intent_status='error', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                            (job_id,),
+                        )
+                        await conn.commit()
+                if job:
+                    from src.telegram.sender import send_inline_keyboard
+                    await send_inline_keyboard(
+                        job["chat_id"],
+                        "⚠️ PRD generation failed unexpectedly.",
+                        buttons=[[
+                            {"text": "🔄 Retry Same Intent", "callback_data": f"prd_retry_intent:{job_id}"},
+                            {"text": "✍️ New Intent", "callback_data": f"prd_intent_prompt:{job_id}"},
+                        ]],
+                    )
+            except Exception:
+                pass
     else:
         log.error("unknown_task", task=task_type, job_id=job_id)
 
@@ -76,6 +126,7 @@ async def loop() -> None:
 
     from src.processors import prd as _prd
     await _prd.reaper()
+    await _prd.reaper_intent()
 
     while True:
         try:

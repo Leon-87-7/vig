@@ -28,6 +28,7 @@ Ordered by unblocked-first, then dependency chain.
 |                                                 # | Title                                                                              | Area          | Depends On          |
 | ------------------------------------------------: | ---------------------------------------------------------------------------------- | ------------- | ------------------- |
 | [#7](https://github.com/Leon-87-7/vig/issues/7)   | Mini-PRD intent slot + /spec command + chat_state routing                          | Mini-PRD      | #5 ✓, #6 ✓         |
+| [#13](https://github.com/Leon-87-7/vig/issues/13) | Add retry button on Gemini enrichment failures                                     | Long Video    | #7 (retry pattern)  |
 
 ---
 
@@ -54,6 +55,7 @@ Ordered by unblocked-first, then dependency chain.
     ├── #11 Photo link extraction ✓
     ├── #6 Mini-PRD auto ✓
     │   └── #7 Mini-PRD intent  ← next
+    │       └── #13 Enrichment retry button (pattern from #7)
     └── (feeds #4 via URL-resolution)
 
 #10 BotFather (standalone, any time)
