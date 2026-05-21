@@ -261,3 +261,51 @@ def test_brain_filter_includes_with_url():
     assert len(brain_links) == 1
     assert brain_links[0]["url"] == "https://fastapi.tiangolo.com"
     assert brain_links[0]["label"] == "FastAPI"
+
+
+# ---------------------------------------------------------------------------
+# build_prd_markdown with intent_text (slice #7)
+# ---------------------------------------------------------------------------
+
+def test_build_prd_markdown_with_intent_text():
+    from src.processors.prd import build_prd_markdown
+    prd = {"project": "Demo App", "overview": "Short overview.", "phases": [], "open_questions": []}
+    md = build_prd_markdown(prd, intent_text="desktop app for agentic image processing")
+    assert "**Your direction:** _desktop app for agentic image processing_" in md
+    # Direction must appear shortly after the title line
+    lines = md.splitlines()
+    title_idx = next(i for i, l in enumerate(lines) if l.startswith("# PRD:"))
+    assert "Your direction" in lines[title_idx + 1] or "Your direction" in lines[title_idx + 2]
+
+
+def test_build_prd_markdown_without_intent_text():
+    from src.processors.prd import build_prd_markdown
+    prd = {"project": "Demo App", "phases": [], "open_questions": []}
+    md = build_prd_markdown(prd)
+    assert "Your direction" not in md
+
+
+# ---------------------------------------------------------------------------
+# build_summary_lines (slice #7)
+# ---------------------------------------------------------------------------
+
+def test_build_summary_lines_zero_overview_sentences():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "Demo App", "overview": "", "phases": [{"name": "P1", "deliverables": ["d"]}],
+           "features": [{"name": "f1"}, {"name": "f2"}]}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: Demo App", "1 phases, 2 features"]
+
+
+def test_build_summary_lines_one_overview_sentence():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "X", "overview": "This is a single sentence.", "phases": [], "features": []}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: X", "This is a single sentence.", "0 phases, 0 features"]
+
+
+def test_build_summary_lines_caps_at_two_overview_sentences():
+    from src.processors.prd import build_summary_lines
+    prd = {"project": "X", "overview": "One. Two. Three. Four.", "phases": [], "features": []}
+    lines = build_summary_lines(prd)
+    assert lines == ["Project: X", "One.", "Two.", "0 phases, 0 features"]

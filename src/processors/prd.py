@@ -35,12 +35,19 @@ def sample_transcript(text: str, cap: int = 60_000) -> str:
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
-def build_prd_markdown(prd: dict) -> str:
-    """Render a PRD JSON dict to a structured markdown document."""
+def build_prd_markdown(prd: dict, *, intent_text: str | None = None) -> str:
+    """Render a PRD JSON dict to a structured markdown document.
+
+    If intent_text is provided, insert a 'Your direction' line immediately
+    after the title.
+    """
     lines: list[str] = []
 
     lines.append(f"# PRD: {prd.get('project', 'Untitled')}")
     lines.append("")
+    if intent_text:
+        lines.append(f"**Your direction:** _{intent_text}_")
+        lines.append("")
 
     category = prd.get("category", "")
     if category:
@@ -109,6 +116,24 @@ def build_prd_markdown(prd: dict) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def build_summary_lines(prd: dict) -> list[str]:
+    """Build a 2-4 line summary for Telegram delivery.
+
+    Always starts with 'Project: <name>' and ends with '{N} phases, {M} features'.
+    The middle is 0, 1, or 2 sentences from prd['overview'].
+    """
+    lines = [f"Project: {prd.get('project', 'Untitled')}"]
+    overview = (prd.get("overview") or "").strip()
+    if overview:
+        # Naive sentence split — sufficient for Gemini-generated overview text
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", overview) if s.strip()]
+        lines.extend(sentences[:2])
+    n_phases = len(prd.get("phases", []))
+    n_features = len(prd.get("features", []))
+    lines.append(f"{n_phases} phases, {n_features} features")
+    return lines
 
 
 # ---------------------------------------------------------------------------
