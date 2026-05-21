@@ -285,3 +285,158 @@ async def test_callback_prd_intent_prompt_debounces_same_job(temp_db, monkeypatc
         {"id": "CB", "data": "prd_intent_prompt:J_DBN", "message": {"chat": {"id": 100}}}
     )
     fr.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Routing + /spec + /cancel tests (Task 13)
+# ---------------------------------------------------------------------------
+
+async def _post_webhook(text: str, chat_id: int = 100, secret: str = "S"):
+    """Helper that invokes the webhook handler with a text message."""
+    class _Req:
+        def __init__(self, body): self._body = body
+        async def json(self): return self._body
+    from src.telegram.webhook import webhook
+    body = {"message": {"chat": {"id": chat_id}, "text": text, "message_id": 1}}
+    return await webhook(_Req(body), x_telegram_bot_api_secret_token=secret)
+
+
+@pytest.fixture
+def _patch_webhook_secret(monkeypatch):
+    monkeypatch.setattr("src.config.settings.TELEGRAM_WEBHOOK_SECRET", "S")
+
+
+@pytest.mark.asyncio
+async def test_routing_awaiting_intent_plain_text_enqueues(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await _seed_job(temp_db, "J_TXT", chat_id=100, transcript="t")
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_TXT")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    await _post_webhook("a smart desktop tool for managing my photos")
+    enq.assert_awaited_once_with({"task": "prd_intent", "job_id": "J_TXT"})
+    job = await db.get_job("J_TXT")
+    assert job["prd_intent_text"] == "a smart desktop tool for managing my photos"
+    assert await db.get_chat_state(100) is None
+
+
+@pytest.mark.asyncio
+async def test_routing_awaiting_intent_too_short(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await _seed_job(temp_db, "J_S", chat_id=100)
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_S")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("hi")
+    enq.assert_not_awaited()
+    assert await db.get_chat_state(100) is not None
+    args, _ = sent.await_args
+    assert "too short" in args[1].lower() or "5" in args[1]
+
+
+@pytest.mark.asyncio
+async def test_routing_awaiting_intent_too_long(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await _seed_job(temp_db, "J_L", chat_id=100)
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_L")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("x" * 1001)
+    enq.assert_not_awaited()
+    assert await db.get_chat_state(100) is not None
+    args, _ = sent.await_args
+    assert "too long" in args[1].lower() or "1000" in args[1]
+
+
+@pytest.mark.asyncio
+async def test_routing_awaiting_intent_url_starts_new_job(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await _seed_job(temp_db, "J_U", chat_id=100)
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_U")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    await _post_webhook("https://youtu.be/dQw4w9WgXcQ")
+    assert enq.await_args.args[0]["task"] == "video"
+    assert await db.get_chat_state(100) is None
+
+
+@pytest.mark.asyncio
+async def test_cancel_with_armed_state(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/cancel")
+    assert "Intent canceled" in sent.await_args.args[1]
+    assert await db.get_chat_state(100) is None
+
+
+@pytest.mark.asyncio
+async def test_cancel_with_no_state(temp_db, _patch_webhook_secret, monkeypatch):
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/cancel")
+    assert "Nothing to cancel" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_spec_no_args_usage(temp_db, _patch_webhook_secret, monkeypatch):
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/spec")
+    assert "Usage" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_spec_no_match_shows_recent(temp_db, _patch_webhook_secret, monkeypatch):
+    await _seed_job(temp_db, "20260101_120000_AAAA", chat_id=100, title="A")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/spec XXXX")
+    msg = sent.await_args.args[1]
+    assert "No job ending in XXXX" in msg
+    assert "AAAA" in msg
+
+
+@pytest.mark.asyncio
+async def test_spec_short_only_rejection(temp_db, _patch_webhook_secret, monkeypatch):
+    await _seed_job(temp_db, "20260101_120000_AAAA", chat_id=100, content_type="short", title="S")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/spec AAAA")
+    assert "only available for long videos" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_spec_single_long_match_enqueues_auto(temp_db, _patch_webhook_secret, monkeypatch):
+    await _seed_job(
+        temp_db, "20260101_120000_AAAA", chat_id=100, content_type="long",
+        status="done", title="Tutorial"
+    )
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    await _post_webhook("/spec AAAA")
+    assert enq.await_args.args[0]["task"] in ("prd_auto", "prd_auto_resend")
+
+
+@pytest.mark.asyncio
+async def test_spec_with_intent_enqueues_intent(temp_db, _patch_webhook_secret, monkeypatch):
+    from src import database as db
+    await _seed_job(
+        temp_db, "20260101_120000_AAAA", chat_id=100, content_type="long",
+        status="done", title="Tutorial", transcript="t"
+    )
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    await _post_webhook("/spec AAAA desktop app for image processing")
+    assert enq.await_args.args[0] == {"task": "prd_intent", "job_id": "20260101_120000_AAAA"}
+    job = await db.get_job("20260101_120000_AAAA")
+    assert job["prd_intent_text"] == "desktop app for image processing"

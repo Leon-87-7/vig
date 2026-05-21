@@ -199,6 +199,182 @@ async def _handle_callback(callback: dict) -> None:
         await answer_callback_query(cq_id)
 
 
+async def _dispatch_slash(chat_id: int, text: str) -> None:
+    """Slash command dispatch. Clears chat_state as a side effect (except /cancel reads first)."""
+    parts = text.split()
+    cmd = parts[0].lower()
+
+    if cmd == "/cancel":
+        state = await database.get_chat_state(chat_id)
+        await database.clear_chat_state(chat_id)
+        if state and state.get("mode") == "awaiting_intent":
+            await send_message(chat_id, "✍️ Intent canceled.")
+        else:
+            await send_message(chat_id, "Nothing to cancel.")
+        return
+
+    # All other slash commands clear chat_state first
+    await database.clear_chat_state(chat_id)
+
+    if cmd == "/spec":
+        await _handle_spec(chat_id, parts)
+        return
+    if cmd == "/find" and len(parts) > 1:
+        query = " ".join(parts[1:]).strip()
+        from src import brain
+        results = await brain.search_links(query, top_k=5)
+        if not results:
+            await send_message(chat_id, "No relevant links found in your brain.")
+        else:
+            lines = [
+                f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}"
+                for r in results
+            ]
+            await send_message(chat_id, "\n\n".join(lines), parse_mode="Markdown")
+        return
+    if cmd == "/find":
+        await send_message(chat_id, "Usage: /find <query>")
+        return
+    if cmd == "/rebuild-graph":
+        from src import brain
+        if brain._rebuild_lock.locked():
+            await send_message(chat_id, "Rebuild already in progress — please wait.")
+            return
+        await send_message(chat_id, "Brain rebuild started — will take a few minutes")
+        async def _do_rebuild():
+            try:
+                n = await brain.rebuild_graph()
+                await send_message(chat_id, f"Graph rebuilt — {n} nodes written.")
+            except Exception:
+                await send_message(chat_id, "Rebuild failed. Check logs.")
+        asyncio.create_task(_do_rebuild())
+        return
+    if cmd == "/photobatch-start":
+        client = queue._client()
+        await client.set(f"photo_batch_active:{chat_id}", "1", ex=300)
+        await client.delete(f"photo_batch_files:{chat_id}")
+        asyncio.create_task(_batch_auto_close(chat_id))
+        deadline = (datetime.now(timezone.utc) + timedelta(seconds=300)).strftime("%H:%M:%S")
+        await send_message(chat_id, f"📸 Batch mode started! The bus leaves at {deadline} UTC.")
+        return
+    if cmd == "/photobatch-end":
+        if not await _is_batch_active(chat_id):
+            await send_message(chat_id, "No active batch — use /photoBatch-start first.")
+            return
+        asyncio.create_task(_process_batch(chat_id))
+        return
+    # /start, /help, and any other slash falls through — Telegram handles natively
+
+
+async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
+    """Routing path when chat_state is armed and not expired."""
+    job_id = state["job_id"]
+    pipeline = detect_pipeline(text)
+    if pipeline in ("short", "long"):
+        await database.clear_chat_state(chat_id)
+        await send_message(chat_id, "🔄 Started new job; previous intent canceled.")
+        log.info("prd.chat_state.canceled_by_url", chat_id=chat_id, old_job_id=job_id)
+        new_job_id = await database.create_job(
+            chat_id=chat_id, url=text, content_type=pipeline
+        )
+        await queue.enqueue({"task": "video", "job_id": new_job_id})
+        await send_message(chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
+        return
+    stripped = text.strip()
+    if len(stripped) < 5:
+        await send_message(
+            chat_id,
+            "📐 Intent too short (min 5 chars). Reply with a few words describing your project direction.",
+        )
+        log.info("prd.intent.too_short", chat_id=chat_id, intent_text_len=len(stripped))
+        return
+    if len(stripped) > 1000:
+        await send_message(
+            chat_id,
+            "📐 Intent too long (max 1000 chars). Try a shorter direction.",
+        )
+        log.info("prd.intent.too_long", chat_id=chat_id, intent_text_len=len(stripped))
+        return
+    # Valid intent — persist to DB and enqueue
+    async with database.connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET prd_intent_text=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (stripped, job_id),
+        )
+        await conn.commit()
+    await queue.enqueue({"task": "prd_intent", "job_id": job_id})
+    await database.clear_chat_state(chat_id)
+    log.info("prd.intent.enqueued", chat_id=chat_id, job_id=job_id, intent_text_len=len(stripped))
+    log.info("prd.chat_state.consumed", chat_id=chat_id, job_id=job_id)
+
+
+async def _handle_spec(chat_id: int, parts: list[str]) -> None:
+    """Dispatch /spec <suffix> [intent...]."""
+    if len(parts) < 2:
+        await send_message(
+            chat_id,
+            'Usage: /spec <suffix> [intent text...]\nExample: /spec ABCD desktop app for X',
+        )
+        return
+    suffix = parts[1][-4:]
+    intent_text = " ".join(parts[2:]).strip() or None
+    if intent_text is not None:
+        if len(intent_text) < 5:
+            await send_message(chat_id, "📐 Intent too short (min 5 chars).")
+            return
+        if len(intent_text) > 1000:
+            await send_message(chat_id, "📐 Intent too long (max 1000 chars).")
+            return
+    rows = await database.find_jobs_by_suffix(chat_id, suffix)
+    long_matches = [
+        j for j in rows
+        if j["content_type"] == "long" and j["status"] in ("transcript_done", "done")
+    ]
+    short_matches = [j for j in rows if j["content_type"] == "short"]
+
+    if not long_matches and not short_matches:
+        recent = await database.get_recent_jobs(chat_id, 5)
+        bullet_lines = "\n".join(
+            f"• job_{j['id'][-4:]} — {j.get('title') or '(no title)'} ({j['content_type']}/{j['status']})"
+            for j in recent
+        )
+        await send_message(
+            chat_id,
+            f"No job ending in {suffix} found.\nLast 5 jobs in this chat:\n{bullet_lines}",
+        )
+        log.info("prd.spec.no_match", chat_id=chat_id, suffix=suffix)
+        return
+
+    if not long_matches and short_matches:
+        await send_message(
+            chat_id,
+            f"📐 PRD is only available for long videos. Job {suffix} is a short.",
+        )
+        log.info("prd.spec.short_video_rejected", chat_id=chat_id, suffix=suffix)
+        return
+
+    job = long_matches[0]
+    job_id = job["id"]
+    title = job.get("title") or "(no title)"
+    await send_message(chat_id, f'📐 PRD for: "{title}" — generating ...')
+    log.info("prd.spec.matched", chat_id=chat_id, suffix=suffix, job_id=job_id, intent=bool(intent_text))
+
+    if intent_text:
+        async with database.connection() as conn:
+            await conn.execute(
+                "UPDATE jobs SET prd_intent_text=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (intent_text, job_id),
+            )
+            await conn.commit()
+        await queue.enqueue({"task": "prd_intent", "job_id": job_id})
+        log.info("prd.intent.enqueued", chat_id=chat_id, job_id=job_id, intent_text_len=len(intent_text))
+    else:
+        if job.get("prd_auto_status") == "done" and job.get("prd_auto_json"):
+            await queue.enqueue({"task": "prd_auto_resend", "job_id": job_id})
+        else:
+            await queue.enqueue({"task": "prd_auto", "job_id": job_id})
+
+
 @router.post("/webhook")
 async def webhook(
     request: Request,
@@ -222,13 +398,9 @@ async def webhook(
     text = (message.get("text") or "").strip()
     message_id = message.get("message_id")
 
-    log.info(
-        "webhook_received",
-        chat_id=chat_id,
-        message_id=message_id,
-        text_len=len(text),
-    )
+    log.info("webhook_received", chat_id=chat_id, message_id=message_id, text_len=len(text))
 
+    # Photo path (unchanged)
     photo = message.get("photo")
     if photo and chat_id:
         file_id = photo[-1]["file_id"]
@@ -242,60 +414,30 @@ async def webhook(
     if not chat_id or not text:
         return {"ok": True}
 
-    # Telegram slash commands
-    if text.startswith("/find "):
-        query = text[6:].strip()
-        if not query:
-            await send_message(chat_id, "Usage: /find <query>")
-            return {"ok": True}
-        from src import brain
+    # 1. Slash command path
+    if text.startswith("/"):
+        await _dispatch_slash(chat_id, text)
+        return {"ok": True}
 
-        results = await brain.search_links(query, top_k=5)
-        if not results:
-            await send_message(chat_id, "No relevant links found in your brain.")
+    # 2. Awaiting-intent path
+    state = await database.get_chat_state(chat_id)
+    if state:
+        from datetime import datetime as _dt, timezone as _tz
+        expires_at_raw = state["expires_at"]
+        try:
+            expires_at = _dt.fromisoformat(expires_at_raw.replace(" ", "T"))
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=_tz.utc)
+        except Exception:
+            expires_at = None
+        if expires_at and expires_at > _dt.now(_tz.utc):
+            await _handle_awaiting_intent(chat_id, text, state)
+            return {"ok": True}
         else:
-            lines = []
-            for r in results:
-                lines.append(
-                    f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}"
-                )
-            await send_message(chat_id, "\n\n".join(lines), parse_mode="Markdown")
-        return {"ok": True}
+            log.info("prd.chat_state.expired_or_missed", chat_id=chat_id)
+            # fall through to normal URL routing
 
-    if text == "/rebuild-graph":
-        from src import brain
-
-        if brain._rebuild_lock.locked():
-            await send_message(chat_id, "Rebuild already in progress — please wait.")
-            return {"ok": True}
-        await send_message(chat_id, "Brain rebuild started — will take a few minutes")
-
-        async def _do_rebuild():
-            try:
-                n = await brain.rebuild_graph()
-                await send_message(chat_id, f"Graph rebuilt — {n} nodes written.")
-            except Exception:
-                await send_message(chat_id, "Rebuild failed. Check logs.")
-
-        asyncio.create_task(_do_rebuild())
-        return {"ok": True}
-
-    if text == "/photoBatch-start":
-        client = queue._client()
-        await client.set(f"photo_batch_active:{chat_id}", "1", ex=300)
-        await client.delete(f"photo_batch_files:{chat_id}")
-        asyncio.create_task(_batch_auto_close(chat_id))
-        deadline = (datetime.now(timezone.utc) + timedelta(seconds=300)).strftime("%H:%M:%S")
-        await send_message(chat_id, f"📸 Batch mode started! The bus leaves at {deadline} UTC.")
-        return {"ok": True}
-
-    if text == "/photoBatch-end":
-        if not await _is_batch_active(chat_id):
-            await send_message(chat_id, "No active batch — use /photoBatch-start first.")
-            return {"ok": True}
-        asyncio.create_task(_process_batch(chat_id))
-        return {"ok": True}
-
+    # 3. Normal URL routing
     pipeline = detect_pipeline(text)
     if pipeline == "rejected":
         await send_message(
@@ -307,10 +449,7 @@ async def webhook(
         return {"ok": True}
 
     job_id = await database.create_job(
-        chat_id=chat_id,
-        url=text,
-        content_type=pipeline,
-        message_id=message_id,
+        chat_id=chat_id, url=text, content_type=pipeline, message_id=message_id,
     )
     await queue.enqueue({"task": "video", "job_id": job_id})
     await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
