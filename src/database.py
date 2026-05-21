@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -153,3 +153,76 @@ async def update_job_status(job_id: str, status: str, **fields: Any) -> None:
         )
         await conn.commit()
     log.info("job_status_updated", job_id=job_id, status=status)
+
+
+async def get_chat_state(chat_id: int) -> dict | None:
+    """Return the chat_state row for chat_id, or None if absent."""
+    async with connection() as conn:
+        cursor = await conn.execute(
+            "SELECT chat_id, mode, job_id, created_at, expires_at FROM chat_state WHERE chat_id = ?",
+            (chat_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def set_chat_state(
+    chat_id: int, mode: str, job_id: str, expires_minutes: int = 10
+) -> None:
+    """Insert or replace a chat_state row (PK chat_id gives upsert semantics).
+
+    Logs ``prd.chat_state.replaced_other_job`` when overwriting a row for a different job_id.
+    """
+    existing = await get_chat_state(chat_id)
+    if existing and existing["job_id"] != job_id:
+        log.info(
+            "prd.chat_state.replaced_other_job",
+            chat_id=chat_id,
+            old_job_id=existing["job_id"],
+            new_job_id=job_id,
+        )
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(minutes=expires_minutes)
+    async with connection() as conn:
+        await conn.execute(
+            """
+            INSERT OR REPLACE INTO chat_state (chat_id, mode, job_id, created_at, expires_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (chat_id, mode, job_id, now.isoformat(), expires.isoformat()),
+        )
+        await conn.commit()
+
+
+async def clear_chat_state(chat_id: int) -> None:
+    """Remove the chat_state row for chat_id, if any. Idempotent."""
+    async with connection() as conn:
+        await conn.execute("DELETE FROM chat_state WHERE chat_id = ?", (chat_id,))
+        await conn.commit()
+
+
+async def find_jobs_by_suffix(chat_id: int, suffix: str) -> list[dict]:
+    """Return all jobs in chat_id whose id ends with suffix. Ordered by created_at DESC.
+
+    Returns all content_types and statuses. Caller filters as needed
+    (see webhook /spec handler).
+    """
+    async with connection() as conn:
+        cursor = await conn.execute(
+            "SELECT * FROM jobs WHERE chat_id = ? AND id LIKE '%' || ? ORDER BY created_at DESC, id DESC",
+            (chat_id, suffix),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def get_recent_jobs(chat_id: int, limit: int = 5) -> list[dict]:
+    """Return the most-recent jobs in chat_id, capped at limit."""
+    async with connection() as conn:
+        cursor = await conn.execute(
+            "SELECT id, title, content_type, status FROM jobs "
+            "WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+            (chat_id, limit),
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
