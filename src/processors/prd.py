@@ -263,6 +263,67 @@ def _call_gemini_prd_sync(prompt: str, api_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Auto-resend (re-deliver cached PRD without re-calling Gemini)
+# ---------------------------------------------------------------------------
+
+async def run_auto_resend(job_id: str) -> None:
+    """Re-deliver an existing auto-slot PRD without re-calling Gemini.
+
+    Reads ``prd_auto_json`` and ``prd_auto_drive_file_id`` from the DB,
+    re-renders markdown (in case ``build_prd_markdown`` improved), updates
+    the Drive file in place, and re-sends the document to Telegram.
+    """
+    job = await database.get_job(job_id)
+    if not job:
+        log.error("prd.auto_resend.job_not_found", job_id=job_id)
+        return
+    chat_id = job["chat_id"]
+    cached_file_id = job.get("prd_auto_drive_file_id")
+    cached_json = job.get("prd_auto_json")
+    if not cached_file_id or not cached_json:
+        log.warning(
+            "prd.auto_resend.cache_missing",
+            job_id=job_id,
+            has_file_id=bool(cached_file_id),
+            has_json=bool(cached_json),
+        )
+        from src.telegram.sender import send_message
+        await send_message(chat_id, "⚠️ Cached PRD missing. Regenerating from scratch...")
+        await run_auto(job_id)
+        return
+
+    try:
+        prd_data = json.loads(cached_json)
+    except Exception:
+        log.error("prd.auto_resend.json_parse_failed", job_id=job_id)
+        await run_auto(job_id)
+        return
+
+    md_content = build_prd_markdown(prd_data)
+    slug = re.sub(r"[^a-z0-9]+", "_", (prd_data.get("project") or "prd").lower())[:40].strip("_")
+    filename = f"{slug}_{job_id[-4:]}_auto.md"
+
+    from src.services.drive import update_file
+    from src.telegram.sender import send_document, send_message, send_inline_keyboard
+    try:
+        await update_file(cached_file_id, md_content)
+        log.info("prd.drive.updated", job_id=job_id, file_id=cached_file_id, slot="auto_resend")
+    except Exception:
+        log.exception("prd.auto_resend.drive_failed", job_id=job_id)
+        # Fall through — we still have md_content locally, deliver it
+    await send_document(
+        chat_id, md_content.encode("utf-8"), filename, caption="📐 Auto-generated PRD"
+    )
+    summary_lines = build_summary_lines(prd_data)
+    await send_message(chat_id, "\n".join(summary_lines))
+    await send_inline_keyboard(
+        chat_id,
+        "💡 Want to refine? Build a deeper spec:",
+        buttons=[[{"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"}]],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 

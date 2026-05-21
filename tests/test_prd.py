@@ -352,3 +352,38 @@ async def test_reaper_intent_resets_stale_generating_rows(temp_db_for_prd):
         rows = await cur.fetchall()
     statuses = {r["id"]: r["prd_intent_status"] for r in rows}
     assert statuses == {"J_FRESH": "generating", "J_STALE": "error"}
+
+
+# ---------------------------------------------------------------------------
+# run_auto_resend (slice #7, Task 8)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_run_auto_resend_uses_cached_json(temp_db_for_prd, monkeypatch):
+    """run_auto_resend reads cached JSON and calls update_file (not upload_file)."""
+    from unittest.mock import AsyncMock
+    import aiosqlite
+    from src.processors import prd
+
+    cached = '{"project":"Cached","overview":"","phases":[],"open_questions":[]}'
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_auto_status, "
+            "prd_auto_drive_file_id, prd_auto_drive_url, prd_auto_json) "
+            "VALUES ('J_CACHE', 1, 'u', 'long', 'done', 'done', 'DRIVE_ID_1', 'http://x', ?)",
+            (cached,),
+        )
+        await conn.commit()
+
+    updated = AsyncMock(return_value="http://x")
+    monkeypatch.setattr("src.services.drive.update_file", updated)
+    monkeypatch.setattr("src.telegram.sender.send_document", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_message", AsyncMock())
+    monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
+
+    await prd.run_auto_resend("J_CACHE")
+
+    updated.assert_awaited_once()
+    args, _ = updated.await_args
+    assert args[0] == "DRIVE_ID_1"
+    assert "Cached" in args[1]  # rendered markdown contains project name
