@@ -15,6 +15,21 @@ from src.processors.prd import (
 )
 
 
+@pytest.fixture
+async def temp_db_for_prd():
+    """Create a temp SQLite file with the full schema applied, patched into settings."""
+    import os as _os
+    import tempfile as _tf
+    from unittest.mock import patch as _patch
+    fd, path = _tf.mkstemp(suffix=".db")
+    _os.close(fd)
+    with _patch("src.config.settings.DB_PATH", path):
+        from src import database as _db
+        await _db.init_db()
+        yield path
+    _os.unlink(path)
+
+
 # ---------------------------------------------------------------------------
 # sample_transcript
 # ---------------------------------------------------------------------------
@@ -309,3 +324,31 @@ def test_build_summary_lines_caps_at_two_overview_sentences():
     prd = {"project": "X", "overview": "One. Two. Three. Four.", "phases": [], "features": []}
     lines = build_summary_lines(prd)
     assert lines == ["Project: X", "One.", "Two.", "0 phases, 0 features"]
+
+
+# ---------------------------------------------------------------------------
+# reaper_intent (slice #7)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reaper_intent_resets_stale_generating_rows(temp_db_for_prd):
+    """A 'generating' row older than 10 minutes is reset to 'error'."""
+    import aiosqlite
+    from src.processors import prd
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_intent_status, updated_at) "
+            "VALUES ('J_STALE', 1, 'u', 'long', 'done', 'generating', datetime('now','-15 minutes'))"
+        )
+        await conn.execute(
+            "INSERT INTO jobs (id, chat_id, url, content_type, status, prd_intent_status, updated_at) "
+            "VALUES ('J_FRESH', 1, 'u', 'long', 'done', 'generating', datetime('now','-2 minutes'))"
+        )
+        await conn.commit()
+    await prd.reaper_intent()
+    async with aiosqlite.connect(temp_db_for_prd) as conn:
+        conn.row_factory = aiosqlite.Row
+        cur = await conn.execute("SELECT id, prd_intent_status FROM jobs ORDER BY id")
+        rows = await cur.fetchall()
+    statuses = {r["id"]: r["prd_intent_status"] for r in rows}
+    assert statuses == {"J_FRESH": "generating", "J_STALE": "error"}

@@ -231,6 +231,18 @@ async def reaper() -> None:
             log.info("prd.reaper.released", count=cur.rowcount)
 
 
+async def reaper_intent() -> None:
+    """Reset stale in-progress intent-slot PRD jobs (run once at worker startup)."""
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            "UPDATE jobs SET prd_intent_status='error', updated_at=CURRENT_TIMESTAMP "
+            "WHERE prd_intent_status='generating' AND updated_at < datetime('now','-10 minutes')"
+        )
+        await conn.commit()
+        if cur.rowcount:
+            log.info("prd.reaper_intent.released", count=cur.rowcount)
+
+
 # ---------------------------------------------------------------------------
 # Gemini call (sync wrapper for asyncio.to_thread)
 # ---------------------------------------------------------------------------
