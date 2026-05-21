@@ -153,21 +153,13 @@ async def _handle_callback(callback: dict) -> None:
         if job.get("prd_auto_status") == "done" and job.get("prd_auto_json"):
             await send_message(chat_id, "📐 Re-sending your PRD...")
             await queue.enqueue({"task": "prd_auto_resend", "job_id": job_id})
+        elif job.get("prd_auto_status") == "generating":
+            await send_message(chat_id, "📐 PRD already generating, hang tight.")
         else:
-            # Lazy generation. Atomic lock try before enqueueing.
-            async with database.connection() as conn:
-                cur = await conn.execute(
-                    "UPDATE jobs SET prd_auto_status='generating', updated_at=CURRENT_TIMESTAMP "
-                    "WHERE id=? AND (prd_auto_status IS NULL OR prd_auto_status='error')",
-                    (job_id,),
-                )
-                await conn.commit()
-                acquired = cur.rowcount > 0
-            if acquired:
-                await send_message(chat_id, "📐 Generating PRD, hang tight...")
-                await queue.enqueue({"task": "prd_auto", "job_id": job_id})
-            else:
-                await send_message(chat_id, "📐 PRD already generating, hang tight.")
+            # Lazy generation — worker is the single source of truth for the lock.
+            # Webhook just enqueues optimistically; run_auto handles the atomic lock.
+            await send_message(chat_id, "📐 Generating PRD, hang tight...")
+            await queue.enqueue({"task": "prd_auto", "job_id": job_id})
 
     elif data.startswith("prd_intent_prompt:"):
         job_id = data.split(":", 1)[1]

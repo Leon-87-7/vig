@@ -253,6 +253,28 @@ async def test_callback_prd_auto_lazy_when_status_null(temp_db, monkeypatch):
         {"id": "CB", "data": "prd_auto:J_NULL", "message": {"chat": {"id": 100}}}
     )
     enqueued.assert_awaited_once_with({"task": "prd_auto", "job_id": "J_NULL"})
+    # Webhook MUST NOT pre-acquire the lock — worker is the single source of truth.
+    # Otherwise run_auto's own atomic lock fails with lock_contention and the PRD never generates.
+    from src import database as db
+    job = await db.get_job("J_NULL")
+    assert job["prd_auto_status"] is None
+
+
+@pytest.mark.asyncio
+async def test_callback_prd_auto_already_generating(temp_db, monkeypatch):
+    """If status='generating', reply 'already generating' and skip enqueue."""
+    from src.telegram import webhook
+    await _seed_job(temp_db, "J_GEN", chat_id=100, prd_auto_status="generating")
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.sender.send_message", sent)
+    monkeypatch.setattr("src.telegram.sender.answer_callback_query", AsyncMock())
+    await webhook._handle_callback(
+        {"id": "CB", "data": "prd_auto:J_GEN", "message": {"chat": {"id": 100}}}
+    )
+    enqueued.assert_not_awaited()
+    assert "already generating" in sent.await_args.args[1]
 
 
 @pytest.mark.asyncio
