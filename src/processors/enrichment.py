@@ -121,7 +121,7 @@ def _call_gemini_sync(prompt: str, api_key: str) -> str:
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-    return response.text
+    return response.text or ""
 
 
 async def _call_gemini(prompt: str, api_key: str) -> str:
@@ -208,7 +208,11 @@ async def run(job_id: str) -> None:
         enrichment = await enrich(job)
     except EnrichmentUnavailableError:
         title = job.get("title", "(unknown video)")
-        await send_message(chat_id, f"{tag}\n⚠️ Gemini failed to enrich: {title}")
+        await send_inline_keyboard(
+            chat_id,
+            f"{tag}\n⚠️ Gemini failed to enrich: {title}",
+            buttons=[[{"text": "🔄 Retry", "callback_data": f"enrichment_retry:{job_id}"}]],
+        )
         await database.update_job_status(job_id, "error")
         return
 
