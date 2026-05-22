@@ -1788,14 +1788,17 @@ _(chat_state stays armed; next message is still treated as intent)_
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_WEBHOOK_SECRET=your-random-secret-string
-TELEGRAM_WEBHOOK_URL=https://yourdomain.com/webhook
+WEBHOOK_URL=https://yourdomain.com/webhook
 
 # --- Gemini (two keys: free first, paid fallback for enrichment) ---
 GEMINI_FREE_API_KEY=AIzaSy...
 GEMINI_PAID_API_KEY=AIzaSy...
 
 # --- Google APIs ---
-GOOGLE_APPLICATION_CREDENTIALS=./service-account.json
+GOOGLE_SERVICE_ACCOUNT_JSON=./service-account.json
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REFRESH_TOKEN=
 
 # Drive — separate folders for short and long pipeline outputs
 GOOGLE_DRIVE_FOLDER_SHORT=1CbD66mZHw-l0omyBlzpIo7h07AL66ORh
@@ -1808,8 +1811,8 @@ GOOGLE_SHEETS_ID_LONG=1_dbaViGITC0FzFLwr-9oiLC9OFATJcnsUMtKH9gDqQA
 # Second Brain (optional, for brain.py feature)
 GOOGLE_DRIVE_FOLDER_BRAIN=
 BRAIN_REFRESH_BATCH=50
-BRAIN_MIN_SCORE=0.75
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+BRAIN_MIN_SCORE=0.5
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 GEMINI_BRAIN_API_KEY=AIzaSy...
 
 # --- Mini-PRD feature (see §14) ---
@@ -1822,7 +1825,7 @@ PRD_AUTO_MODEL=gemini-2.5-flash                # Auto slot — cheap default
 PRD_INTENT_MODEL=gemini-2.5-pro                # Intent slot — premium for user-invested re-run
 
 # --- Brave Search (short video link verification) ---
-BRAVE_SEARCH_API_KEY=BSA...
+BRAVE_API_KEY=BSA...
 ENABLE_BRAVE_SEARCH=true
 
 # --- Internal services (transcript_server.py on port 5151) ---
@@ -1831,10 +1834,8 @@ TRANSCRIPT_SERVICE_URL=http://host.docker.internal:5151
 
 # --- Runtime ---
 REDIS_URL=redis://localhost:6379/0
+DB_PATH=/app/data/jobs.db
 LOG_LEVEL=INFO
-MAX_CONCURRENT_WORKERS=3
-JOB_TIMEOUT_SECONDS=120
-MAX_RETRY_ATTEMPTS=3
 ```
 
 > **Note on service URLs:** The existing `transcript_server.py` is accessed at different addresses depending on caller context. In the n8n workflow, short-frame calls used the hardcoded LAN IP `10.0.0.4:5151` while transcript/metadata calls used `host.docker.internal:5151`. The Python replacement should configure both via env vars and default to the same host if running outside Docker.
@@ -2180,11 +2181,11 @@ uvicorn src.main:app --reload --port 8000
 # 8. In another terminal, start worker
 python -m src.worker
 
-# 9. Set up Telegram webhook (ngrok for local testing)
-ngrok http 8000
-# Copy ngrok HTTPS URL
+# 9. Set up Telegram webhook (Cloudflare Tunnel for local testing)
+cloudflared tunnel --url http://localhost:8000
+# Copy the assigned HTTPS hostname
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-     -d "url=https://your-ngrok-url.ngrok.io/webhook"
+     -d "url=https://your-tunnel.trycloudflare.com/webhook"
 
 # 10. Register bot commands with BotFather (one-time, for autocomplete in Telegram)
 # Open chat with @BotFather, run /setcommands, select your bot, then paste:
@@ -2192,7 +2193,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 #   spec - Generate PRD for a long video (last 4 chars of job ID, optional intent text)
 #   cancel - Cancel pending intent capture
 #   find - Search Second Brain links by query
-#   rebuild - Rebuild Second Brain graph from scratch
+#   rebuild-graph - Rebuild Second Brain graph from scratch
 #
 # These commands work without registration; registration only adds the autocomplete UX.
 
