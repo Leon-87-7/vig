@@ -1,19 +1,16 @@
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Dict, List
+from dataclasses import dataclass
 
 
 @dataclass
 class PromptTemplate:
     name: str
     description: str
-    trigger_patterns: List[str]
+    trigger_patterns: list[str]
     extra_instructions: str = ""
     brave_search: bool = False
 
 
-PROMPT_TEMPLATES: Dict[str, PromptTemplate] = {
+PROMPT_TEMPLATES: dict[str, PromptTemplate] = {
     "summary": PromptTemplate(
         name="summary",
         description="General content overview (default)",
