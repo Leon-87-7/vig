@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Photo link hallucination (#11)** — Gemini was appending `.com` to every brand name/card label visible in screenshots (e.g. `threadcan.com`, `redactai.com`) because the prompt instructed it to "infer full URL from brand name". Rewrote `_PHOTO_PROMPT` to require a verbatim OCR quote for each link, and added `_filter_grounded_links()` post-filter: any URL whose domain doesn't appear literally in the model's quoted `verbatim` substring (or the summary) is dropped before the user sees it. Also updated the monkeypatches in 6 PRD callback tests to target the now-top-level `src.telegram.webhook` bindings.
+- **Photo link hallucination (#11)** — Gemini was appending `.com` to every brand name/card label visible in screenshots (e.g. `threadcan.com`, `redactai.com`) because the prompt instructed it to "infer full URL from brand name". Rewrote `_PHOTO_PROMPT` to require a verbatim OCR quote (surrounding phrase context, not just the bare domain) for each link, and added `_filter_grounded_links()` post-filter: any URL whose domain doesn't appear literally in `verbatim` (or the summary) is dropped; links whose verbatim phrase matches `\bfollowed by\b` (Instagram/TikTok follower UI chrome) are also dropped. Also updated the monkeypatches in 6 PRD callback tests to target the now-top-level `src.telegram.webhook` bindings.
 
 ### Added
 

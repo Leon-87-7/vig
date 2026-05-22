@@ -96,6 +96,26 @@ def test_drops_handle_missing_at():
     assert _filter_grounded_links([link], "") == []
 
 
+def test_drops_ui_chrome_followed_by():
+    """Domain in a 'Followed by X' phrase → Gemini includes phrase context in verbatim → dropped."""
+    link = _link("https://chase.h.ai", verbatim="Followed by chase.h.ai and 1 other")
+    assert _filter_grounded_links([link], "") == []
+
+
+def test_drops_ui_chrome_verbatim():
+    """Any verbatim that contains 'followed by' is dropped."""
+    link = _link("https://chase.h.ai", verbatim="followed by chase.h.ai")
+    assert _filter_grounded_links([link], "") == []
+
+
+def test_keeps_link_when_chrome_signal_not_in_verbatim():
+    """Real promoted link survives even if summary prose happens to mention follower context."""
+    link = _link("https://trustmrr.com", verbatim="TrustMRR.com — database of verified startup revenues")
+    summary = "TrustMRR.com leaderboard. Followed by chase.h.ai and 1 other."
+    result = _filter_grounded_links([link], summary)
+    assert [l["url"] for l in result] == ["https://trustmrr.com"]
+
+
 def test_empty_links():
     assert _filter_grounded_links([], "") == []
 
@@ -126,7 +146,7 @@ _SCREENSHOT_LINKS = [
     _link("https://kibu.com", verbatim="Kibu"),
     _link("https://cometly.com", verbatim="Cometly"),
     _link("https://1capture.com", verbatim="1Capture"),
-    _link("https://chase.h.ai", verbatim="chase.h.ai"),  # domain with dot → kept
+    _link("https://chase.h.ai", verbatim="Followed by chase.h.ai and 1 other"),  # UI chrome → dropped
     # Handle without platform in verbatim
     _link("https://instagram.com/kirkstencell", verbatim="kirkstencell"),
     # Fiddl.art — TLD appears in label text
@@ -136,7 +156,6 @@ _SCREENSHOT_LINKS = [
 _EXPECTED_KEPT = {
     "https://trustmrr.com",
     "https://sidestack.io",
-    "https://chase.h.ai",
     "https://fiddl.art",
 }
 
