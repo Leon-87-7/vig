@@ -15,7 +15,7 @@ from src.brain import (
     _cosine_similarity,
     _load_embeddings,
     _rebuild_lock,
-    _resolve_title_sync,
+    _resolve_title,
     rebuild_graph,
     refresh_stale_links,
     search_links,
@@ -96,32 +96,33 @@ def test_load_embeddings_bad_length_skipped(caplog):
 
 
 # ---------------------------------------------------------------------------
-# _resolve_title_sync
+# _resolve_title
 # ---------------------------------------------------------------------------
 
-def test_resolve_title_github():
-    """GitHub URL should return owner/repo hint (Gemini echoes hint back)."""
+@pytest.mark.asyncio
+async def test_resolve_title_github():
+    """GitHub URL should return the title from gemini_client.generate."""
     url = "https://github.com/vercel/next.js"
     topic = "web dev"
 
-    with patch("google.genai.Client") as MockClient:
-        MockClient.return_value.models.generate_content.return_value = MagicMock(text="vercel/next.js")
-        result = _resolve_title_sync(url, topic, api_key="fake-key")
+    with patch("src.services.gemini_client.gemini_client") as mock_client:
+        mock_client.generate = AsyncMock(return_value="vercel/next.js")
+        result = await _resolve_title(url, topic)
 
     assert result == "vercel/next.js"
 
 
-def test_resolve_title_strip_tld():
-    """Non-GitHub URL strips www. and TLD; Gemini echoes back the hint."""
+@pytest.mark.asyncio
+async def test_resolve_title_strip_tld():
+    """Non-GitHub URL falls back to hint when GeminiUnavailableError is raised."""
+    from src.services.gemini_client import GeminiUnavailableError
+
     url = "https://docs.tailwindcss.com/getting-started"
     topic = "css"
 
-    with patch("google.genai.Client") as MockClient:
-        # Extract the hint embedded in the contents string
-        MockClient.return_value.models.generate_content.side_effect = (
-            lambda model, contents: MagicMock(text=contents.split("'")[1])
-        )
-        result = _resolve_title_sync(url, topic, api_key="fake-key")
+    with patch("src.services.gemini_client.gemini_client") as mock_client:
+        mock_client.generate = AsyncMock(side_effect=GeminiUnavailableError("both failed"))
+        result = await _resolve_title(url, topic)
 
     assert result == "docs.tailwindcss"
 

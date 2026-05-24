@@ -439,8 +439,8 @@ async def test_intent_cooldown_allows_after_15s(temp_db_for_prd, monkeypatch):
         await conn.commit()
 
     monkeypatch.setattr(
-        "src.processors.prd._call_gemini_sync",
-        lambda prompt, key, model: '{"project":"X","category":"Other","overview":"","phases":[],"open_questions":[]}',
+        "src.services.gemini_client.gemini_client.generate",
+        AsyncMock(return_value='{"project":"X","category":"Other","overview":"","phases":[],"open_questions":[]}'),
     )
     monkeypatch.setattr("src.services.drive.upload_file", AsyncMock(return_value=("FID","URL")))
     monkeypatch.setattr("src.services.drive.update_file", AsyncMock(return_value="URL"))
@@ -451,8 +451,6 @@ async def test_intent_cooldown_allows_after_15s(temp_db_for_prd, monkeypatch):
     monkeypatch.setattr("src.brain.ingest_links", AsyncMock())
     from src.config import settings
     monkeypatch.setattr(settings, "GOOGLE_DRIVE_FOLDER_BRAIN", "")
-    # Ensure at least one Gemini key is set so the loop body runs
-    monkeypatch.setattr(settings, "GEMINI_FREE_API_KEY", "free-key")
 
     await prd.run_intent("J_OK")
 
@@ -486,8 +484,8 @@ async def test_run_prd_auto_completes_full_pipeline(temp_db_for_prd, monkeypatch
         await conn.commit()
 
     monkeypatch.setattr(
-        "src.processors.prd._call_gemini_sync",
-        lambda prompt, key, model: _CANNED_PRD_JSON,
+        "src.services.gemini_client.gemini_client.generate",
+        AsyncMock(return_value=_CANNED_PRD_JSON),
     )
     monkeypatch.setattr("src.services.drive.upload_file", AsyncMock(return_value=("FILE_ID", "http://drive/auto")))
     monkeypatch.setattr("src.services.drive.update_file", AsyncMock(return_value="http://drive/auto"))
@@ -497,8 +495,6 @@ async def test_run_prd_auto_completes_full_pipeline(temp_db_for_prd, monkeypatch
     monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
     from src.config import settings
     monkeypatch.setattr(settings, "GOOGLE_DRIVE_FOLDER_BRAIN", "")
-    monkeypatch.setattr(settings, "GEMINI_FREE_API_KEY", "free-key")
-    monkeypatch.setattr(settings, "GEMINI_PAID_API_KEY", "")
 
     await prd.run_prd("J_AUTO", slot="auto", model="gemini-model",
                       build_prompt=lambda j: "canned prompt")
@@ -530,8 +526,8 @@ async def test_run_prd_intent_sets_completed_at(temp_db_for_prd, monkeypatch):
         await conn.commit()
 
     monkeypatch.setattr(
-        "src.processors.prd._call_gemini_sync",
-        lambda prompt, key, model: _CANNED_PRD_JSON,
+        "src.services.gemini_client.gemini_client.generate",
+        AsyncMock(return_value=_CANNED_PRD_JSON),
     )
     monkeypatch.setattr("src.services.drive.upload_file", AsyncMock(return_value=("FID2", "http://drive/intent")))
     monkeypatch.setattr("src.services.drive.update_file", AsyncMock(return_value="http://drive/intent"))
@@ -541,8 +537,6 @@ async def test_run_prd_intent_sets_completed_at(temp_db_for_prd, monkeypatch):
     monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", AsyncMock())
     from src.config import settings
     monkeypatch.setattr(settings, "GOOGLE_DRIVE_FOLDER_BRAIN", "")
-    monkeypatch.setattr(settings, "GEMINI_FREE_API_KEY", "free-key")
-    monkeypatch.setattr(settings, "GEMINI_PAID_API_KEY", "")
     monkeypatch.setattr(settings, "PRD_INTENT_COOLDOWN_SECONDS", 0)
 
     await prd.run_prd("J_INT2", slot="intent", model="gemini-model",
@@ -571,15 +565,13 @@ async def test_run_prd_auto_gemini_fail_sends_retry_keyboard(temp_db_for_prd, mo
         )
         await conn.commit()
 
-    def _raise(prompt, key, model):
-        raise RuntimeError("Gemini down")
-
-    monkeypatch.setattr("src.processors.prd._call_gemini_sync", _raise)
+    from src.services.gemini_client import GeminiUnavailableError
+    monkeypatch.setattr(
+        "src.services.gemini_client.gemini_client.generate",
+        AsyncMock(side_effect=GeminiUnavailableError("Gemini down")),
+    )
     send_keyboard = AsyncMock()
     monkeypatch.setattr("src.telegram.sender.send_inline_keyboard", send_keyboard)
-    from src.config import settings
-    monkeypatch.setattr(settings, "GEMINI_FREE_API_KEY", "free-key")
-    monkeypatch.setattr(settings, "GEMINI_PAID_API_KEY", "paid-key")
 
     await prd.run_prd("J_FAIL", slot="auto", model="gemini-model",
                       build_prompt=lambda j: "canned prompt")
