@@ -12,6 +12,7 @@ from src.processors.enrichment import (
     EnrichmentUnavailableError,
     _build_audio_prompt,
     _build_enrichment_message,
+    _build_prompt,
     _extract_json,
     _parse_enrichment,
     enrich,
@@ -265,3 +266,14 @@ def test_build_enrichment_message_contains_title() -> None:
     enrichment = _make_enrichment()
     msg = _build_enrichment_message(job, enrichment)
     assert "Test Video Title" in msg
+
+
+# ---------------------------------------------------------------------------
+# Promise-gap analysis (issue #33)
+# ---------------------------------------------------------------------------
+
+def test_build_prompt_contains_promise_gap_instruction() -> None:
+    prompt = _build_prompt("My Title", "some transcript content")
+    assert "promise_gap" in prompt
+    assert "gaps" in prompt
+    assert "hidden_value" in prompt

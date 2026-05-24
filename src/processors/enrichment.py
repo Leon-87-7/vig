@@ -18,6 +18,19 @@ log = get_logger(__name__)
 MAX_TRANSCRIPT_CHARS = 12_000
 EMBEDDING_DIM = 768
 
+_PROMISE_GAP_SUFFIX = """
+
+### STEP 6: PROMISE-GAP ANALYSIS
+Identify where the title/thumbnail sets expectations the content does not fully satisfy.
+
+Add this field to your JSON output (alongside the other fields):
+  "promise_gap": {
+    "gaps": ["specific promise in the title that the video never delivers"],
+    "hidden_value": ["genuinely useful insight not signalled by the title"]
+  }
+
+Use empty arrays when nothing fits. This field is REQUIRED in every response."""
+
 
 class EnrichmentUnavailableError(RuntimeError):
     pass
@@ -99,7 +112,7 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no text before
   "market_data": "Summary of symbols, trends, or price levels if Category B, else empty string"
 }}
 
-{extra}{context}
+{extra}{context}{_PROMISE_GAP_SUFFIX}
 ### TRANSCRIPT:
 {truncated}"""
 
