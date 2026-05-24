@@ -304,3 +304,34 @@ def test_build_prompt_contains_promise_gap_instruction() -> None:
     assert "promise_gap" in prompt
     assert "gaps" in prompt
     assert "hidden_value" in prompt
+
+
+def test_build_enrichment_message_with_promise_gap() -> None:
+    """Message includes separator + gaps + hidden_value when promise_gap is present."""
+    job = {"id": "20260519_120000_ABCD", "title": "Test Video", "chat_id": 1, "drive_url": ""}
+    enrichment = _make_enrichment()
+    promise_gap = {
+        "gaps": ["Advanced deployment never covered"],
+        "hidden_value": ["Practical n8n error handling tips"],
+    }
+    msg = _build_enrichment_message(job, enrichment, promise_gap=promise_gap)
+    assert "=====PROMISE=GAP=====" in msg
+    assert "Advanced deployment never covered" in msg
+    assert "Practical n8n error handling tips" in msg
+
+
+def test_build_enrichment_message_no_promise_gap_omits_separator() -> None:
+    """Separator absent when promise_gap is None."""
+    job = {"id": "20260519_120000_ABCD", "title": "Test Video", "chat_id": 1, "drive_url": ""}
+    enrichment = _make_enrichment()
+    msg = _build_enrichment_message(job, enrichment)
+    assert "=====PROMISE=GAP=====" not in msg
+
+
+def test_build_enrichment_message_empty_promise_gap_omits_separator() -> None:
+    """Separator absent when both arrays are empty."""
+    job = {"id": "20260519_120000_ABCD", "title": "Test Video", "chat_id": 1, "drive_url": ""}
+    enrichment = _make_enrichment()
+    promise_gap = {"gaps": [], "hidden_value": []}
+    msg = _build_enrichment_message(job, enrichment, promise_gap=promise_gap)
+    assert "=====PROMISE=GAP=====" not in msg

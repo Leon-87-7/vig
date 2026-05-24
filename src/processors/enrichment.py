@@ -279,7 +279,10 @@ def _format_template_analysis(template: str, analysis: dict) -> str:
 
 
 def _build_enrichment_message(
-    job: dict, enrichment: Enrichment, template_analysis: dict | None = None
+    job: dict,
+    enrichment: Enrichment,
+    template_analysis: dict | None = None,
+    promise_gap: dict | None = None,
 ) -> str:
     tag = f"job_{job['id'][-4:]}:"
     title = _escape_md(job.get("title", "Untitled"))
@@ -321,6 +324,18 @@ def _build_enrichment_message(
     if template_analysis:
         template = job.get("template") or "summary"
         parts.append(_format_template_analysis(template, template_analysis))
+
+    gaps = promise_gap.get("gaps", []) if promise_gap else []
+    hidden = promise_gap.get("hidden_value", []) if promise_gap else []
+    if gaps or hidden:
+        parts.append("\n=====PROMISE=GAP=====")
+        if gaps:
+            parts.append("❌ Unfulfilled:")
+            parts.extend(f"• {_escape_md(g)}" for g in gaps)
+        if hidden:
+            parts.append("💎 Hidden value:")
+            parts.extend(f"• {_escape_md(h)}" for h in hidden)
+
     return "\n".join(parts)
 
 
@@ -376,7 +391,7 @@ async def run(job_id: str) -> None:
         completed_at=now,
     )
 
-    msg = _build_enrichment_message(job, enrichment, template_analysis)
+    msg = _build_enrichment_message(job, enrichment, template_analysis, promise_gap)
     await send_message(chat_id, msg, parse_mode="Markdown")
 
     await send_inline_keyboard(
