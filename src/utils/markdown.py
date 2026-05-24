@@ -80,7 +80,7 @@ def build_enriched_links_message(links: list[dict]) -> str:
             title = lnk.get("_gh_description") or lnk.get("label") or lnk["url"]
             language = lnk.get("_language") or "N/A"
             meta = (
-                f"  ⭐ {lnk['_stars']} | 🍴 {lnk['_forks']}"
+                f"  ⭐ {lnk['_stars']} | 🔀 {lnk['_forks']}"
                 f" | 💻 {language} | 📅 {_humanize_age(lnk['_days_ago'])}"
             )
             labeled_parts.append(f"• {title}\n{meta}\n  🔗 {lnk['url']}")
