@@ -85,6 +85,34 @@ def _parse_vtt(path: str) -> str:
     return " ".join(deduped)
 
 
+def _download_audio_b64(url: str, tmp_dir: str) -> tuple[str, str]:
+    """Download audio-only via yt-dlp, return (base64_string, mime_type)."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "format": "bestaudio[ext=m4a]/bestaudio/best",
+        "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+    }
+    if INSTAGRAM_COOKIES and os.path.exists(INSTAGRAM_COOKIES):
+        ydl_opts["cookiefile"] = INSTAGRAM_COOKIES
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
+        ydl.extract_info(url, download=True)
+
+    candidates = [f for f in os.listdir(tmp_dir) if f.startswith("audio.")]
+    if not candidates:
+        raise RuntimeError("yt-dlp produced no audio file")
+
+    audio_path = os.path.join(tmp_dir, candidates[0])
+    ext = os.path.splitext(candidates[0])[1].lstrip(".")
+    mime_type = {"m4a": "audio/mp4", "webm": "audio/webm", "mp3": "audio/mpeg"}.get(ext, "audio/mp4")
+
+    with open(audio_path, "rb") as f:
+        audio_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    return audio_b64, mime_type
+
+
 @app.route("/transcript", methods=["GET"])
 def get_transcript():
     url = request.args.get("url")
@@ -121,7 +149,13 @@ def get_transcript():
         vid = info.get("id", "unknown")
         vtt_files = [f for f in os.listdir(tmp_dir) if f.endswith(".vtt")]
         if not vtt_files:
-            return jsonify([{"error": {"type": "no_transcript", "message": "No captions available for this video"}}])
+            # Caption-less fallback: download audio-only and return it as inline base64.
+            # The worker makes a single Gemini call that transcribes + analyzes the audio.
+            try:
+                audio_b64, mime_type = _download_audio_b64(url, tmp_dir)
+                return jsonify([{"audio_b64": audio_b64, "mime_type": mime_type, "fallback": "audio"}])
+            except Exception as e:
+                return jsonify([{"error": {"type": "transcription_failed", "message": str(e)}}])
         text = _parse_vtt(os.path.join(tmp_dir, vtt_files[0]))
         return jsonify([{"videoId": vid, "text": text}])
     except Exception as e:

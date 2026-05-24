@@ -10,10 +10,12 @@ import pytest
 from src.processors.enrichment import (
     Enrichment,
     EnrichmentUnavailableError,
+    _build_audio_prompt,
     _build_enrichment_message,
     _extract_json,
     _parse_enrichment,
     enrich,
+    enrich_audio,
 )
 from src.services.gemini_client import GeminiClient
 
@@ -152,6 +154,85 @@ async def test_enrich_returns_enrichment_on_success(monkeypatch: pytest.MonkeyPa
     assert result.topic == "claude code + n8n"
     assert "Use Claude API" in result.action_points_str
     assert template_analysis is None
+
+
+# ---------------------------------------------------------------------------
+# Audio enrichment — issue #32 (caption-less Reels)
+# ---------------------------------------------------------------------------
+
+def test_build_audio_prompt_includes_title_and_template_instructions() -> None:
+    prompt = _build_audio_prompt("My Reel", "method")
+    assert "My Reel" in prompt
+    assert "template_analysis" in prompt
+    # The chosen template's extra instructions are appended verbatim.
+    assert "ADDITIONAL EXTRACTION — method template" in prompt
+
+
+def test_build_audio_prompt_unknown_template_falls_back_to_summary() -> None:
+    # summary has empty extra_instructions, so this must not raise.
+    prompt = _build_audio_prompt("Untitled", "does-not-exist")
+    assert "Untitled" in prompt
+    assert "template_analysis" in prompt
+
+
+_SAMPLE_AUDIO_JSON = json.dumps({
+    "template_analysis": {
+        "steps": [{"action": "Open terminal", "details": "Run the CLI", "result": "ready"}],
+        "common_mistakes": "",
+        "pro_tips": "",
+    }
+})
+
+
+@pytest.mark.asyncio
+async def test_enrich_audio_returns_template_analysis_on_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
+    monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "")
+
+    with patch(
+        "src.processors.enrichment._call_gemini_audio_sync",
+        return_value=_SAMPLE_AUDIO_JSON,
+    ):
+        result = await enrich_audio(
+            {"title": "Test Reel", "template": "method"}, "YXVkaW8=", "audio/mp4"
+        )
+
+    assert result == {
+        "steps": [{"action": "Open terminal", "details": "Run the CLI", "result": "ready"}],
+        "common_mistakes": "",
+        "pro_tips": "",
+    }
+
+
+@pytest.mark.asyncio
+async def test_enrich_audio_returns_none_when_no_template_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
+    monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "")
+
+    with patch(
+        "src.processors.enrichment._call_gemini_audio_sync",
+        return_value='{"something_else": 1}',
+    ):
+        result = await enrich_audio(
+            {"title": "Test Reel", "template": "method"}, "YXVkaW8=", "audio/mp4"
+        )
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_enrich_audio_both_keys_failed_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
+    monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "paid-key")
+
+    def _boom(audio_b64: str, mime_type: str, prompt: str, api_key: str) -> str:
+        raise RuntimeError("network error")
+
+    with patch("src.processors.enrichment._call_gemini_audio_sync", side_effect=_boom):
+        with pytest.raises(EnrichmentUnavailableError):
+            await enrich_audio(
+                {"title": "Test Reel", "template": "method"}, "YXVkaW8=", "audio/mp4"
+            )
 
 
 # ---------------------------------------------------------------------------

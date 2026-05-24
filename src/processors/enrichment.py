@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from src import database
+from src.config import settings
 from src.telegram.sender import send_message, send_inline_keyboard
 from src.templates import PROMPT_TEMPLATES
 from src.validation import validate_template_choice
@@ -149,6 +151,62 @@ async def enrich(job: dict) -> tuple[Enrichment, dict | None]:
     result = _parse_enrichment(data)
     log.info("enrichment_ok", category=result.category, topic=result.topic)
     return result, template_analysis
+
+
+def _build_audio_prompt(title: str, template: str) -> str:
+    extra = PROMPT_TEMPLATES.get(template, PROMPT_TEMPLATES["summary"]).extra_instructions
+    return f"""Analyze the audio content of this video titled: "{title}".
+
+Listen to the spoken content and extract the template-specific analysis.
+
+Return ONLY a valid JSON object — no markdown fences, no commentary:
+
+{{
+  "template_analysis": <template-specific object per the instructions below>
+}}
+
+{extra}"""
+
+
+def _call_gemini_audio_sync(audio_b64: str, mime_type: str, prompt: str, api_key: str) -> str:
+    import base64
+
+    from google import genai
+    from google.genai import types
+
+    client = genai.Client(api_key=api_key)
+    parts = [
+        types.Part.from_bytes(data=base64.b64decode(audio_b64), mime_type=mime_type),
+        prompt,
+    ]
+    response = client.models.generate_content(model="gemini-2.5-flash", contents=parts)
+    return response.text or ""
+
+
+async def enrich_audio(job: dict, audio_b64: str, mime_type: str) -> dict | None:
+    """Single Gemini call: inline audio + template prompt → template_analysis dict.
+
+    Free→paid key fallback. Raises EnrichmentUnavailableError if both keys fail.
+    Returns the template_analysis dict, or None if Gemini did not produce one.
+    """
+    template = job.get("template") or "summary"
+    title = job.get("title", "") or "Untitled"
+    prompt = _build_audio_prompt(title, template)
+
+    for key in [settings.GEMINI_FREE_API_KEY, settings.GEMINI_PAID_API_KEY]:
+        if not key:
+            continue
+        try:
+            raw = await asyncio.to_thread(
+                _call_gemini_audio_sync, audio_b64, mime_type, prompt, key
+            )
+            data = _extract_json(raw)
+            log.info("enrichment_audio_ok", template=template)
+            return data.get("template_analysis")
+        except Exception:
+            log.warning("enrichment_audio_key_failed")
+
+    raise EnrichmentUnavailableError("Both Gemini keys failed for audio enrichment")
 
 
 def _escape_md(text: str) -> str:

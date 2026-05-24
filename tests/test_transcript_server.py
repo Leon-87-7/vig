@@ -1,10 +1,12 @@
 """Tests for transcript_server.py — issue #15 (TikTok/Instagram support)."""
 from __future__ import annotations
 
+import base64
+
 import pytest
 from unittest.mock import MagicMock, patch
 
-from transcript_server import _parse_vtt, app
+from transcript_server import _download_audio_b64, _parse_vtt, app
 
 
 @pytest.fixture()
@@ -88,14 +90,59 @@ def test_instagram_reel_url_returns_transcript(client, tmp_path):
     assert "Hello Reels" in data[0]["text"]
 
 
-def test_no_captions_returns_no_transcript_error(client, tmp_path):
+# ---------------------------------------------------------------------------
+# /transcript endpoint — audio fallback (issue #32)
+# ---------------------------------------------------------------------------
+
+def test_download_audio_b64_returns_base64_and_mime(tmp_path):
+    """Reads the yt-dlp audio file off disk, returns (base64, mime) by extension."""
+    (tmp_path / "audio.webm").write_bytes(b"OGGSAUDIO")
+
+    with patch(
+        "transcript_server.yt_dlp.YoutubeDL",
+        return_value=_make_ydl_mock({"id": "x"}),
+    ):
+        b64, mime = _download_audio_b64("https://example.com/v", str(tmp_path))
+
+    assert base64.b64decode(b64) == b"OGGSAUDIO"
+    assert mime == "audio/webm"
+
+
+def test_download_audio_b64_raises_when_no_file(tmp_path):
+    """yt-dlp produced no audio file → RuntimeError (surfaces as transcription_failed)."""
+    with patch(
+        "transcript_server.yt_dlp.YoutubeDL",
+        return_value=_make_ydl_mock({"id": "x"}),
+    ):
+        with pytest.raises(RuntimeError):
+            _download_audio_b64("https://example.com/v", str(tmp_path))
+
+
+def test_no_captions_falls_back_to_audio(client, tmp_path):
+    """Caption-less non-YouTube video → audio download, returns base64 + fallback marker."""
+    # No .vtt files; pre-create the audio file the (mocked) yt-dlp 'downloads'.
+    (tmp_path / "audio.m4a").write_bytes(b"\x00\x01FAKEAUDIO")
+
     with patch("transcript_server.tempfile.mkdtemp", return_value=str(tmp_path)), \
-         patch("transcript_server.yt_dlp.YoutubeDL", return_value=_make_ydl_mock({"id": "musiconly"})), \
+         patch("transcript_server.yt_dlp.YoutubeDL", return_value=_make_ydl_mock({"id": "reel123"})), \
+         patch("transcript_server.shutil.rmtree"):
+        resp = client.get("/transcript?url=https://www.instagram.com/reel/DVNolBNE6vV/")
+
+    data = resp.get_json()
+    assert data[0]["fallback"] == "audio"
+    assert data[0]["mime_type"] == "audio/mp4"
+    assert base64.b64decode(data[0]["audio_b64"]) == b"\x00\x01FAKEAUDIO"
+
+
+def test_audio_download_failure_returns_transcription_failed(client, tmp_path):
+    """No captions and no audio file produced → transcription_failed error."""
+    with patch("transcript_server.tempfile.mkdtemp", return_value=str(tmp_path)), \
+         patch("transcript_server.yt_dlp.YoutubeDL", return_value=_make_ydl_mock({"id": "reel404"})), \
          patch("transcript_server.shutil.rmtree"):
         resp = client.get("/transcript?url=https://www.tiktok.com/@user/video/9999999999")
 
     data = resp.get_json()
-    assert data[0]["error"]["type"] == "no_transcript"
+    assert data[0]["error"]["type"] == "transcription_failed"
 
 
 # ---------------------------------------------------------------------------

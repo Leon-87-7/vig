@@ -161,10 +161,38 @@ async def run(job: dict) -> None:
 
     try:
         transcript_resp = await transcript_svc.fetch_transcript(url)
-        short_transcript = transcript_resp.get("text", "")
     except Exception:
-        short_transcript = ""
+        await send_message(
+            chat_id,
+            f"{tag}\nNo transcript available — template analysis skipped.",
+        )
+        return
 
+    from src.processors import enrichment as enrichment_proc
+
+    # Caption-less path (issue #32): transcript service returns audio bytes instead of
+    # text. One Gemini call transcribes + analyzes the audio; no transcript is stored.
+    if transcript_resp.get("fallback") == "audio":
+        audio_b64 = transcript_resp.get("audio_b64", "")
+        mime_type = transcript_resp.get("mime_type", "audio/mp4")
+        if not audio_b64:
+            await send_message(
+                chat_id,
+                f"{tag}\nNo transcript available — template analysis skipped.",
+            )
+            return
+        try:
+            template_analysis = await enrichment_proc.enrich_audio(job, audio_b64, mime_type)
+        except enrichment_proc.EnrichmentUnavailableError:
+            await send_message(chat_id, f"{tag}\n⚠️ Template analysis failed — Gemini unavailable.")
+            return
+        if template_analysis:
+            section = enrichment_proc._format_template_analysis(template, template_analysis)
+            await send_message(chat_id, f"{tag}{section}")
+        return
+
+    # Caption-based path (unchanged)
+    short_transcript = transcript_resp.get("text", "")
     if not short_transcript:
         await send_message(
             chat_id,
@@ -182,7 +210,6 @@ async def run(job: dict) -> None:
     if not enriched_job:
         return
 
-    from src.processors import enrichment as enrichment_proc
     try:
         enrichment_result, template_analysis = await enrichment_proc.enrich(enriched_job)
     except enrichment_proc.EnrichmentUnavailableError as exc:

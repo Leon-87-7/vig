@@ -167,3 +167,105 @@ async def test_too_long_error_surfaces(monkeypatch) -> None:
     # Confirm the user-facing message was sent
     calls = [str(c) for c in mock_send.call_args_list]
     assert any("max 3 minutes" in c or "too long" in c.lower() for c in calls)
+
+
+# ---------------------------------------------------------------------------
+# Template path — audio fallback routing (issue #32)
+# ---------------------------------------------------------------------------
+
+import contextlib
+
+_FRAME_RESP = {
+    "frames": [{"base64": "eA==", "mime_type": "image/jpeg"}],  # base64 of b"x"
+    "platform": "instagram_reels",
+    "video_id": "reel1",
+    "title": "Test Reel",
+    "duration": 30,
+}
+_VISION = {"main_frame_index": 0, "summary": "a short clip", "links": []}
+
+
+@contextlib.contextmanager
+def _patch_pipeline(transcript_resp: dict):
+    """Patch the whole short-video pipeline so run() reaches the template branch."""
+    from src.processors import short_video
+
+    with contextlib.ExitStack() as stack:
+        p = lambda target, **kw: stack.enter_context(patch(target, **kw))  # noqa: E731
+        mocks = {
+            "update_job_status": p("src.processors.short_video.database.update_job_status", new_callable=AsyncMock),
+            "get_job": p("src.processors.short_video.database.get_job", new_callable=AsyncMock),
+            "send_message": p("src.processors.short_video.send_message", new_callable=AsyncMock),
+            "send_photo": p("src.processors.short_video.send_photo", new_callable=AsyncMock),
+            "fetch_frames": p("src.processors.short_video.frames.fetch_frames", new_callable=AsyncMock, return_value=_FRAME_RESP),
+            "vision": p("src.processors.short_video.gemini.call_gemini_vision", new_callable=AsyncMock, return_value=_VISION),
+            "upload_file": p("src.processors.short_video.upload_file", new_callable=AsyncMock, return_value=("fid", "https://drive/x")),
+            "append_short_row": p("src.processors.short_video.sheets.append_short_row", new_callable=AsyncMock),
+            "fetch_transcript": p("src.processors.short_video.transcript_svc.fetch_transcript", new_callable=AsyncMock, return_value=transcript_resp),
+            "extract_key_phrases": p("src.processors.short_video.extract_key_phrases", new=MagicMock(return_value=[])),
+            "enrich_audio": p("src.processors.enrichment.enrich_audio", new_callable=AsyncMock),
+            "enrich": p("src.processors.enrichment.enrich", new_callable=AsyncMock),
+        }
+        mocks["get_job"].return_value = {"id": "job1", "chat_id": 42, "url": "u", "template": "method", "title": "Test Reel"}
+        yield short_video, mocks
+
+
+@pytest.mark.asyncio
+async def test_template_audio_fallback_routes_to_enrich_audio() -> None:
+    """A fallback=='audio' transcript response goes through enrich_audio, not the text path."""
+    transcript_resp = {"fallback": "audio", "audio_b64": "YXVkaW8=", "mime_type": "audio/mp4"}
+
+    with _patch_pipeline(transcript_resp) as (short_video, mocks):
+        mocks["enrich_audio"].return_value = {
+            "steps": [{"action": "Open terminal", "details": "Run CLI", "result": "ok"}],
+            "common_mistakes": "",
+            "pro_tips": "",
+        }
+        job = {"id": "job1", "chat_id": 42, "url": "https://instagram.com/reel/x", "template": "method"}
+        await short_video.run(job)
+
+    mocks["enrich_audio"].assert_awaited_once()
+    await_args = mocks["enrich_audio"].await_args.args
+    assert await_args[1] == "YXVkaW8="
+    assert await_args[2] == "audio/mp4"
+    # Audio path never extracts key phrases or runs the text enrichment.
+    mocks["extract_key_phrases"].assert_not_called()
+    mocks["enrich"].assert_not_awaited()
+    # The formatted template analysis was sent to the user.
+    sent = " ".join(str(c) for c in mocks["send_message"].call_args_list)
+    assert "Method Analysis" in sent
+
+
+@pytest.mark.asyncio
+async def test_template_caption_path_unchanged() -> None:
+    """A text transcript still routes through the caption enrich() path, not enrich_audio."""
+    from src.processors.enrichment import Enrichment
+
+    transcript_resp = {"text": "hello world this is a transcript about python and fastapi"}
+
+    with _patch_pipeline(transcript_resp) as (short_video, mocks):
+        mocks["enrich"].return_value = (
+            Enrichment("Tech", "fastapi", "obj", "ap", "ts", [], ""),
+            {"steps": [{"action": "a", "details": "d", "result": "r"}], "common_mistakes": "", "pro_tips": ""},
+        )
+        job = {"id": "job1", "chat_id": 42, "url": "https://instagram.com/reel/x", "template": "method"}
+        await short_video.run(job)
+
+    mocks["enrich"].assert_awaited_once()
+    mocks["enrich_audio"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_template_audio_gemini_unavailable_surfaces_message() -> None:
+    """Both Gemini keys failing in the audio path surfaces the unavailable message."""
+    from src.processors.enrichment import EnrichmentUnavailableError
+
+    transcript_resp = {"fallback": "audio", "audio_b64": "YXVkaW8=", "mime_type": "audio/mp4"}
+
+    with _patch_pipeline(transcript_resp) as (short_video, mocks):
+        mocks["enrich_audio"].side_effect = EnrichmentUnavailableError("both keys failed")
+        job = {"id": "job1", "chat_id": 42, "url": "https://instagram.com/reel/x", "template": "method"}
+        await short_video.run(job)
+
+    sent = " ".join(str(c) for c in mocks["send_message"].call_args_list)
+    assert "Template analysis failed — Gemini unavailable." in sent
