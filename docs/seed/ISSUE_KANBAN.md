@@ -29,6 +29,9 @@
 | [#23](https://github.com/Leon-87-7/vig/issues/23) | refactor: GeminiClient core module                                                 | Refactor       | Merged; PR #29              |
 | [#24](https://github.com/Leon-87-7/vig/issues/24) | refactor: PRD skeleton unification                                                 | Refactor       | Merged; PR #30              |
 | [#25](https://github.com/Leon-87-7/vig/issues/25) | refactor: webhook callback dispatch table                                          | Refactor       | Merged; PR #31              |
+| [#22](https://github.com/Leon-87-7/vig/issues/22) | feat: wire repo enrichment into photo pipeline                                     | Photo / GitHub | Merged; closed on GH        |
+| [#26](https://github.com/Leon-87-7/vig/issues/26) | refactor: GeminiClient — migrate remaining callers                                 | Refactor       | Merged; closed on GH        |
+| [#27](https://github.com/Leon-87-7/vig/issues/27) | refactor: webhook slash dispatch table                                             | Refactor       | Merged; closed on GH        |
 
 ---
 
@@ -46,9 +49,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                 # | Title                                                                              | Area          | Depends On          |
 | ------------------------------------------------: | ---------------------------------------------------------------------------------- | ------------- | ------------------- |
-| [#22](https://github.com/Leon-87-7/vig/issues/22) | feat: wire repo enrichment into photo pipeline                     | Photo / GitHub | #21 ✓               |
-| [#26](https://github.com/Leon-87-7/vig/issues/26) | refactor: GeminiClient — migrate remaining callers                 | Refactor       | #23 ✓               |
-| [#27](https://github.com/Leon-87-7/vig/issues/27) | refactor: webhook slash dispatch table                             | Refactor       | #25 ✓               |
+| [#32](https://github.com/Leon-87-7/vig/issues/32) | feat: audio fallback for caption-less Reels (transcript service + audio enrichment) | Short Video / Templates | #15, #18 (both ✓) |
 
 ---
 
@@ -74,7 +75,7 @@ Ordered by unblocked-first, then dependency chain.
     ├── #9 ✓
     ├── #11 Photo link extraction ✓
     │   ├── #21 GitHub service + cache ✓
-    │   │   └── #22 Photo pipeline wiring (repo enrichment)
+    │   │   └── #22 Photo pipeline wiring (repo enrichment) ✓
     ├── #6 Mini-PRD auto ✓
     │   └── #7 Mini-PRD intent ✓
     │       └── #13 Enrichment retry button ✓
@@ -85,13 +86,13 @@ Ordered by unblocked-first, then dependency chain.
 #16 Template system parent ✓
     ├── #17 Template data layer ✓
     └── #18 Template handler layer ✓
+        └── #32 Audio fallback for caption-less Reels (ADR-0009) ⏳ ready-for-agent
 
 #23 GeminiClient core ✓
-└── #26 GeminiClient migrate remaining callers
-        (not parallel with #24 — both touch prd.py)
+└── #26 GeminiClient migrate remaining callers ✓
 
 #24 PRD skeleton unification ✓
 
 #25 Webhook callback dispatch table ✓
-└── #27 Webhook slash dispatch table
+└── #27 Webhook slash dispatch table ✓
 ```
