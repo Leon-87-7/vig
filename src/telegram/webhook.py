@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -22,6 +24,14 @@ from src.utils.validators import detect_pipeline
 
 log = get_logger(__name__)
 router = APIRouter()
+
+
+@dataclass
+class CallbackCtx:
+    chat_id: int
+    job_id: str      # payload after ":" in callback data
+    cq_id: str
+    data: str        # full raw data string
 
 
 async def _is_batch_active(chat_id: int) -> bool:
@@ -111,6 +121,105 @@ async def _batch_auto_close(chat_id: int) -> None:
         await _process_batch(chat_id)
 
 
+async def _cb_gemini_no(ctx: CallbackCtx) -> None:
+    await database.update_job_status(ctx.job_id, "done")
+    await answer_callback_query(ctx.cq_id)
+
+
+async def _cb_gemini_yes(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job or job.get("status") != "transcript_done":
+        await answer_callback_query(ctx.cq_id, text="This job is not ready for enrichment.")
+        return
+    await database.update_job_status(ctx.job_id, "enriching")
+    await queue.enqueue({"task": "enrichment", "job_id": ctx.job_id})
+    await answer_callback_query(ctx.cq_id)
+
+
+async def _cb_prd_build_spec(ctx: CallbackCtx) -> None:
+    await send_inline_keyboard(
+        ctx.chat_id,
+        "📐 Build Spec — pick a path:",
+        buttons=[[
+            {"text": "🤖 Build auto Spec", "callback_data": f"prd_auto:{ctx.job_id}"},
+            {"text": "✍️ Text your intent", "callback_data": f"prd_intent_prompt:{ctx.job_id}"},
+        ]],
+    )
+    await answer_callback_query(ctx.cq_id)
+
+
+async def _cb_prd_auto(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    if job.get("prd_auto_status") == "done" and job.get("prd_auto_json"):
+        await send_message(ctx.chat_id, "📐 Re-sending your PRD...")
+        await queue.enqueue({"task": "prd_auto_resend", "job_id": ctx.job_id})
+    elif job.get("prd_auto_status") == "generating":
+        await send_message(ctx.chat_id, "📐 PRD already generating, hang tight.")
+    else:
+        # Lazy generation — worker is the single source of truth for the lock.
+        # Webhook just enqueues optimistically; run_auto handles the atomic lock.
+        await send_message(ctx.chat_id, "📐 Generating PRD, hang tight...")
+        await queue.enqueue({"task": "prd_auto", "job_id": ctx.job_id})
+
+
+async def _cb_prd_intent_prompt(ctx: CallbackCtx) -> None:
+    existing = await database.get_chat_state(ctx.chat_id)
+    if existing and existing["job_id"] == ctx.job_id:
+        await answer_callback_query(ctx.cq_id)
+        return
+    await database.set_chat_state(chat_id=ctx.chat_id, mode="awaiting_intent", job_id=ctx.job_id)
+    log.info("prd.chat_state.armed", chat_id=ctx.chat_id, job_id=ctx.job_id)
+    await send_force_reply(
+        ctx.chat_id,
+        'Reply with your project direction. Example: "desktop app for agentic image '
+        'processing" (reply within 10 minutes; type /cancel to abandon)',
+    )
+    await answer_callback_query(ctx.cq_id)
+
+
+async def _cb_prd_retry_intent(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job or not (job.get("prd_intent_text") or "").strip():
+        await answer_callback_query(ctx.cq_id, text="No prior intent to retry — use ✍️ New Intent.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    await send_message(ctx.chat_id, "📐 Generating PRD, hang tight...")
+    await queue.enqueue({"task": "prd_intent", "job_id": ctx.job_id})
+
+
+async def _cb_enrichment_retry(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
+    status = job.get("status")
+    if status not in ("error", "transcript_done"):
+        log.warning("enrichment_retry_rejected", job_id=ctx.job_id, status=status)
+        await answer_callback_query(ctx.cq_id, text=f"Can't retry — job is in status '{status}'.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    await database.update_job_status(ctx.job_id, "enriching")
+    await queue.enqueue({"task": "enrichment", "job_id": ctx.job_id})
+    log.info("enrichment_retry_enqueued", job_id=ctx.job_id)
+    await send_message(ctx.chat_id, "🍪 Retrying Gemini enrichment...")
+
+
+_CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
+    "gemini_no":         _cb_gemini_no,
+    "gemini_yes":        _cb_gemini_yes,
+    "prd_build_spec":    _cb_prd_build_spec,
+    "prd_auto":          _cb_prd_auto,
+    "prd_retry_auto":    _cb_prd_auto,
+    "prd_intent_prompt": _cb_prd_intent_prompt,
+    "prd_retry_intent":  _cb_prd_retry_intent,
+    "enrichment_retry":  _cb_enrichment_retry,
+}
+
+
 async def _handle_callback(callback: dict) -> None:
     """Dispatch callback_query events from inline keyboard button presses."""
     cq_id = callback.get("id", "")
@@ -118,96 +227,15 @@ async def _handle_callback(callback: dict) -> None:
     chat_id = (callback.get("message") or {}).get("chat", {}).get("id")
     log.info("callback_received", callback_data=data, chat_id=chat_id)
 
-    if data.startswith("gemini_no:"):
-        job_id = data.split(":", 1)[1]
-        await database.update_job_status(job_id, "done")
-        await answer_callback_query(cq_id)
-
-    elif data.startswith("gemini_yes:"):
-        job_id = data.split(":", 1)[1]
-        job = await database.get_job(job_id)
-        if not job or job.get("status") != "transcript_done":
-            await answer_callback_query(cq_id, text="This job is not ready for enrichment.")
-            return
-        await database.update_job_status(job_id, "enriching")
-        await queue.enqueue({"task": "enrichment", "job_id": job_id})
-        await answer_callback_query(cq_id)
-
-    elif data.startswith("prd_build_spec:"):
-        job_id = data.split(":", 1)[1]
-        await send_inline_keyboard(
-            chat_id,
-            "📐 Build Spec — pick a path:",
-            buttons=[[
-                {"text": "🤖 Build auto Spec", "callback_data": f"prd_auto:{job_id}"},
-                {"text": "✍️ Text your intent", "callback_data": f"prd_intent_prompt:{job_id}"},
-            ]],
-        )
-        await answer_callback_query(cq_id)
-
-    elif data.startswith("prd_auto:") or data.startswith("prd_retry_auto:"):
-        job_id = data.split(":", 1)[1]
-        job = await database.get_job(job_id)
-        if not job:
-            await answer_callback_query(cq_id, text="Job not found.")
-            return
-        await answer_callback_query(cq_id)
-        if job.get("prd_auto_status") == "done" and job.get("prd_auto_json"):
-            await send_message(chat_id, "📐 Re-sending your PRD...")
-            await queue.enqueue({"task": "prd_auto_resend", "job_id": job_id})
-        elif job.get("prd_auto_status") == "generating":
-            await send_message(chat_id, "📐 PRD already generating, hang tight.")
-        else:
-            # Lazy generation — worker is the single source of truth for the lock.
-            # Webhook just enqueues optimistically; run_auto handles the atomic lock.
-            await send_message(chat_id, "📐 Generating PRD, hang tight...")
-            await queue.enqueue({"task": "prd_auto", "job_id": job_id})
-
-    elif data.startswith("prd_intent_prompt:"):
-        job_id = data.split(":", 1)[1]
-        existing = await database.get_chat_state(chat_id)
-        if existing and existing["job_id"] == job_id:
-            await answer_callback_query(cq_id)
-            return
-        await database.set_chat_state(chat_id=chat_id, mode="awaiting_intent", job_id=job_id)
-        log.info("prd.chat_state.armed", chat_id=chat_id, job_id=job_id)
-        await send_force_reply(
-            chat_id,
-            'Reply with your project direction. Example: "desktop app for agentic image '
-            'processing" (reply within 10 minutes; type /cancel to abandon)',
-        )
-        await answer_callback_query(cq_id)
-
-    elif data.startswith("prd_retry_intent:"):
-        job_id = data.split(":", 1)[1]
-        job = await database.get_job(job_id)
-        if not job or not (job.get("prd_intent_text") or "").strip():
-            await answer_callback_query(cq_id, text="No prior intent to retry — use ✍️ New Intent.")
-            return
-        await answer_callback_query(cq_id)
-        await send_message(chat_id, "📐 Generating PRD, hang tight...")
-        await queue.enqueue({"task": "prd_intent", "job_id": job_id})
-
-    elif data.startswith("enrichment_retry:"):
-        job_id = data.split(":", 1)[1]
-        job = await database.get_job(job_id)
-        if not job:
-            await answer_callback_query(cq_id, text="Job not found.")
-            return
-        status = job.get("status")
-        if status not in ("error", "transcript_done"):
-            log.warning("enrichment_retry_rejected", job_id=job_id, status=status)
-            await answer_callback_query(cq_id, text=f"Can't retry — job is in status '{status}'.")
-            return
-        await answer_callback_query(cq_id)
-        await database.update_job_status(job_id, "enriching")
-        await queue.enqueue({"task": "enrichment", "job_id": job_id})
-        log.info("enrichment_retry_enqueued", job_id=job_id)
-        await send_message(chat_id, "🍪 Retrying Gemini enrichment...")
-
-    else:
+    prefix, _, job_id = data.partition(":")
+    handler = _CALLBACK_TABLE.get(prefix)
+    if handler is None:
         log.warning("unknown_callback", data=data)
         await answer_callback_query(cq_id)
+        return
+
+    ctx = CallbackCtx(chat_id=chat_id, job_id=job_id, cq_id=cq_id, data=data)
+    await handler(ctx)
 
 
 async def _dispatch_slash(chat_id: int, text: str, message_id: int | None = None) -> None:
