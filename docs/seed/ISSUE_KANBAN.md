@@ -39,7 +39,8 @@
 
 |                                                 # | Title                                                              | Area          | Depends On |
 | ------------------------------------------------: | ------------------------------------------------------------------ | ------------- | ---------- |
-| (none)                                            |                                                                    |               |            |
+| [#35](https://github.com/Leon-87-7/vig/issues/35) | Recover orphaned jobs at worker startup (ADR-0010)                 | Infra / Worker | none       |
+| [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests) | Photo / Bug    | none       |
 
 ---
 
@@ -50,6 +51,8 @@ Ordered by unblocked-first, then dependency chain.
 |                                                 # | Title                                                                              | Area          | Depends On          |
 | ------------------------------------------------: | ---------------------------------------------------------------------------------- | ------------- | ------------------- |
 | [#32](https://github.com/Leon-87-7/vig/issues/32) | feat: audio fallback for caption-less Reels (transcript service + audio enrichment) | Short Video / Templates | #15, #18 (both ✓) |
+| [#33](https://github.com/Leon-87-7/vig/issues/33) | feat: promise-gap extraction — schema + prompt + parse + persist                     | Enrichment              | none               |
+| [#34](https://github.com/Leon-87-7/vig/issues/34) | feat: promise-gap Telegram render                                                    | Enrichment              | #33                |
 
 ---
 
@@ -95,4 +98,7 @@ Ordered by unblocked-first, then dependency chain.
 
 #25 Webhook callback dispatch table ✓
 └── #27 Webhook slash dispatch table ✓
+
+#33 Promise-gap extraction ⏳ needs-triage
+└── #34 Promise-gap Telegram render ⏳ needs-triage
 ```

@@ -1,6 +1,6 @@
 # vig — Module Map
 
-**Generated:** 2026-05-22  
+**Generated:** 2026-05-22 · **Refreshed:** 2026-05-24 (post #21/#22 GitHub enrichment, #23–#27 refactors)  
 Code-level reference: every `src/` module, what it owns, and how modules call each other.
 
 ---
@@ -30,10 +30,13 @@ Telegram POST /webhook
 |---|---|
 | `gemini_yes:` | enqueue `enrichment` |
 | `prd_auto:` / `prd_retry_auto:` | enqueue `prd_auto` or `prd_auto_resend` |
+| `prd_build_spec:` | show 2-button sub-menu (🤖 auto / ✍️ intent) |
 | `prd_intent_prompt:` | arm `chat_state` (mode=`awaiting_intent`) |
 | `prd_retry_intent:` | enqueue `prd_intent` |
 | `enrichment_retry:` | enqueue `enrichment` |
 | `gemini_no:` | mark job `done` (skip enrichment) |
+
+**Dispatch tables (#25/#27):** `_handle_callback` splits on the first `:` and looks the prefix up in `_CALLBACK_TABLE`; slash commands route through `_dispatch_slash` → `_SLASH_TABLE` (template commands populated from `PROMPT_TEMPLATES` at import). Handlers receive a `CallbackCtx` / `SlashCtx` and never parse the raw string themselves.
 
 ---
 
@@ -67,10 +70,10 @@ worker.py._dispatch()
 
 | Module | Inputs | Key services used |
 |---|---|---|
-| `processors/short_video.py` | job (short) | `services/frames.py`, `services/gemini.py`, `services/drive.py`, `services/sheets.py` |
-| `processors/long_video.py` | job (long) | `services/transcript.py`, `services/gemini.py`, `services/drive.py`, `services/sheets.py` |
-| `processors/enrichment.py` | job after `transcript_done` | `services/gemini.py`, `services/brave.py`, `brain.py` (ingest_links) |
-| `processors/prd.py` | job with enrichment done | `services/gemini.py`, `services/drive.py`, `telegram/sender.py` |
+| `processors/short_video.py` | job (short) | `frames`, `gemini` (Vision), `brave`, `drive`, `sheets`; template path also uses `transcript`, `analysis`, `enrichment`, `brain` |
+| `processors/long_video.py` | job (long) | `transcript`, `drive`, `sheets`, `analysis`, `templates`, `validators`, `brain` (ingest_links). Phase 1 only — enrichment runs as a separate `enrichment` task |
+| `processors/enrichment.py` | job after `transcript_done` | `gemini_client` (text gen), `templates`, `validation` |
+| `processors/prd.py` | job with enrichment done | `gemini_client` (text gen), `drive`, `sheets`, `brain` (ingest_links), `telegram/sender` |
 
 ---
 
@@ -78,13 +81,15 @@ worker.py._dispatch()
 
 | Module | Wraps |
 |---|---|
-| `services/gemini.py` | Gemini text API (free → paid key fallback) |
-| `services/gemini_photo.py` | Gemini Vision — photo link extraction |
-| `services/frames.py` | Frame extraction for short videos |
-| `services/transcript.py` | YouTube transcript fetch |
+| `services/gemini_client.py` | **Central text-generation client** — free → paid key fallback, `generate(prompt, model, schema)`, raises `GeminiUnavailableError`. Used by enrichment, prd, brain, and `gemini.resolve_tool_urls` (#23/#26) |
+| `services/gemini.py` | Gemini **Vision** for short-video frames (`call_gemini_vision`) + `resolve_tool_urls` (URL-resolution prompt, delegates text gen to `gemini_client`) |
+| `services/gemini_photo.py` | Gemini Vision — verbatim-grounded photo link extraction |
+| `services/github.py` | GitHub REST API client + Redis cache (`github_meta:{owner}/{repo}`, TTL 24h) for photo-pipeline repo enrichment (#21) |
+| `services/frames.py` | Frame extraction for short videos (transcript sidecar) |
+| `services/transcript.py` | Transcript sidecar client (`/transcript`, `/metadata`) |
 | `services/drive.py` | Google Drive file upload |
 | `services/sheets.py` | Google Sheets row write |
-| `services/brave.py` | Brave Search (tool URL resolution in enrichment) |
+| `services/brave.py` | Brave Search — link verification for short-video Vision links |
 
 ---
 
@@ -92,7 +97,7 @@ worker.py._dispatch()
 
 ```
 brain.py  (SQLite `links` table + Google Drive .md files)
-  ├─ ingest_links()          ← enrichment processor + photo pipeline (webhook)
+  ├─ ingest_links()          ← short_video, long_video, prd processors + photo pipeline (webhook)
   ├─ search_links()          ← /find slash command + GET /links/search
   ├─ rebuild_graph()         ← /rebuild-graph slash command + POST /links/rebuild
   └─ refresh_stale_links()   ← APScheduler (Sun/Wed 09:00)
@@ -125,6 +130,9 @@ api.py  (brain_router, prefix=/links)
 | `config.py` | `Settings` (pydantic-settings, reads `.env`) — single source of all env vars |
 | `database.py` | aiosqlite wrapper; schema DDL; all job + chat_state CRUD |
 | `telegram/sender.py` | `send_message`, `send_inline_keyboard`, `send_force_reply`, `download_photo`, `answer_callback_query` |
-| `utils/validators.py` | `detect_pipeline()` — URL routing rules (short / long / rejected) |
-| `utils/markdown.py` | `build_links_message()` for photo pipeline results |
+| `utils/validators.py` | `detect_pipeline()` — URL routing rules (short / long / rejected); `extract_description_links()`, `slugify()` |
+| `utils/markdown.py` | `build_links_message()` + `build_enriched_links_message()` (GitHub repo metadata, `_humanize_age`) for photo pipeline results |
 | `utils/logger.py` | structlog configuration |
+| `analysis.py` | `extract_key_phrases()` — feeds the enrichment KEY CONTEXT block |
+| `templates.py` | `PROMPT_TEMPLATES` registry (summary/method/technical/review/narrative); drives slash commands + enrichment `extra_instructions` |
+| `validation.py` | `validate_template_choice()` — template/transcript mismatch warning |

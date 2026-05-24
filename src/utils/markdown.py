@@ -35,6 +35,25 @@ def build_links_message(links: list[dict]) -> str:
     return f"🔗 Links Found:\n{labeled}\n\n---\n\n🔗 Quick Links:\n{bare}"
 
 
+def _humanize_age(days: int) -> str:
+    """Render a day-count as a human-readable 'X ago' string.
+
+    Examples: 0 → "today", 1 → "yesterday", 3 → "3 days ago",
+    240 → "8 months ago", 800 → "2 years ago".
+    """
+    if days <= 0:
+        return "today"
+    if days == 1:
+        return "yesterday"
+    if days < 30:
+        return f"{days} days ago"
+    if days < 365:
+        months = days // 30
+        return f"{months} month{'s' if months != 1 else ''} ago"
+    years = days // 365
+    return f"{years} year{'s' if years != 1 else ''} ago"
+
+
 def build_enriched_links_message(links: list[dict]) -> str:
     """Format a mixed list of links, some with GitHub enrichment data.
 
@@ -62,7 +81,7 @@ def build_enriched_links_message(links: list[dict]) -> str:
             language = lnk.get("_language") or "N/A"
             meta = (
                 f"  ⭐ {lnk['_stars']} | 🍴 {lnk['_forks']}"
-                f" | 💻 {language} | 📅 {lnk['_days_ago']} days ago"
+                f" | 💻 {language} | 📅 {_humanize_age(lnk['_days_ago'])}"
             )
             labeled_parts.append(f"• {title}\n{meta}\n  🔗 {lnk['url']}")
         else:

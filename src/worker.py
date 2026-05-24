@@ -1,9 +1,13 @@
 """Background worker — dequeues task envelopes and dispatches to processors.
 
-Later slices add cases:
-    - slice #4:    'enrichment' → processors.enrichment.run
-    - slice #6:    'prd_auto'   → processors.prd.run_auto
-    - slice #7:    'prd_intent' → processors.prd.run_intent
+Task discriminators handled by _dispatch:
+    - 'video'           → short_video.run | long_video.run (by content_type)
+    - 'enrichment'      → processors.enrichment.run
+    - 'prd_auto'        → processors.prd.run_auto
+    - 'prd_auto_resend' → processors.prd.run_auto_resend
+    - 'prd_intent'      → processors.prd.run_intent
+
+On startup runs prd.reaper() + prd.reaper_intent() to release stale 'generating' PRD locks.
 """
 
 from __future__ import annotations
@@ -120,6 +124,41 @@ async def _dispatch(task: dict) -> None:
         log.error("unknown_task", task=task_type, job_id=job_id)
 
 
+async def reap_stale_jobs() -> None:
+    """Recover jobs orphaned by a crash: reset stuck 'processing'/'enriching' rows to
+    'error' and notify the user per state. Run once at startup. ADR-0010.
+
+    The worker is the only writer of 'processing' and the sequential owner of the
+    dequeue loop, so any reapable row present at boot was orphaned by a prior crash.
+    """
+    rows = await database.fetch_and_mark_stale_jobs()
+    if not rows:
+        return
+    log.info("jobs.reaper.released", count=len(rows))
+    from src.telegram.sender import send_message, send_inline_keyboard
+
+    for row in rows:
+        chat_id = row["chat_id"]
+        job_id = row["id"]
+        tag = f"job_{job_id[-4:]}:"
+        try:
+            if row["status"] == "enriching":
+                # Transcript is already stored — offer the existing one-tap retry.
+                await send_inline_keyboard(
+                    chat_id,
+                    f"{tag}\n⚠️ Enrichment was interrupted by a restart.",
+                    buttons=[[{"text": "🔄 Retry", "callback_data": f"enrichment_retry:{job_id}"}]],
+                )
+            else:  # 'processing' — re-running would duplicate Drive/Sheets; ask to resend.
+                await send_message(
+                    chat_id,
+                    f"{tag}\n⚠️ Processing was interrupted by a restart. "
+                    "Please resend the link to try again.",
+                )
+        except Exception:
+            log.exception("jobs.reaper.notify_failed", job_id=job_id)
+
+
 async def loop() -> None:
     log.info("worker_started")
     await database.init_db()  # idempotent — safe if api container ran it first
@@ -127,6 +166,7 @@ async def loop() -> None:
     from src.processors import prd as _prd
     await _prd.reaper()
     await _prd.reaper_intent()
+    await reap_stale_jobs()
 
     while True:
         try:

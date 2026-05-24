@@ -175,6 +175,40 @@ async def update_job_status(job_id: str, status: str, **fields: Any) -> None:
     log.info("job_status_updated", job_id=job_id, status=status)
 
 
+_REAPABLE_STATUSES = ("processing", "enriching")
+
+
+async def fetch_and_mark_stale_jobs(stale_minutes: int = 10) -> list[dict[str, Any]]:
+    """Recover jobs orphaned by a worker crash and return the affected rows.
+
+    Selects jobs stuck in ``processing``/``enriching`` whose ``updated_at`` is older
+    than ``stale_minutes``, flips them to ``error``, and increments ``attempt`` — all
+    in one transaction. Returns ``[{"id", "chat_id", "status"}, ...]`` where ``status``
+    is the value BEFORE the reset, so callers can route per-state notifications.
+
+    Run once at worker startup (see ``worker.reap_stale_jobs``). ADR-0010.
+    """
+    modifier = f"-{stale_minutes} minutes"
+    placeholders = ",".join("?" for _ in _REAPABLE_STATUSES)
+    where = f"status IN ({placeholders}) AND updated_at < datetime('now', ?)"
+    params = (*_REAPABLE_STATUSES, modifier)
+    async with connection() as conn:
+        cursor = await conn.execute(
+            f"SELECT id, chat_id, status FROM jobs WHERE {where}", params
+        )
+        rows = [dict(row) for row in await cursor.fetchall()]
+        if rows:
+            await conn.execute(
+                f"UPDATE jobs SET status='error', attempt = attempt + 1, "
+                f"updated_at=CURRENT_TIMESTAMP WHERE {where}",
+                params,
+            )
+            await conn.commit()
+    if rows:
+        log.info("jobs_reaped", count=len(rows))
+    return rows
+
+
 async def get_chat_state(chat_id: int) -> dict | None:
     """Return the chat_state row for chat_id, or None if absent."""
     async with connection() as conn:
