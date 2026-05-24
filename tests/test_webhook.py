@@ -580,6 +580,39 @@ async def test_callback_enrichment_retry_rejects_on_done_status(temp_db, monkeyp
     assert "done" in kwargs.get("text", "")
 
 
+# ---------------------------------------------------------------------------
+# Dispatch table handler unit tests (issue #25)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_cb_gemini_no_marks_done(temp_db, monkeypatch):
+    from src.telegram.webhook import CallbackCtx, _cb_gemini_no
+    from src import database as db
+    await _seed_job(temp_db, "J_NO", chat_id=1, status="transcript_done")
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+    ctx = CallbackCtx(chat_id=1, job_id="J_NO", cq_id="CQ1", data="gemini_no:J_NO")
+    await _cb_gemini_no(ctx)
+    job = await db.get_job("J_NO")
+    assert job["status"] == "done"
+    ack.assert_awaited_once_with("CQ1")
+
+
+@pytest.mark.asyncio
+async def test_cb_enrichment_retry_rejects_wrong_status(temp_db, monkeypatch):
+    from src.telegram.webhook import CallbackCtx, _cb_enrichment_retry
+    await _seed_job(temp_db, "J_ENR", chat_id=1, status="enriching")
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+    ctx = CallbackCtx(chat_id=1, job_id="J_ENR", cq_id="CQ2", data="enrichment_retry:J_ENR")
+    await _cb_enrichment_retry(ctx)
+    enqueued.assert_not_awaited()
+    _, kwargs = ack.await_args
+    assert kwargs.get("text") and "enriching" in kwargs["text"]
+
+
 @pytest.mark.asyncio
 async def test_intent_text_never_appears_in_log_records(
     temp_db, _patch_webhook_secret, _patch_redis, monkeypatch, caplog
