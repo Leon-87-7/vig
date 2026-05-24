@@ -34,6 +34,7 @@ Telegram POST /webhook
 | `prd_intent_prompt:` | arm `chat_state` (mode=`awaiting_intent`) |
 | `prd_retry_intent:` | enqueue `prd_intent` |
 | `enrichment_retry:` | enqueue `enrichment` |
+| `reprocess:` | create a fresh job from the orphaned job's URL + enqueue `video` (startup-recovery retry, ADR-0010) |
 | `gemini_no:` | mark job `done` (skip enrichment) |
 
 **Dispatch tables (#25/#27):** `_handle_callback` splits on the first `:` and looks the prefix up in `_CALLBACK_TABLE`; slash commands route through `_dispatch_slash` → `_SLASH_TABLE` (template commands populated from `PROMPT_TEMPLATES` at import). Handlers receive a `CallbackCtx` / `SlashCtx` and never parse the raw string themselves.

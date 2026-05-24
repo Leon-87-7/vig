@@ -581,6 +581,57 @@ async def test_callback_enrichment_retry_rejects_on_done_status(temp_db, monkeyp
 
 
 # ---------------------------------------------------------------------------
+# reprocess callback tests (startup-recovery one-tap retry, ADR-0010)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cb_reprocess_creates_fresh_job_and_enqueues(temp_db, monkeypatch):
+    from src.telegram.webhook import CallbackCtx, _cb_reprocess
+    from src import database as db
+
+    await _seed_job(temp_db, "J_ORPH", chat_id=100, status="error", content_type="short")
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+
+    ctx = CallbackCtx(chat_id=100, job_id="J_ORPH", cq_id="CQ", data="reprocess:J_ORPH")
+    await _cb_reprocess(ctx)
+
+    # A brand-new job is enqueued — never the orphaned row (avoids Drive/Sheets dup).
+    enqueued.assert_awaited_once()
+    task = enqueued.await_args.args[0]
+    assert task["task"] == "video"
+    new_id = task["job_id"]
+    assert new_id != "J_ORPH"
+
+    fresh = await db.get_job(new_id)
+    assert fresh["status"] == "pending"
+    assert fresh["content_type"] == "short"   # carried over from the orphaned job
+    assert fresh["url"] == "u"
+    ack.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cb_reprocess_job_not_found_acks_error(temp_db, monkeypatch):
+    from src.telegram.webhook import CallbackCtx, _cb_reprocess
+
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+
+    ctx = CallbackCtx(chat_id=1, job_id="NOPE", cq_id="CQ", data="reprocess:NOPE")
+    await _cb_reprocess(ctx)
+
+    enqueued.assert_not_awaited()
+    _, kwargs = ack.await_args
+    assert "not found" in (kwargs.get("text") or "").lower()
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table handler unit tests (issue #25)
 # ---------------------------------------------------------------------------
 

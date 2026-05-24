@@ -122,18 +122,18 @@ async def test_reap_notifies_per_state(temp_db):
          patch("src.telegram.sender.send_inline_keyboard", new=AsyncMock()) as send_kb:
         await worker.reap_stale_jobs()
 
-    # processing → plain resend message, no button
-    assert send_msg.call_count == 1
-    proc_args = send_msg.call_args
-    assert proc_args.args[0] == 100
-    assert "resend the link" in proc_args.args[1].lower()
+    # both states now offer a one-tap retry button — no plain resend message
+    send_msg.assert_not_called()
+    assert send_kb.call_count == 2
+    by_chat = {c.args[0]: c for c in send_kb.call_args_list}
 
-    # enriching → message with the existing enrichment_retry button
-    assert send_kb.call_count == 1
-    kb_args = send_kb.call_args
-    assert kb_args.args[0] == 200
-    buttons = kb_args.kwargs["buttons"]
-    assert buttons[0][0]["callback_data"] == "enrichment_retry:20260524_120000_ENRC"
+    # processing → reprocess button carrying the orphaned job_id (one-tap resend)
+    proc = by_chat[100]
+    assert proc.kwargs["buttons"][0][0]["callback_data"] == "reprocess:20260524_120000_PROC"
+
+    # enriching → the existing enrichment_retry button
+    enr = by_chat[200]
+    assert enr.kwargs["buttons"][0][0]["callback_data"] == "enrichment_retry:20260524_120000_ENRC"
 
 
 @pytest.mark.asyncio

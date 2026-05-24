@@ -292,6 +292,28 @@ async def _cb_enrichment_retry(ctx: CallbackCtx) -> None:
     await send_message(ctx.chat_id, "🍪 Retrying Gemini enrichment...")
 
 
+async def _cb_reprocess(ctx: CallbackCtx) -> None:
+    """One-tap retry for a 'processing' job orphaned by a restart (ADR-0010).
+
+    Re-submits the stored URL as a brand-new job — identical to the user resending
+    the link — so the orphaned row's Drive file / Sheets row are never re-touched.
+    """
+    job = await database.get_job(ctx.job_id)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found — please resend the link.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    new_job_id = await database.create_job(
+        chat_id=ctx.chat_id,
+        url=job["url"],
+        content_type=job["content_type"],
+        template=job.get("template"),
+    )
+    await queue.enqueue({"task": "video", "job_id": new_job_id})
+    log.info("reprocess_enqueued", orphan_job_id=ctx.job_id, new_job_id=new_job_id)
+    await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
+
+
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "gemini_no":         _cb_gemini_no,
     "gemini_yes":        _cb_gemini_yes,
@@ -301,6 +323,7 @@ _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "prd_intent_prompt": _cb_prd_intent_prompt,
     "prd_retry_intent":  _cb_prd_retry_intent,
     "enrichment_retry":  _cb_enrichment_retry,
+    "reprocess":         _cb_reprocess,
 }
 
 

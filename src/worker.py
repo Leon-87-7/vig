@@ -135,7 +135,7 @@ async def reap_stale_jobs() -> None:
     if not rows:
         return
     log.info("jobs.reaper.released", count=len(rows))
-    from src.telegram.sender import send_message, send_inline_keyboard
+    from src.telegram.sender import send_inline_keyboard
 
     for row in rows:
         chat_id = row["chat_id"]
@@ -149,11 +149,13 @@ async def reap_stale_jobs() -> None:
                     f"{tag}\n⚠️ Enrichment was interrupted by a restart.",
                     buttons=[[{"text": "🔄 Retry", "callback_data": f"enrichment_retry:{job_id}"}]],
                 )
-            else:  # 'processing' — re-running would duplicate Drive/Sheets; ask to resend.
-                await send_message(
+            else:  # 'processing' — the Retry button re-submits the stored URL as a
+                # fresh job (same as resending the link), so the orphaned row's
+                # Drive file / Sheets row are never re-touched.
+                await send_inline_keyboard(
                     chat_id,
-                    f"{tag}\n⚠️ Processing was interrupted by a restart. "
-                    "Please resend the link to try again.",
+                    f"{tag}\n⚠️ Processing was interrupted by a restart.",
+                    buttons=[[{"text": "🔄 Retry", "callback_data": f"reprocess:{job_id}"}]],
                 )
         except Exception:
             log.exception("jobs.reaper.notify_failed", job_id=job_id)

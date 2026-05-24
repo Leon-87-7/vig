@@ -27,7 +27,7 @@ status IN ('processing','enriching') AND updated_at < datetime('now','-10 minute
 increments `attempt`, and notifies the user per state:
 
 - `enriching` → Telegram message + the existing `enrichment_retry:` button. The transcript is already stored; enrichment is cheap and overwrites the `ai_*` fields. (`_cb_enrichment_retry` already accepts `status='error'`.)
-- `processing` → Telegram message asking the user to resend the link. That produces a fresh `job_id` with no duplication of the orphaned row's Drive file / Sheets row.
+- `processing` → Telegram message + a `reprocess:` button. Pressing it re-submits the orphaned row's stored `url` as a **brand-new** job (`_cb_reprocess` → `create_job` + enqueue `video`) — functionally identical to the user resending the link, so the orphaned row's Drive file / Sheets row are never re-touched. The button is pure UX: it spares the user the copy-paste, without changing the fresh-`job_id`, no-duplication semantics. (The orphaned URL can't ride in `callback_data` — Telegram caps it at 64 bytes — so the handler reads it back from the job row by `job_id`.)
 
 Because notifications are per-row, the reaper is a SELECT-then-UPDATE — `database.fetch_and_mark_stale_jobs()` returns the affected `(id, chat_id, status)` rows in the same transaction that flips them to `error` — not the bulk `UPDATE` used by the PRD reapers.
 
@@ -49,4 +49,5 @@ Because notifications are per-row, the reaper is a SELECT-then-UPDATE — `datab
 - New `database.fetch_and_mark_stale_jobs()` — atomic SELECT + UPDATE (`status='error'`, `attempt = attempt + 1`); returns the affected rows.
 - New `worker.reap_stale_jobs()` coroutine, called in `worker.loop()` after `prd.reaper_intent()`.
 - `enriching` recovery relies on `_cb_enrichment_retry` accepting `status='error'` (it already does — no webhook change needed).
+- New `_cb_reprocess` webhook handler (registered as `reprocess:` in `_CALLBACK_TABLE`) backs the `processing` recovery button: it reads the orphaned row's `url`/`content_type`/`template`, calls `create_job`, and enqueues a `video` task.
 - Supersedes the "a reaper can re-queue stuck jobs" future-work note in ADR-0002: the resolved policy is reset-to-error, not re-queue.
