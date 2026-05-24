@@ -32,6 +32,8 @@
 | [#22](https://github.com/Leon-87-7/vig/issues/22) | feat: wire repo enrichment into photo pipeline                                     | Photo / GitHub | Merged; closed on GH        |
 | [#26](https://github.com/Leon-87-7/vig/issues/26) | refactor: GeminiClient — migrate remaining callers                                 | Refactor       | Merged; closed on GH        |
 | [#27](https://github.com/Leon-87-7/vig/issues/27) | refactor: webhook slash dispatch table                                             | Refactor       | Merged; closed on GH        |
+| [#32](https://github.com/Leon-87-7/vig/issues/32) | feat: audio fallback for caption-less Reels (transcript service + audio enrichment) | Short Video / Templates | Committed to main (add56a6); not pushed, GH issue still open |
+| [#35](https://github.com/Leon-87-7/vig/issues/35) | Recover orphaned jobs at worker startup (ADR-0010)                                  | Infra / Worker | Committed to main (7ba1a95); closed on GH; 43 tests green |
 
 ---
 
@@ -39,8 +41,7 @@
 
 |                                                 # | Title                                                              | Area          | Depends On |
 | ------------------------------------------------: | ------------------------------------------------------------------ | ------------- | ---------- |
-| [#35](https://github.com/Leon-87-7/vig/issues/35) | Recover orphaned jobs at worker startup (ADR-0010)                 | Infra / Worker | none       |
-| [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests) | Photo / Bug    | none       |
+| (none)                                            |                                                                    |                |            |
 
 ---
 
@@ -50,8 +51,8 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                 # | Title                                                                              | Area          | Depends On          |
 | ------------------------------------------------: | ---------------------------------------------------------------------------------- | ------------- | ------------------- |
-| [#32](https://github.com/Leon-87-7/vig/issues/32) | feat: audio fallback for caption-less Reels (transcript service + audio enrichment) | Short Video / Templates | #15, #18 (both ✓) |
 | [#33](https://github.com/Leon-87-7/vig/issues/33) | feat: promise-gap extraction — schema + prompt + parse + persist                     | Enrichment              | none               |
+| [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests)                  | Photo                   | none               |
 | [#34](https://github.com/Leon-87-7/vig/issues/34) | feat: promise-gap Telegram render                                                    | Enrichment              | #33                |
 
 ---
@@ -89,7 +90,7 @@ Ordered by unblocked-first, then dependency chain.
 #16 Template system parent ✓
     ├── #17 Template data layer ✓
     └── #18 Template handler layer ✓
-        └── #32 Audio fallback for caption-less Reels (ADR-0009) ⏳ ready-for-agent
+        └── #32 Audio fallback for caption-less Reels (ADR-0009) ✓
 
 #23 GeminiClient core ✓
 └── #26 GeminiClient migrate remaining callers ✓
@@ -99,6 +100,9 @@ Ordered by unblocked-first, then dependency chain.
 #25 Webhook callback dispatch table ✓
 └── #27 Webhook slash dispatch table ✓
 
-#33 Promise-gap extraction ⏳ needs-triage
-└── #34 Promise-gap Telegram render ⏳ needs-triage
+#33 Promise-gap extraction 🤖 ready-for-agent
+└── #34 Promise-gap Telegram render 🤖 ready-for-agent (needs #33)
+
+#35 Orphaned-job reaper (ADR-0010) ✓
+#36 Photo UI-chrome filter (ADR-0005) 🤖 ready-for-agent
 ```
