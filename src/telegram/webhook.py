@@ -61,9 +61,78 @@ async def _clear_batch(chat_id: int) -> None:
     await client.delete(f"photo_batch_active:{chat_id}", f"photo_batch_files:{chat_id}")
 
 
+async def _enrich_github_repos(links: list[dict]) -> list[dict]:
+    """Mutate links in-place with GitHub enrichment data.
+
+    For each link whose URL contains ``github.com``, attempts to fetch
+    repository metadata via ``enrich_repo``.  Sets ``_enriched=True``
+    and attaches ``_stars``, ``_forks``, ``_language``, ``_days_ago``,
+    ``_gh_description`` on success; sets ``_enriched=False`` on failure
+    (404, network error, or missing token).
+
+    If ``settings.GITHUB_TOKEN`` is absent, returns ``links`` unchanged
+    (no ``_enriched`` keys are set, so callers can still fall back to
+    ``build_links_message``).
+    """
+    from urllib.parse import urlparse
+    from src.services.github import enrich_repo
+
+    token = settings.GITHUB_TOKEN
+    if not token:
+        return links
+
+    gh_links = [lnk for lnk in links if "github.com" in lnk.get("url", "")]
+    if not gh_links:
+        return links
+
+    def _parse_owner_repo(url: str) -> tuple[str, str] | None:
+        parsed = urlparse(url)
+        segments = [s for s in parsed.path.split("/") if s]
+        if len(segments) >= 2:
+            return segments[0], segments[1]
+        return None
+
+    parsed_pairs = [_parse_owner_repo(lnk["url"]) for lnk in gh_links]
+
+    # gather concurrently only for valid owner/repo pairs
+    valid_indices = [(i, pair) for i, pair in enumerate(parsed_pairs) if pair is not None]
+    if valid_indices:
+        coros = [enrich_repo(owner, repo, token) for _, (owner, repo) in valid_indices]
+        api_results: list[dict | None] = list(await asyncio.gather(*coros, return_exceptions=False))
+    else:
+        api_results = []
+
+    now = datetime.now(timezone.utc)
+    result_iter = iter(api_results)
+
+    for i, lnk in enumerate(gh_links):
+        pair = parsed_pairs[i]
+        if pair is None:
+            lnk["_enriched"] = False
+            continue
+        data = next(result_iter)
+        if data is None:
+            lnk["_enriched"] = False
+        else:
+            pushed_at_raw = data.get("pushed_at") or ""
+            try:
+                pushed = datetime.fromisoformat(pushed_at_raw.replace("Z", "+00:00"))
+                days_ago = (now - pushed).days
+            except Exception:
+                days_ago = 0
+            lnk["_enriched"] = True
+            lnk["_stars"] = data.get("stars", 0)
+            lnk["_forks"] = data.get("forks", 0)
+            lnk["_language"] = data.get("language")
+            lnk["_days_ago"] = days_ago
+            lnk["_gh_description"] = data.get("description")
+
+    return links
+
+
 async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) -> None:
     from src.services.gemini_photo import call_gemini_photo_links
-    from src.utils.markdown import build_links_message
+    from src.utils.markdown import build_links_message, build_enriched_links_message
 
     await send_message(chat_id, "🔍 Scanning image for links...")
     photo_bytes, mime_type = await download_photo(file_id)
@@ -76,7 +145,11 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
     links = result.get("links", [])
     summary = result.get("summary", "")
     if links:
-        await send_message(chat_id, build_links_message(links))
+        links = await _enrich_github_repos(links)
+        if any(lnk.get("_enriched") for lnk in links):
+            await send_message(chat_id, build_enriched_links_message(links))
+        else:
+            await send_message(chat_id, build_links_message(links))
         if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
             from src import brain
             asyncio.create_task(
@@ -91,7 +164,7 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
 
 async def _process_batch(chat_id: int) -> None:
     from src.services.gemini_photo import call_gemini_photo_links
-    from src.utils.markdown import build_links_message
+    from src.utils.markdown import build_links_message, build_enriched_links_message
 
     file_ids = await _get_batch_files(chat_id)
     await _clear_batch(chat_id)
@@ -108,7 +181,11 @@ async def _process_batch(chat_id: int) -> None:
     )
     links = result.get("links", [])
     if links:
-        await send_message(chat_id, build_links_message(links))
+        links = await _enrich_github_repos(links)
+        if any(lnk.get("_enriched") for lnk in links):
+            await send_message(chat_id, build_enriched_links_message(links))
+        else:
+            await send_message(chat_id, build_links_message(links))
         if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
             from src import brain
             asyncio.create_task(
