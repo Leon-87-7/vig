@@ -707,3 +707,50 @@ async def test_template_pending_not_applied_to_rejected_url(
 
     assert "Unsupported" in sent.await_args.args[1]
     assert _patch_redis._strings.get("pending_template:100") is None
+
+
+# ---------------------------------------------------------------------------
+# SlashCtx handler unit tests (issue #27)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_cmd_find_no_query_sends_usage(monkeypatch):
+    """/find with no arguments sends the usage hint and nothing else."""
+    from src.telegram.webhook import SlashCtx, _cmd_find
+
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+
+    ctx = SlashCtx(chat_id=42, parts=["/find"], message_id=None)
+    await _cmd_find(ctx)
+
+    sent.assert_awaited_once()
+    args, _ = sent.await_args
+    assert args[0] == 42
+    assert "Usage: /find <query>" in args[1]
+
+
+@pytest.mark.asyncio
+async def test_cmd_cancel_awaiting_intent_sends_intent_canceled(temp_db, monkeypatch):
+    """/cancel when state.mode == 'awaiting_intent' sends the Intent-canceled message."""
+    from src.telegram.webhook import SlashCtx, _cmd_cancel
+    from src import database as db
+
+    await db.set_chat_state(chat_id=7, mode="awaiting_intent", job_id="J_TEST")
+
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+
+    fake = FakeRedis()
+    import src.queue as q_module
+    monkeypatch.setattr(q_module, "_redis", fake)
+
+    ctx = SlashCtx(chat_id=7, parts=["/cancel"], message_id=None)
+    await _cmd_cancel(ctx)
+
+    sent.assert_awaited_once()
+    args, _ = sent.await_args
+    assert args[0] == 7
+    assert "✍️ Intent canceled." in args[1]
+    assert await db.get_chat_state(7) is None

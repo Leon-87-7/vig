@@ -34,6 +34,13 @@ class CallbackCtx:
     data: str        # full raw data string
 
 
+@dataclass
+class SlashCtx:
+    chat_id: int
+    parts: list[str]   # split command + args
+    message_id: int | None
+
+
 async def _is_batch_active(chat_id: int) -> bool:
     return bool(await queue._client().get(f"photo_batch_active:{chat_id}"))
 
@@ -238,102 +245,123 @@ async def _handle_callback(callback: dict) -> None:
     await handler(ctx)
 
 
+async def _cmd_cancel(ctx: SlashCtx) -> None:
+    state = await database.get_chat_state(ctx.chat_id)
+    await database.clear_chat_state(ctx.chat_id)
+    await queue._client().delete(f"pending_template:{ctx.chat_id}")
+    if state and state.get("mode") == "awaiting_intent":
+        await send_message(ctx.chat_id, "✍️ Intent canceled.")
+    else:
+        await send_message(ctx.chat_id, "Nothing to cancel.")
+
+
+async def _cmd_spec(ctx: SlashCtx) -> None:
+    await _handle_spec(ctx.chat_id, ctx.parts)
+
+
+async def _cmd_find(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /find <query>")
+        return
+    query = " ".join(ctx.parts[1:]).strip()
+    from src import brain
+    results = await brain.search_links(query, top_k=5)
+    if not results:
+        await send_message(ctx.chat_id, "No relevant links found in your brain.")
+    else:
+        lines = [
+            f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}"
+            for r in results
+        ]
+        await send_message(ctx.chat_id, "\n\n".join(lines), parse_mode="Markdown")
+
+
+async def _cmd_rebuild_graph(ctx: SlashCtx) -> None:
+    from src import brain
+    if brain._rebuild_lock.locked():
+        await send_message(ctx.chat_id, "Rebuild already in progress — please wait.")
+        return
+    await send_message(ctx.chat_id, "Brain rebuild started — will take a few minutes")
+
+    async def _do_rebuild() -> None:
+        try:
+            n = await brain.rebuild_graph()
+            await send_message(ctx.chat_id, f"Graph rebuilt — {n} nodes written.")
+        except Exception:
+            await send_message(ctx.chat_id, "Rebuild failed. Check logs.")
+
+    asyncio.create_task(_do_rebuild())
+
+
+async def _cmd_photobatch_start(ctx: SlashCtx) -> None:
+    client = queue._client()
+    await client.set(f"photo_batch_active:{ctx.chat_id}", "1", ex=300)
+    await client.delete(f"photo_batch_files:{ctx.chat_id}")
+    asyncio.create_task(_batch_auto_close(ctx.chat_id))
+    deadline = (datetime.now(timezone.utc) + timedelta(seconds=300)).strftime("%H:%M:%S")
+    await send_message(ctx.chat_id, f"📸 Batch mode started! The bus leaves at {deadline} UTC.")
+
+
+async def _cmd_photobatch_end(ctx: SlashCtx) -> None:
+    if not await _is_batch_active(ctx.chat_id):
+        await send_message(ctx.chat_id, "No active batch — use /photoBatch-start first.")
+        return
+    asyncio.create_task(_process_batch(ctx.chat_id))
+
+
+async def _cmd_template(ctx: SlashCtx) -> None:
+    template = ctx.parts[0][1:]
+    if len(ctx.parts) < 2:
+        await queue._client().set(f"pending_template:{ctx.chat_id}", template, ex=120)
+        await send_message(ctx.chat_id, f"📥 `/{template}` ready — send the URL now (2 min window).")
+        return
+    url = ctx.parts[1]
+    pipeline = detect_pipeline(url)
+    if pipeline == "rejected":
+        await send_message(
+            ctx.chat_id,
+            "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
+            "Instagram Reels, and TikTok videos.",
+        )
+        return
+    job_id = await database.create_job(
+        chat_id=ctx.chat_id,
+        url=url,
+        content_type=pipeline,
+        message_id=ctx.message_id,
+        template=template,
+    )
+    await database.update_job_status(
+        job_id, "pending",
+        template_detection_method="explicit_command",
+    )
+    await queue.enqueue({"task": "video", "job_id": job_id})
+    await send_message(ctx.chat_id, f"📥 Received with **{template}** template!\njob_{job_id[-4:]}")
+
+
+_SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
+    "/cancel":           _cmd_cancel,
+    "/spec":             _cmd_spec,
+    "/find":             _cmd_find,
+    "/rebuild-graph":    _cmd_rebuild_graph,
+    "/photobatch-start": _cmd_photobatch_start,
+    "/photobatch-end":   _cmd_photobatch_end,
+    **{f"/{t}": _cmd_template for t in PROMPT_TEMPLATES},
+}
+
+
 async def _dispatch_slash(chat_id: int, text: str, message_id: int | None = None) -> None:
     """Slash command dispatch. Clears chat_state as a side effect (except /cancel reads first)."""
     parts = text.split()
     cmd = parts[0].lower()
-
-    if cmd == "/cancel":
-        state = await database.get_chat_state(chat_id)
+    handler = _SLASH_TABLE.get(cmd)
+    if handler is None:
+        return
+    ctx = SlashCtx(chat_id=chat_id, parts=parts, message_id=message_id)
+    if cmd != "/cancel":
         await database.clear_chat_state(chat_id)
         await queue._client().delete(f"pending_template:{chat_id}")
-        if state and state.get("mode") == "awaiting_intent":
-            await send_message(chat_id, "✍️ Intent canceled.")
-        else:
-            await send_message(chat_id, "Nothing to cancel.")
-        return
-
-    # All other slash commands clear chat_state and any pending template first
-    await database.clear_chat_state(chat_id)
-    await queue._client().delete(f"pending_template:{chat_id}")
-
-    if cmd == "/spec":
-        await _handle_spec(chat_id, parts)
-        return
-    if cmd == "/find" and len(parts) > 1:
-        query = " ".join(parts[1:]).strip()
-        from src import brain
-        results = await brain.search_links(query, top_k=5)
-        if not results:
-            await send_message(chat_id, "No relevant links found in your brain.")
-        else:
-            lines = [
-                f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}"
-                for r in results
-            ]
-            await send_message(chat_id, "\n\n".join(lines), parse_mode="Markdown")
-        return
-    if cmd == "/find":
-        await send_message(chat_id, "Usage: /find <query>")
-        return
-    if cmd == "/rebuild-graph":
-        from src import brain
-        if brain._rebuild_lock.locked():
-            await send_message(chat_id, "Rebuild already in progress — please wait.")
-            return
-        await send_message(chat_id, "Brain rebuild started — will take a few minutes")
-        async def _do_rebuild():
-            try:
-                n = await brain.rebuild_graph()
-                await send_message(chat_id, f"Graph rebuilt — {n} nodes written.")
-            except Exception:
-                await send_message(chat_id, "Rebuild failed. Check logs.")
-        asyncio.create_task(_do_rebuild())
-        return
-    if cmd == "/photobatch-start":
-        client = queue._client()
-        await client.set(f"photo_batch_active:{chat_id}", "1", ex=300)
-        await client.delete(f"photo_batch_files:{chat_id}")
-        asyncio.create_task(_batch_auto_close(chat_id))
-        deadline = (datetime.now(timezone.utc) + timedelta(seconds=300)).strftime("%H:%M:%S")
-        await send_message(chat_id, f"📸 Batch mode started! The bus leaves at {deadline} UTC.")
-        return
-    if cmd == "/photobatch-end":
-        if not await _is_batch_active(chat_id):
-            await send_message(chat_id, "No active batch — use /photoBatch-start first.")
-            return
-        asyncio.create_task(_process_batch(chat_id))
-        return
-    if cmd[1:] in PROMPT_TEMPLATES:
-        template = cmd[1:]
-        if len(parts) < 2:
-            await queue._client().set(f"pending_template:{chat_id}", template, ex=120)
-            await send_message(chat_id, f"📥 `/{template}` ready — send the URL now (2 min window).")
-            return
-        url = parts[1]
-        pipeline = detect_pipeline(url)
-        if pipeline == "rejected":
-            await send_message(
-                chat_id,
-                "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-                "Instagram Reels, and TikTok videos.",
-            )
-            return
-        job_id = await database.create_job(
-            chat_id=chat_id,
-            url=url,
-            content_type=pipeline,
-            message_id=message_id,
-            template=template,
-        )
-        await database.update_job_status(
-            job_id, "pending",
-            template_detection_method="explicit_command",
-        )
-        await queue.enqueue({"task": "video", "job_id": job_id})
-        await send_message(chat_id, f"📥 Received with **{template}** template!\njob_{job_id[-4:]}")
-        return
-    # /start, /help, and any other slash falls through — Telegram handles natively
+    await handler(ctx)
 
 
 async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
