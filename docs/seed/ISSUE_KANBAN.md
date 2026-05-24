@@ -25,6 +25,10 @@
 | [#16](https://github.com/Leon-87-7/vig/issues/16) | feat: template + transcript enhancement system                                     | Templates     | Parent issue; closed on GH  |
 | [#17](https://github.com/Leon-87-7/vig/issues/17) | feat: template system — data layer (Phases 1–4)                                    | Templates     | Merged; closed on GH        |
 | [#18](https://github.com/Leon-87-7/vig/issues/18) | feat: template system — handler layer (Phases 5–8)                                 | Templates     | Merged; closed on GH        |
+| [#21](https://github.com/Leon-87-7/vig/issues/21) | feat: GitHub service + Redis cache for repo enrichment                             | Photo / GitHub | Merged; PR #28              |
+| [#23](https://github.com/Leon-87-7/vig/issues/23) | refactor: GeminiClient core module                                                 | Refactor       | Merged; PR #29              |
+| [#24](https://github.com/Leon-87-7/vig/issues/24) | refactor: PRD skeleton unification                                                 | Refactor       | Merged; PR #30              |
+| [#25](https://github.com/Leon-87-7/vig/issues/25) | refactor: webhook callback dispatch table                                          | Refactor       | Merged; PR #31              |
 
 ---
 
@@ -42,13 +46,9 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                 # | Title                                                                              | Area          | Depends On          |
 | ------------------------------------------------: | ---------------------------------------------------------------------------------- | ------------- | ------------------- |
-| [#21](https://github.com/Leon-87-7/vig/issues/21) | feat: GitHub service + Redis cache for repo enrichment             | Photo / GitHub | —                   |
-| [#23](https://github.com/Leon-87-7/vig/issues/23) | refactor: GeminiClient core module                                 | Refactor       | —                   |
-| [#24](https://github.com/Leon-87-7/vig/issues/24) | refactor: PRD skeleton unification                                 | Refactor       | —                   |
-| [#25](https://github.com/Leon-87-7/vig/issues/25) | refactor: webhook callback dispatch table                          | Refactor       | —                   |
-| [#22](https://github.com/Leon-87-7/vig/issues/22) | feat: wire repo enrichment into photo pipeline                     | Photo / GitHub | #21                 |
-| [#26](https://github.com/Leon-87-7/vig/issues/26) | refactor: GeminiClient — migrate remaining callers                 | Refactor       | #23                 |
-| [#27](https://github.com/Leon-87-7/vig/issues/27) | refactor: webhook slash dispatch table                             | Refactor       | #25                 |
+| [#22](https://github.com/Leon-87-7/vig/issues/22) | feat: wire repo enrichment into photo pipeline                     | Photo / GitHub | #21 ✓               |
+| [#26](https://github.com/Leon-87-7/vig/issues/26) | refactor: GeminiClient — migrate remaining callers                 | Refactor       | #23 ✓               |
+| [#27](https://github.com/Leon-87-7/vig/issues/27) | refactor: webhook slash dispatch table                             | Refactor       | #25 ✓               |
 
 ---
 
@@ -73,7 +73,7 @@ Ordered by unblocked-first, then dependency chain.
     ├── #8 ✓
     ├── #9 ✓
     ├── #11 Photo link extraction ✓
-    │   ├── #21 GitHub service + cache
+    │   ├── #21 GitHub service + cache ✓
     │   │   └── #22 Photo pipeline wiring (repo enrichment)
     ├── #6 Mini-PRD auto ✓
     │   └── #7 Mini-PRD intent ✓
@@ -86,12 +86,12 @@ Ordered by unblocked-first, then dependency chain.
     ├── #17 Template data layer ✓
     └── #18 Template handler layer ✓
 
-#23 GeminiClient core
+#23 GeminiClient core ✓
 └── #26 GeminiClient migrate remaining callers
         (not parallel with #24 — both touch prd.py)
 
-#24 PRD skeleton unification
+#24 PRD skeleton unification ✓
 
-#25 Webhook callback dispatch table
+#25 Webhook callback dispatch table ✓
 └── #27 Webhook slash dispatch table
 ```
