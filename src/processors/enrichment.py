@@ -372,6 +372,7 @@ async def run(job_id: str) -> None:
         ai_tools=enrichment.tools_str,
         ai_market_data=enrichment.market_data,
         template_analysis=json.dumps(template_analysis) if template_analysis else None,
+        promise_gap=json.dumps(promise_gap) if promise_gap else None,
         completed_at=now,
     )
 
