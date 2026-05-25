@@ -42,10 +42,9 @@
 
 ## Needs Triage
 
-|                                                 # | Title                                                           | Area     | Depends On |
-| ------------------------------------------------: | --------------------------------------------------------------- | -------- | ---------- |
-| [#38](https://github.com/Leon-87-7/vig/issues/38) | Unify the two template-matching tables into the Template module | Refactor | none       |
-| [#39](https://github.com/Leon-87-7/vig/issues/39) | Collapse the Gemini service triplet into one module (HITL)      | Refactor | none       |
+|      # | Title | Area | Depends On |
+| -----: | ----- | ---- | ---------- |
+| (none) |       |      |            |
 
 ---
 
@@ -53,9 +52,11 @@
 
 Ordered by unblocked-first, then dependency chain.
 
-|                                                 # | Title                                                               | Area  | Depends On |
-| ------------------------------------------------: | ------------------------------------------------------------------- | ----- | ---------- |
-| [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests) | Photo | none       |
+|                                                 # | Title                                                               | Area     | Depends On |
+| ------------------------------------------------: | ------------------------------------------------------------------- | -------- | ---------- |
+| [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests) | Photo    | none       |
+| [#38](https://github.com/Leon-87-7/vig/issues/38) | Unify the two template-matching tables into the Template module     | Refactor | none       |
+| [#39](https://github.com/Leon-87-7/vig/issues/39) | Collapse the Gemini service triplet into one module (HITL)          | Refactor | none       |
 
 ---
 
@@ -103,8 +104,8 @@ Ordered by unblocked-first, then dependency chain.
 └── #27 Webhook slash dispatch table ✓
 
 #37 Slimming sweep — dedup ID gen / links formatter / EMBEDDING_DIM ✓ (slimming-doc #3/#4/#5)
-#38 Unify template-matching tables 📋 needs-triage (slimming-doc #2)
-#39 Collapse Gemini service triplet (HITL) 📋 needs-triage (slimming-doc #1)
+#38 Unify template-matching tables 🤖 ready-for-agent (slimming-doc #2)
+#39 Collapse Gemini service triplet (HITL) 🤖 ready-for-agent (slimming-doc #1; reversal approved → ADR-0011)
 
 #33 Promise-gap extraction ✓
 └── #34 Promise-gap Telegram render ✓ (needs #33)
