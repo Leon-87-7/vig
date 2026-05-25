@@ -133,33 +133,39 @@ def get_transcript():
     # Non-YouTube fallback: yt-dlp subtitle extraction (TikTok, Instagram Reels, etc.)
     tmp_dir = tempfile.mkdtemp()
     try:
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "skip_download": True,
-            "writeautomaticsub": True,
-            "writesubtitles": True,
-            "subtitleslangs": ["en", "en-orig"],
-            "subtitlesformat": "vtt",
-            "outtmpl": os.path.join(tmp_dir, "%(id)s.%(ext)s"),
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
-            info = ydl.extract_info(url, download=True)
-        info = get_primary_media_info(info)
-        vid = info.get("id", "unknown")
-        vtt_files = [f for f in os.listdir(tmp_dir) if f.endswith(".vtt")]
-        if not vtt_files:
-            # Caption-less fallback: download audio-only and return it as inline base64.
-            # The worker makes a single Gemini call that transcribes + analyzes the audio.
-            try:
-                audio_b64, mime_type = _download_audio_b64(url, tmp_dir)
-                return jsonify([{"audio_b64": audio_b64, "mime_type": mime_type, "fallback": "audio"}])
-            except Exception as e:
-                return jsonify([{"error": {"type": "transcription_failed", "message": str(e)}}])
-        text = _parse_vtt(os.path.join(tmp_dir, vtt_files[0]))
-        return jsonify([{"videoId": vid, "text": text}])
-    except Exception as e:
-        return jsonify([{"error": {"type": type(e).__name__, "message": str(e)}}])
+        # Try caption extraction first; if it throws, fall through to audio.
+        caption_text: str | None = None
+        try:
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "skip_download": True,
+                "writeautomaticsub": True,
+                "writesubtitles": True,
+                "subtitleslangs": ["en", "en-orig"],
+                "subtitlesformat": "vtt",
+                "outtmpl": os.path.join(tmp_dir, "%(id)s.%(ext)s"),
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
+                info = ydl.extract_info(url, download=True)
+            info = get_primary_media_info(info)
+            vid = info.get("id", "unknown")
+            vtt_files = [f for f in os.listdir(tmp_dir) if f.endswith(".vtt")]
+            if vtt_files:
+                caption_text = _parse_vtt(os.path.join(tmp_dir, vtt_files[0]))
+        except Exception:
+            pass  # caption extraction failed → try audio fallback below
+
+        if caption_text:
+            return jsonify([{"videoId": vid, "text": caption_text}])
+
+        # Caption-less fallback: download audio-only and return it as inline base64.
+        # The worker makes a single Gemini call that transcribes + analyzes the audio.
+        try:
+            audio_b64, mime_type = _download_audio_b64(url, tmp_dir)
+            return jsonify([{"audio_b64": audio_b64, "mime_type": mime_type, "fallback": "audio"}])
+        except Exception as e:
+            return jsonify([{"error": {"type": "transcription_failed", "message": str(e)}}])
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 

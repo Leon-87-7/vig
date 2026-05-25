@@ -134,6 +134,24 @@ def test_no_captions_falls_back_to_audio(client, tmp_path):
     assert base64.b64decode(data[0]["audio_b64"]) == b"\x00\x01FAKEAUDIO"
 
 
+def test_caption_extraction_failure_falls_back_to_audio(client, tmp_path):
+    """Outer yt-dlp caption call throws → audio fallback is still attempted."""
+    (tmp_path / "audio.m4a").write_bytes(b"\x00\x02FAKEAUDIO")
+
+    caption_mock = _make_ydl_mock({"id": "reel_fail"})
+    caption_mock.extract_info.side_effect = [RuntimeError("yt-dlp caption error"), None]
+
+    with patch("transcript_server.tempfile.mkdtemp", return_value=str(tmp_path)), \
+         patch("transcript_server.yt_dlp.YoutubeDL", return_value=caption_mock), \
+         patch("transcript_server.shutil.rmtree"):
+        resp = client.get("/transcript?url=https://www.instagram.com/reel/DVNolBNE6vV/")
+
+    data = resp.get_json()
+    assert data[0]["fallback"] == "audio"
+    assert data[0]["mime_type"] == "audio/mp4"
+    assert base64.b64decode(data[0]["audio_b64"]) == b"\x00\x02FAKEAUDIO"
+
+
 def test_audio_download_failure_returns_transcription_failed(client, tmp_path):
     """No captions and no audio file produced → transcription_failed error."""
     with patch("transcript_server.tempfile.mkdtemp", return_value=str(tmp_path)), \

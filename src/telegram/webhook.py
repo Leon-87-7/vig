@@ -435,6 +435,42 @@ async def _cmd_template(ctx: SlashCtx) -> None:
     await send_message(ctx.chat_id, f"📥 Received with **{template}** template!\njob_{job_id[-4:]}")
 
 
+async def _reply_cached_job(chat_id: int, job: dict) -> None:
+    """Send a dedup notice. Caller should not enqueue."""
+    job_tag = f"job_{job['id'][-4:]}"
+    status = job.get("status", "")
+    if status == "completed":
+        drive_line = f"\n📄 <a href=\"{job['drive_url']}\">Open in Drive</a>" if job.get("drive_url") else ""
+        title_line = f"\n🎬 {html.escape(job['title'])}" if job.get("title") else ""
+        body = f"⚡ Already processed ({job_tag}){title_line}{drive_line}\n\nUse /force &lt;url&gt; to reprocess."
+    else:
+        body = f"⏳ Already in queue ({job_tag}, {status}) — hang tight.\n\nUse /force &lt;url&gt; to start a second run."
+    await send_message(chat_id, body, parse_mode="HTML")
+
+
+async def _cmd_force(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /force <url>")
+        return
+    url = ctx.parts[1]
+    pipeline = detect_pipeline(url)
+    if pipeline == "rejected":
+        await send_message(
+            ctx.chat_id,
+            "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
+            "Instagram Reels, and TikTok videos.",
+        )
+        return
+    job_id = await database.create_job(
+        chat_id=ctx.chat_id,
+        url=url,
+        content_type=pipeline,
+        message_id=ctx.message_id,
+    )
+    await queue.enqueue({"task": "video", "job_id": job_id})
+    await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
+
+
 _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/cancel":           _cmd_cancel,
     "/spec":             _cmd_spec,
@@ -442,6 +478,7 @@ _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/rebuild-graph":    _cmd_rebuild_graph,
     "/photobatch-start": _cmd_photobatch_start,
     "/photobatch-end":   _cmd_photobatch_end,
+    "/force":            _cmd_force,
     **{f"/{t}": _cmd_template for t in PROMPT_TEMPLATES},
 }
 
@@ -466,8 +503,13 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
     pipeline = detect_pipeline(text)
     if pipeline in ("short", "long"):
         await database.clear_chat_state(chat_id)
-        await send_message(chat_id, "🔄 Started new job; previous intent canceled.")
         log.info("prd.chat_state.canceled_by_url", chat_id=chat_id, old_job_id=job_id)
+        cached = await database.find_recent_job_by_url(chat_id, text)
+        if cached:
+            await send_message(chat_id, "🔄 Previous intent canceled.")
+            await _reply_cached_job(chat_id, cached)
+            return
+        await send_message(chat_id, "🔄 Started new job; previous intent canceled.")
         new_job_id = await database.create_job(
             chat_id=chat_id, url=text, content_type=pipeline
         )
@@ -646,6 +688,12 @@ async def webhook(
         )
         log.info("url_rejected", chat_id=chat_id, url=text)
         return {"ok": True}
+
+    if not pending_template:
+        cached = await database.find_recent_job_by_url(chat_id, text)
+        if cached:
+            await _reply_cached_job(chat_id, cached)
+            return {"ok": True}
 
     job_id = await database.create_job(
         chat_id=chat_id, url=text, content_type=pipeline, message_id=message_id,

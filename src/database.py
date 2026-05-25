@@ -286,3 +286,20 @@ async def get_recent_jobs(chat_id: int, limit: int = 5) -> list[dict]:
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
+    """Return the most recent non-failed job for this chat_id + url, or None.
+
+    Covers pending/processing (still running) and completed (cached result).
+    Failed and stale jobs are excluded so the user can retry after a failure.
+    """
+    async with connection() as conn:
+        cursor = await conn.execute(
+            "SELECT id, title, drive_url, content_type, status FROM jobs "
+            "WHERE chat_id = ? AND url = ? AND status NOT IN ('failed', 'stale') "
+            "ORDER BY created_at DESC, id DESC LIMIT 1",
+            (chat_id, url),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
