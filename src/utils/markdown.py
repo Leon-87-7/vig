@@ -26,15 +26,6 @@ def build_transcript_markdown(
     )
 
 
-def build_links_message(links: list[dict]) -> str:
-    labeled = "\n".join(
-        f"• {lnk.get('label') or lnk['url']} — {lnk.get('description') or ''}\n  🔗 {lnk['url']}"
-        for lnk in links
-    )
-    bare = "\n".join(lnk["url"] for lnk in links)
-    return f"🔗 Links Found:\n{labeled}\n\n---\n\n🔗 Quick Links:\n{bare}"
-
-
 def _humanize_age(days: int) -> str:
     """Render a day-count as a human-readable 'X ago' string.
 
@@ -80,7 +71,7 @@ def build_enriched_links_message(links: list[dict]) -> str:
             title = lnk.get("_gh_description") or lnk.get("label") or lnk["url"]
             language = lnk.get("_language") or "N/A"
             meta = (
-                f"  ⭐ {lnk['_stars']} | 🍴 {lnk['_forks']}"
+                f"  ⭐ {lnk['_stars']} | 🔀 {lnk['_forks']}"
                 f" | 💻 {language} | 📅 {_humanize_age(lnk['_days_ago'])}"
             )
             labeled_parts.append(f"• {title}\n{meta}\n  🔗 {lnk['url']}")
