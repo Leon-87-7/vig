@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -364,10 +365,11 @@ async def _cmd_find(ctx: SlashCtx) -> None:
         await send_message(ctx.chat_id, "No relevant links found in your brain.")
     else:
         lines = [
-            f"🔗 *{r['title']}* — {r['url']}\n   Topic: {r['topic']}\n   Score: {r['score']:.2f}"
+            f'🔗 <a href="{html.escape(r["url"], quote=True)}"><b>{html.escape(r["title"])}</b></a>'
+            f'\n   Topic: {html.escape(r["topic"])}\n   Score: {r["score"]:.2f}'
             for r in results
         ]
-        await send_message(ctx.chat_id, "\n\n".join(lines), parse_mode="Markdown")
+        await send_message(ctx.chat_id, "\n\n".join(lines), parse_mode="HTML")
 
 
 async def _cmd_rebuild_graph(ctx: SlashCtx) -> None:

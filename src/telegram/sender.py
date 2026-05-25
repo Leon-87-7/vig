@@ -34,6 +34,38 @@ def _endpoint(method: str) -> str:
     return f"{_API_BASE}/bot{settings.TELEGRAM_BOT_TOKEN}/{method}"
 
 
+def _raise_for_status(
+    response: httpx.Response,
+    *,
+    method: str,
+    chat_id: int | None = None,
+    parse_mode: str | None = None,
+) -> None:
+    """Like ``response.raise_for_status()`` but first logs Telegram's error body.
+
+    Telegram puts the real reason for a 4xx in the JSON body — e.g.
+    ``"description": "Bad Request: can't parse entities: ..."``. The bare
+    ``raise_for_status()`` raised before that body was ever read, so failures
+    only logged a useless ``400 Bad Request``. Capture and log it here, then
+    raise exactly as before so callers' behaviour is unchanged.
+    """
+    if response.status_code < 400:
+        return
+    try:
+        detail: Any = response.json()
+    except Exception:
+        detail = response.text
+    log.error(
+        "telegram_http_error",
+        method=method,
+        chat_id=chat_id,
+        status=response.status_code,
+        parse_mode=parse_mode,
+        response=detail,
+    )
+    response.raise_for_status()
+
+
 async def send_message(
     chat_id: int,
     text: str,
@@ -49,7 +81,7 @@ async def send_message(
         payload["parse_mode"] = parse_mode
 
     response = await _http().post(_endpoint("sendMessage"), json=payload)
-    response.raise_for_status()
+    _raise_for_status(response, method="sendMessage", chat_id=chat_id, parse_mode=parse_mode)
     body = response.json()
     if not body.get("ok"):
         log.error("telegram_send_failed", chat_id=chat_id, response=body)
@@ -70,7 +102,7 @@ async def send_photo(
         data["caption"] = caption
     files = {"photo": ("photo.jpg", photo_bytes, "image/jpeg")}
     response = await _http().post(_endpoint("sendPhoto"), data=data, files=files)
-    response.raise_for_status()
+    _raise_for_status(response, method="sendPhoto", chat_id=chat_id)
     body = response.json()
     if not body.get("ok"):
         log.error("telegram_photo_failed", chat_id=chat_id, response=body)
@@ -92,7 +124,7 @@ async def send_document(
         data["caption"] = caption
     files = {"document": (filename, file_bytes, "text/markdown")}
     response = await _http().post(_endpoint("sendDocument"), data=data, files=files)
-    response.raise_for_status()
+    _raise_for_status(response, method="sendDocument", chat_id=chat_id)
     body = response.json()
     if not body.get("ok"):
         log.error("telegram_document_failed", chat_id=chat_id, response=body)
@@ -113,7 +145,7 @@ async def send_inline_keyboard(
         "reply_markup": {"inline_keyboard": buttons},
     }
     response = await _http().post(_endpoint("sendMessage"), json=payload)
-    response.raise_for_status()
+    _raise_for_status(response, method="sendMessage", chat_id=chat_id)
     body = response.json()
     if not body.get("ok"):
         log.error("telegram_keyboard_failed", chat_id=chat_id, response=body)
@@ -138,7 +170,7 @@ async def send_force_reply(
         },
     }
     response = await _http().post(_endpoint("sendMessage"), json=payload)
-    response.raise_for_status()
+    _raise_for_status(response, method="sendMessage", chat_id=chat_id)
     body = response.json()
     if not body.get("ok"):
         log.error("telegram_force_reply_failed", chat_id=chat_id, response=body)
@@ -153,7 +185,7 @@ async def answer_callback_query(callback_query_id: str, text: str | None = None)
     if text:
         payload["text"] = text
     response = await _http().post(_endpoint("answerCallbackQuery"), json=payload)
-    response.raise_for_status()
+    _raise_for_status(response, method="answerCallbackQuery")
 
 
 async def download_photo(file_id: str) -> tuple[bytes, str]:
@@ -161,11 +193,11 @@ async def download_photo(file_id: str) -> tuple[bytes, str]:
     resp = await _http().get(
         _endpoint("getFile"), params={"file_id": file_id}
     )
-    resp.raise_for_status()
+    _raise_for_status(resp, method="getFile")
     file_path: str = resp.json()["result"]["file_path"]
     dl_url = f"{_API_BASE}/file/bot{settings.TELEGRAM_BOT_TOKEN}/{file_path}"
     file_resp = await _http().get(dl_url)
-    file_resp.raise_for_status()
+    _raise_for_status(file_resp, method="getFile.download")
     ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else "jpg"
     mime_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
     return file_resp.content, mime_map.get(ext, "image/jpeg")

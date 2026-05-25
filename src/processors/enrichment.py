@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import re
 from dataclasses import dataclass
@@ -222,58 +223,66 @@ async def enrich_audio(job: dict, audio_b64: str, mime_type: str) -> dict | None
     raise EnrichmentUnavailableError("Both Gemini keys failed for audio enrichment")
 
 
-def _escape_md(text: str) -> str:
-    """Escape Telegram Markdown V1 special chars in AI-generated text."""
-    for ch in ("_", "*", "`", "["):
-        text = text.replace(ch, f"\\{ch}")
-    return text
+def _escape_html(text: str) -> str:
+    """Escape AI-generated text for Telegram's HTML parse mode.
+
+    Only ``&``, ``<`` and ``>`` are special in HTML mode, so arbitrary content
+    (underscores, asterisks, brackets, dots) is safe — unlike Markdown V1, where
+    an unbalanced ``_``/``*`` would make Telegram reject the whole message (400).
+    """
+    return html.escape(str(text), quote=False)
+
+
+def _escape_attr(url: str) -> str:
+    """Escape a URL for use inside an HTML attribute (``href="..."``)."""
+    return html.escape(str(url), quote=True)
 
 
 def _format_template_analysis(template: str, analysis: dict) -> str:
     lines = [f"\n📋 {template.capitalize()} Analysis"]
     if template == "method":
         for i, step in enumerate(analysis.get("steps", []), 1):
-            action = _escape_md(step.get("action", ""))
-            details = _escape_md(step.get("details", ""))
+            action = _escape_html(step.get("action", ""))
+            details = _escape_html(step.get("details", ""))
             lines.append(f"{i}. {action}: {details}")
         if analysis.get("common_mistakes"):
-            lines += ["", "⚠️ Common Mistakes", _escape_md(analysis["common_mistakes"])]
+            lines += ["", "⚠️ Common Mistakes", _escape_html(analysis["common_mistakes"])]
         if analysis.get("pro_tips"):
-            lines += ["", "💡 Pro Tips", _escape_md(analysis["pro_tips"])]
+            lines += ["", "💡 Pro Tips", _escape_html(analysis["pro_tips"])]
     elif template == "technical":
         if analysis.get("tech_stack"):
-            lines += ["", "🔧 Tech Stack", ", ".join(_escape_md(t) for t in analysis["tech_stack"])]
+            lines += ["", "🔧 Tech Stack", ", ".join(_escape_html(t) for t in analysis["tech_stack"])]
         if analysis.get("architecture"):
-            lines += ["", "🏗 Architecture", _escape_md(analysis["architecture"])]
+            lines += ["", "🏗 Architecture", _escape_html(analysis["architecture"])]
         if analysis.get("config_notes"):
-            lines += ["", "⚙️ Config", _escape_md(analysis["config_notes"])]
+            lines += ["", "⚙️ Config", _escape_html(analysis["config_notes"])]
         if analysis.get("debugging"):
-            lines += ["", "🐛 Debugging", _escape_md(analysis["debugging"])]
+            lines += ["", "🐛 Debugging", _escape_html(analysis["debugging"])]
     elif template == "review":
         for f in analysis.get("features", []):
-            rating = f" ({_escape_md(f['rating'])})" if f.get("rating") else ""
-            feature = _escape_md(f.get("feature", ""))
-            desc = _escape_md(f.get("description", ""))
+            rating = f" ({_escape_html(f['rating'])})" if f.get("rating") else ""
+            feature = _escape_html(f.get("feature", ""))
+            desc = _escape_html(f.get("description", ""))
             lines.append(f"• {feature}{rating}: {desc}")
         if analysis.get("pros"):
-            lines += ["", "✅ Pros"] + [f"• {_escape_md(p)}" for p in analysis["pros"]]
+            lines += ["", "✅ Pros"] + [f"• {_escape_html(p)}" for p in analysis["pros"]]
         if analysis.get("cons"):
-            lines += ["", "❌ Cons"] + [f"• {_escape_md(c)}" for c in analysis["cons"]]
+            lines += ["", "❌ Cons"] + [f"• {_escape_html(c)}" for c in analysis["cons"]]
         if analysis.get("verdict"):
-            lines += ["", "🏆 Verdict", _escape_md(analysis["verdict"])]
+            lines += ["", "🏆 Verdict", _escape_html(analysis["verdict"])]
         if analysis.get("price_value"):
-            lines += ["", "💰 Price/Value", _escape_md(analysis["price_value"])]
+            lines += ["", "💰 Price/Value", _escape_html(analysis["price_value"])]
     elif template == "narrative":
         if analysis.get("thesis"):
-            lines += ["", "💡 Thesis", _escape_md(analysis["thesis"])]
+            lines += ["", "💡 Thesis", _escape_html(analysis["thesis"])]
         if analysis.get("supporting_points"):
             lines += ["", "📌 Supporting Points"] + [
-                f"• {_escape_md(p)}" for p in analysis["supporting_points"]
+                f"• {_escape_html(p)}" for p in analysis["supporting_points"]
             ]
         if analysis.get("key_quotes"):
-            lines += ["", "💬 Key Quotes"] + [f'"{_escape_md(q)}"' for q in analysis["key_quotes"]]
+            lines += ["", "💬 Key Quotes"] + [f'"{_escape_html(q)}"' for q in analysis["key_quotes"]]
         if analysis.get("conclusion"):
-            lines += ["", "🎯 Conclusion", _escape_md(analysis["conclusion"])]
+            lines += ["", "🎯 Conclusion", _escape_html(analysis["conclusion"])]
     return "\n".join(lines)
 
 
@@ -284,31 +293,35 @@ def _build_enrichment_message(
     promise_gap: dict | None = None,
 ) -> str:
     tag = f"job_{job['id'][-4:]}:"
-    title = _escape_md(job.get("title", "Untitled"))
+    title = _escape_html(job.get("title", "Untitled"))
     drive_url = job.get("drive_url", "")
 
     tools_lines = []
     for t in enrichment.tools_raw:
-        prefix = "$" if t.get("type") == "symbol" else f"\\[{_escape_md(t.get('type', 'tool'))}]"
-        url_part = f" ({t['url']})" if t.get("url") else ""
-        name = _escape_md(t["name"])
-        desc = _escape_md(t.get("description", ""))
-        tools_lines.append(f"• {prefix} {name}{url_part}: {desc}")
+        prefix = "$" if t.get("type") == "symbol" else f"[{_escape_html(t.get('type', 'tool'))}]"
+        name = _escape_html(t["name"])
+        if t.get("url"):
+            # URL lives in the href attribute — safe even with underscores/dots.
+            name = f'<a href="{_escape_attr(t["url"])}">{name}</a>'
+        desc = _escape_html(t.get("description", ""))
+        tools_lines.append(f"• {prefix} {name}: {desc}")
 
-    action_lines = [f"• {_escape_md(ap)}" for ap in enrichment.action_points_str.split(" | ") if ap]
+    action_lines = [f"• {_escape_html(ap)}" for ap in enrichment.action_points_str.split(" | ") if ap]
 
     transcript_line = (
-        f"📄 [Transcript]({drive_url})" if drive_url else "📄 Transcript _(unavailable)_"
+        f'📄 <a href="{_escape_attr(drive_url)}">Transcript</a>'
+        if drive_url
+        else "📄 Transcript (unavailable)"
     )
 
     parts = [
         f"{tag}",
         f"=📺 {title}",
-        f"🗃️ {_escape_md(enrichment.category)}",
-        f"🎫 {_escape_md(enrichment.topic)}",
+        f"🗃️ {_escape_html(enrichment.category)}",
+        f"🎫 {_escape_html(enrichment.topic)}",
         "",
         "🎯 Objective",
-        _escape_md(enrichment.objective),
+        _escape_html(enrichment.objective),
         "",
         "✅ Action Points",
         *action_lines,
@@ -330,12 +343,53 @@ def _build_enrichment_message(
         parts.append("\n=====PROMISE=GAP=====")
         if gaps:
             parts.append("❌ Unfulfilled:")
-            parts.extend(f"• {_escape_md(g)}" for g in gaps)
+            parts.extend(f"• {_escape_html(g)}" for g in gaps)
         if hidden:
             parts.append("💎 Hidden value:")
-            parts.extend(f"• {_escape_md(h)}" for h in hidden)
+            parts.extend(f"• {_escape_html(h)}" for h in hidden)
 
     return "\n".join(parts)
+
+
+# Telegram caps a single sendMessage text at 4096 UTF-16 code units. Stay below
+# it with a margin (multi-unit emoji each count as 2).
+TELEGRAM_TEXT_LIMIT = 3900
+
+
+def _utf16_len(text: str) -> int:
+    """Length in UTF-16 code units — the unit Telegram counts message length in."""
+    return len(text.encode("utf-16-le")) // 2
+
+
+def _split_message(text: str, limit: int = TELEGRAM_TEXT_LIMIT) -> list[str]:
+    """Split an HTML message into ``<=limit`` chunks at newline boundaries.
+
+    Each ``<a>…</a>`` lives on a single line, so splitting between lines never
+    cuts a tag — every chunk stays valid Telegram HTML. ``"\\n".join(chunks)``
+    reproduces the input exactly. A lone line longer than ``limit`` (not expected
+    for this content) is hard-split as a last resort.
+    """
+    if _utf16_len(text) <= limit:
+        return [text]
+
+    chunks: list[str] = []
+    current = ""
+    for line in text.split("\n"):
+        candidate = f"{current}\n{line}" if current else line
+        if current and _utf16_len(candidate) > limit:
+            chunks.append(current)
+            current = line
+        else:
+            current = candidate
+        while _utf16_len(current) > limit:  # pathological single long line
+            cut = limit
+            while _utf16_len(current[:cut]) > limit:
+                cut -= 1
+            chunks.append(current[:cut])
+            current = current[cut:]
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 async def run(job_id: str) -> None:
@@ -391,7 +445,8 @@ async def run(job_id: str) -> None:
     )
 
     msg = _build_enrichment_message(job, enrichment, template_analysis, promise_gap)
-    await send_message(chat_id, msg, parse_mode="Markdown")
+    for chunk in _split_message(msg):
+        await send_message(chat_id, chunk, parse_mode="HTML")
 
     await send_inline_keyboard(
         chat_id,

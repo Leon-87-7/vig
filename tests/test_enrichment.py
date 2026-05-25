@@ -15,9 +15,14 @@ from src.processors.enrichment import (
     _build_prompt,
     _extract_json,
     _parse_enrichment,
+    _split_message,
     enrich,
     enrich_audio,
 )
+
+
+def _utf16_units(s: str) -> int:
+    return len(s.encode("utf-16-le")) // 2
 from src.services.gemini_client import GeminiClient
 
 
@@ -335,3 +340,100 @@ def test_build_enrichment_message_empty_promise_gap_omits_separator() -> None:
     promise_gap = {"gaps": [], "hidden_value": []}
     msg = _build_enrichment_message(job, enrichment, promise_gap=promise_gap)
     assert "=====PROMISE=GAP=====" not in msg
+
+
+# ---------------------------------------------------------------------------
+# HTML rendering — the message is sent with parse_mode="HTML" so that
+# arbitrary AI-generated text can never break Telegram entity parsing.
+# (Replaces the fragile Markdown-V1 path that 400'd on an odd '_'/'*' count.)
+# ---------------------------------------------------------------------------
+
+def test_build_enrichment_message_escapes_html_special_chars() -> None:
+    """&, <, > in AI text are HTML-escaped; raw tags never leak through."""
+    job = {"id": "20260519_120000_ABCD", "title": "Tips & Tricks <live>", "chat_id": 1, "drive_url": ""}
+    enrichment = Enrichment(
+        category="A) Tutorial",
+        topic="b<a>r & baz",
+        objective="Use <script> & co.",
+        action_points_str="",
+        tools_str="",
+        tools_raw=[],
+        market_data="",
+    )
+    msg = _build_enrichment_message(job, enrichment)
+    assert "&lt;script&gt;" in msg
+    assert "&amp;" in msg
+    assert "<script>" not in msg  # never emitted raw
+
+
+def test_build_enrichment_message_transcript_is_html_anchor() -> None:
+    """Transcript link is an <a href> — the URL lives in the attribute, so
+    underscores/dots in it can never break parsing."""
+    job = {
+        "id": "20260519_120000_ABCD",
+        "title": "T",
+        "chat_id": 1,
+        "drive_url": "https://drive.google.com/file/d/abc_def/view",
+    }
+    msg = _build_enrichment_message(job, _make_enrichment())
+    assert '<a href="https://drive.google.com/file/d/abc_def/view">Transcript</a>' in msg
+
+
+def test_build_enrichment_message_tool_is_html_anchor() -> None:
+    """Tool URL goes in href (safe even with underscores); name is the label."""
+    job = {"id": "20260519_120000_ABCD", "title": "T", "chat_id": 1, "drive_url": ""}
+    enrichment = Enrichment(
+        category="A",
+        topic="t",
+        objective="o",
+        action_points_str="",
+        tools_str="",
+        tools_raw=[
+            {"name": "some_tool", "type": "repo", "url": "https://github.com/foo/some_repo", "description": "d"}
+        ],
+        market_data="",
+    )
+    msg = _build_enrichment_message(job, enrichment)
+    assert '<a href="https://github.com/foo/some_repo">some_tool</a>' in msg
+
+
+def test_build_enrichment_message_no_markdown_backslash_escapes() -> None:
+    """The old Markdown-V1 backslash hack is gone; special chars survive literally."""
+    job = {"id": "20260519_120000_ABCD", "title": "a_b*c`d[e", "chat_id": 1, "drive_url": ""}
+    msg = _build_enrichment_message(job, _make_enrichment())
+    assert "\\_" not in msg
+    assert "\\*" not in msg
+    assert "\\[" not in msg
+    assert "a_b*c`d[e" in msg  # title passes through untouched (no &<>)
+
+
+# ---------------------------------------------------------------------------
+# _split_message — Telegram caps sendMessage text at 4096 chars (long videos
+# produce longer enrichment messages → "Bad Request: message is too long").
+# ---------------------------------------------------------------------------
+
+def test_split_message_short_returns_single_chunk() -> None:
+    text = "line one\nline two"
+    assert _split_message(text) == [text]
+
+
+def test_split_message_long_respects_limit_and_is_lossless() -> None:
+    # 400 lines of ~30 chars ≈ 12k chars, well over Telegram's 4096 cap.
+    text = "\n".join(f"line number {i} with some words" for i in range(400))
+    chunks = _split_message(text, limit=4096)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert _utf16_units(chunk) <= 4096
+    # Rejoining on newlines reproduces the original exactly (no content lost).
+    assert "\n".join(chunks) == text
+
+
+def test_split_message_never_cuts_an_anchor_tag() -> None:
+    # Each line holds a complete <a>…</a>; splitting on line boundaries must
+    # keep every anchor whole within a single chunk.
+    line = '• [repo] <a href="https://github.com/foo/bar_baz">bar_baz</a>: a tool'
+    text = "\n".join(line for _ in range(300))
+    chunks = _split_message(text, limit=4096)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        assert chunk.count("<a ") == chunk.count("</a>")
