@@ -74,9 +74,7 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
     photo_bytes, mime_type = await download_photo(file_id)
     result = await call_gemini_photo_links(
         [{"bytes": photo_bytes, "mime_type": mime_type}],
-        settings.GEMINI_FREE_API_KEY,
-        settings.GEMINI_PAID_API_KEY,
-        caption,
+        caption=caption,
     )
     links = result.get("links", [])
     summary = result.get("summary", "")
@@ -110,9 +108,7 @@ async def _process_batch(chat_id: int) -> None:
     for fid in file_ids:
         b, mt = await download_photo(fid)
         images.append({"bytes": b, "mime_type": mt})
-    result = await call_gemini_photo_links(
-        images, settings.GEMINI_FREE_API_KEY, settings.GEMINI_PAID_API_KEY
-    )
+    result = await call_gemini_photo_links(images)
     links = result.get("links", [])
     if links:
         links = await enrich_github_links(links)

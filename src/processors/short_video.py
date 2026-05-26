@@ -90,11 +90,7 @@ async def run(job: dict) -> None:
         raise RuntimeError("no_frames_extracted")
 
     # 2. Gemini Vision analysis
-    vision = await gemini.call_gemini_vision(
-        raw_frames,
-        free_key=settings.GEMINI_FREE_API_KEY,
-        paid_key=settings.GEMINI_PAID_API_KEY,
-    )
+    vision = await gemini.call_gemini_vision(raw_frames)
     main_idx = max(0, min(vision.get("main_frame_index", 0), len(raw_frames) - 1))
     summary = vision.get("summary", "")
     ignored = await database.get_ignored_domains()
