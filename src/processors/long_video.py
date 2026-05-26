@@ -11,7 +11,8 @@ from src.services import sheets, transcript as transcript_svc
 from src.telegram.sender import send_document, send_inline_keyboard, send_message
 from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
-from src.utils.markdown import build_transcript_markdown
+from src.services.github import enrich_github_links
+from src.utils.markdown import build_enriched_links_message, build_transcript_markdown
 from src.utils.validators import extract_description_links, slugify
 
 log = get_logger(__name__)
@@ -87,6 +88,9 @@ async def run(job: dict) -> None:
         log.exception("description_link_extraction_failed", job_id=job_id)
         description_links = []
 
+    if description_links:
+        description_links = await enrich_github_links(description_links)
+
     description_links_raw = "\n".join(lnk["url"] for lnk in description_links)
 
     # 4. Build transcript markdown and upload to Drive
@@ -126,6 +130,9 @@ async def run(job: dict) -> None:
             ],
         ],
     )
+
+    if description_links:
+        await send_message(chat_id, f"{tag}\n{build_enriched_links_message(description_links)}")
 
     # 7. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job
