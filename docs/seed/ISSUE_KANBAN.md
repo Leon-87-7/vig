@@ -63,7 +63,10 @@ Ordered by unblocked-first, then dependency chain.
 
 |      # | Title | Area | Depends On |
 | -----: | ----- | ---- | ---------- |
-| (none) |       |      |            |
+| [#51](https://github.com/Leon-87-7/vig/issues/51) | feat(db): add jobs.freestyle_prompt column | DB | — |
+| [#52](https://github.com/Leon-87-7/vig/issues/52) | feat(enrichment): substitute freestyle_prompt in place of template extra_instructions | Enrichment | #51 |
+| [#53](https://github.com/Leon-87-7/vig/issues/53) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue (ADR-0012) | Webhook / Long Video | #51, #52 |
+| [#54](https://github.com/Leon-87-7/vig/issues/54) | feat(webhook): /freestyle slash command for both short and long pipelines | Webhook / Templates | #51, #52, #53 |
 
 ---
 
@@ -127,4 +130,9 @@ Ordered by unblocked-first, then dependency chain.
 #42 move links DDL into database.py ✓
 #43 PRAGMA user_version migrations ✓ (best after #42)
 #47 short_video ignored_domains missing in tests ✓ (PR #50)
+
+#51 jobs.freestyle_prompt column
+└── #52 enrichment freestyle substitution
+    └── #53 template picker keyboard (ADR-0012)
+        └── #54 /freestyle slash command
 ```

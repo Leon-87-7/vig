@@ -1,4 +1,4 @@
-# vig — Domain Context
+﻿# vig — Domain Context
 
 This document is the single source of truth for domain language and architecture decisions in this repository. It grows lazily via `/grill-with-docs` sessions as new terms and decisions crystallise.
 
@@ -56,7 +56,10 @@ This document is the single source of truth for domain language and architecture
 | **URL deduplication**            | Per-chat gate that blocks resubmission of a URL whose job is still pending, processing, or done. Bypassed when a template slash command is the active trigger (explicit reprocess intent). The duplicate notice includes a "Show job done" inline button that forwards the original completion message.                                                                                                                                            |
 | **Force reprocess**              | `/force <url>` bypasses the dedup gate and resets the existing job row in-place — same job ID, `attempt` incremented, all result fields cleared — before re-enqueuing. Falls back to creating a fresh job only when no prior row exists for that URL in the chat.                                                                                                                                                                                 |
 | **Ignored domain**               | A user-managed per-chat blocklist stored in the `ignored_domains` SQLite table. Added via `/ignore <domain\|URL>` (space-separated, one or more per call), removed via `/unignore`, listed via `/ignore_list`. `github.com` is protected and cannot be added. The short pipeline's `filter_vision_links` receives the list as `extra_ignored` and drops matching links before Brave enrichment.                                                   |
-| **Enrichment confirmation gate** | Inline keyboard sent to the user after a long-video transcript is ready, offering "👎 No Thanks / ✨ Run Gemini / 📐 Build Spec". Present only for plain-URL long-video jobs (`template_detection_method != "explicit_command"`). Skipped entirely when the job was submitted via a template slash command — the worker auto-enqueues the enrichment task without asking.                                                                          |
+| **Enrichment confirmation gate** | Inline keyboard sent to the user after a long-video transcript is ready, offering "👎 No Thanks / ✨ Run Gemini / 📐 Build Spec". Present only for plain-URL long-video jobs (`template_detection_method != "explicit_command"`). Skipped entirely when the job was submitted via a template slash command — the worker auto-enqueues the enrichment task without asking. Tapping "✨ Run Gemini" now opens the **template picker keyboard** instead of immediately enqueuing enrichment. |
+| **Template picker keyboard**     | Sub-keyboard shown after the user taps "✨ Run Gemini" in the enrichment confirmation gate. Presents all five prompt templates (summary, method, technical, review, narrative) plus "✍️ Freestyle" as inline buttons (3×2 layout). After the user picks any option the keyboard collapses to "You chose {template}" and the chosen analysis is enqueued. Picking "✍️ Freestyle" arms an `awaiting_freestyle` chat state instead of immediately enqueuing. |
+| **Freestyle prompt**             | A user-supplied Gemini instruction that replaces the standard template's `extra_instructions`. The user types any free-form text; the enrichment worker substitutes it in place of the template's structured extraction instructions. Available in both pipelines: as a button inside the **template picker keyboard** (long video) and as a `/freestyle <url>` slash command (both pipelines). Short video requires a transcript; the transcript is fetched on demand when the user confirms. |
+| **Awaiting freestyle**           | `chat_state` mode (`mode='awaiting_freestyle'`) armed when the user selects "✍️ Freestyle" from the template picker keyboard. Same `force_reply` + 10-minute expiry pattern as `awaiting_intent`. The user's reply text becomes the freestyle prompt, stored in `jobs.freestyle_prompt`, then the enrichment task is enqueued. |
 
 ---
 
@@ -119,12 +122,18 @@ External services used by both containers:
 ```
 URL arrives → jobs row (pending) → Redis enqueue
 → worker dequeues → short_video.run
-  → transcript service (yt-dlp) → transcript text
-  → Gemini text enrichment (inline — no confirmation, no separate queue task)
-    → category, topic, objective, action_points, tools, market_data
-    → Drive upload → Sheets append → Telegram delivery
-    → fire-and-forget brain.ingest_links
+  → frames service → Gemini Vision analysis → links
+  → Drive upload → Sheets append → Telegram delivery (photo + links)
+  → fire-and-forget brain.ingest_links
   → status = done
+  → if template set (slash command): transcript service → Gemini enrichment → Telegram delivery
+
+/freestyle <url> (slash command — works for both short and long URLs)
+→ create job row (pending, template=freestyle)
+→ arm chat_state(awaiting_freestyle, job_id) → ForceReply: "What should Gemini focus on?"
+[user types prompt]
+→ store jobs.freestyle_prompt → clear chat_state → enqueue {"task":"video"}
+→ same pipeline.run path; enrichment uses freestyle_prompt in place of template extra_instructions
 ```
 
 ## Data Flow — Long Video
@@ -138,7 +147,10 @@ URL arrives → jobs row (pending) → Redis enqueue
   → status = transcript_done → Telegram: send transcript document
   → if explicit_command: worker auto-enqueues {"task":"enrichment"} (no user prompt)
   → if plain URL: Telegram keyboard [No Thanks] [Run Gemini] [Build Spec]
-  [user clicks ✨ Run Gemini] → callback → enqueue {"task":"enrichment"}
+  [user clicks ✨ Run Gemini] → template picker keyboard (5 templates + Freestyle)
+    [user picks template] → collapse keyboard to "You chose {template}" → enqueue {"task":"enrichment"}
+    [user picks Freestyle] → arm chat_state(awaiting_freestyle) → ForceReply
+      [user types prompt] → store jobs.freestyle_prompt → enqueue {"task":"enrichment"}
 → worker dequeues → enrichment.run   [Phase 2]
   → Gemini text enrichment
     → Drive upload → Sheets append → Telegram delivery + "Build Spec" button
