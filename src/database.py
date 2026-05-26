@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS chat_state (
     job_id       TEXT NOT NULL,
     created_at   TEXT NOT NULL,
     expires_at   TEXT NOT NULL,
-    CHECK(mode IN ('awaiting_intent'))
+    CHECK(mode IN ('awaiting_intent', 'awaiting_freestyle'))
 );
 
 -- Second Brain semantic link graph (src/brain.py data-access layer).
@@ -138,6 +138,20 @@ _MIGRATIONS: list[list[str]] = [
     # v1 → v2: freestyle Gemini prompt (issue #51 / ADR-0012)
     [
         "ALTER TABLE jobs ADD COLUMN freestyle_prompt TEXT",
+    ],
+    # v2 → v3: expand chat_state.mode CHECK to include 'awaiting_freestyle' (issue #53 / ADR-0012)
+    [
+        """CREATE TABLE IF NOT EXISTS chat_state_v3 (
+            chat_id    INTEGER PRIMARY KEY,
+            mode       TEXT NOT NULL,
+            job_id     TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            CHECK(mode IN ('awaiting_intent', 'awaiting_freestyle'))
+        )""",
+        "INSERT OR IGNORE INTO chat_state_v3 SELECT * FROM chat_state",
+        "DROP TABLE chat_state",
+        "ALTER TABLE chat_state_v3 RENAME TO chat_state",
     ],
 ]
 

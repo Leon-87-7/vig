@@ -581,6 +581,206 @@ async def test_callback_enrichment_retry_rejects_on_done_status(temp_db, monkeyp
 
 
 # ---------------------------------------------------------------------------
+# Template picker keyboard tests (issue #53)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_gemini_yes_sends_template_picker_keyboard(temp_db, monkeypatch):
+    """Tapping Run Gemini now shows the template picker, not directly enqueuing."""
+    from src.telegram import webhook
+
+    await _seed_job(temp_db, "J_KB", chat_id=100, status="transcript_done")
+    sent_kb = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    await webhook._handle_callback(
+        {"id": "CB", "data": "gemini_yes:J_KB", "message": {"chat": {"id": 100}}}
+    )
+    enqueued.assert_not_awaited()
+    sent_kb.assert_awaited_once()
+    args, kwargs = sent_kb.await_args
+    buttons = kwargs.get("buttons") or args[2]
+    btn_texts = [b["text"] for row in buttons for b in row]
+    assert any("Summary" in t for t in btn_texts)
+    assert any("Freestyle" in t for t in btn_texts)
+    # callback_data carries job_id
+    btn_data = [b["callback_data"] for row in buttons for b in row]
+    assert any("template_pick:summary:J_KB" in d for d in btn_data)
+    assert any("template_freestyle:J_KB" in d for d in btn_data)
+
+
+@pytest.mark.asyncio
+async def test_gemini_yes_rejects_job_not_ready(temp_db, monkeypatch):
+    from src.telegram import webhook
+
+    await _seed_job(temp_db, "J_PROC", chat_id=100, status="processing")
+    sent_kb = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+    await webhook._handle_callback(
+        {"id": "CB", "data": "gemini_yes:J_PROC", "message": {"chat": {"id": 100}}}
+    )
+    sent_kb.assert_not_awaited()
+    _, kwargs = ack.await_args
+    assert "not ready" in kwargs.get("text", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_template_pick_collapses_keyboard_and_enqueues(temp_db, monkeypatch):
+    from src.telegram import webhook
+    from src import database as db
+
+    await _seed_job(temp_db, "J_PICK", chat_id=100, status="transcript_done")
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    edited = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", edited)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    callback = {
+        "id": "CB",
+        "data": "template_pick:technical:J_PICK",
+        "message": {"chat": {"id": 100}, "message_id": 42},
+    }
+    await webhook._handle_callback(callback)
+    enqueued.assert_awaited_once_with({"task": "enrichment", "job_id": "J_PICK"})
+    edited.assert_awaited_once_with(100, 42, "You chose Technical")
+    job = await db.get_job("J_PICK")
+    assert job["template"] == "technical"
+
+
+@pytest.mark.asyncio
+async def test_template_pick_rejects_job_not_ready(temp_db, monkeypatch):
+    from src.telegram import webhook
+
+    await _seed_job(temp_db, "J_NR", chat_id=100, status="processing")
+    enqueued = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enqueued)
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+    await webhook._handle_callback(
+        {"id": "CB", "data": "template_pick:summary:J_NR", "message": {"chat": {"id": 100}}}
+    )
+    enqueued.assert_not_awaited()
+    _, kwargs = ack.await_args
+    assert "not ready" in kwargs.get("text", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_template_freestyle_arms_state_and_sends_force_reply(temp_db, monkeypatch):
+    from src.telegram import webhook
+    from src import database as db
+
+    await _seed_job(temp_db, "J_FS", chat_id=100, status="transcript_done")
+    fr = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_force_reply", fr)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    await webhook._handle_callback(
+        {"id": "CB", "data": "template_freestyle:J_FS", "message": {"chat": {"id": 100}}}
+    )
+    fr.assert_awaited_once()
+    state = await db.get_chat_state(100)
+    assert state is not None
+    assert state["mode"] == "awaiting_freestyle"
+    assert state["job_id"] == "J_FS"
+    job = await db.get_job("J_FS")
+    assert job["template"] == "freestyle"
+
+
+@pytest.mark.asyncio
+async def test_awaiting_freestyle_enqueues_when_transcript_done(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    await _seed_job(temp_db, "J_FT", chat_id=100, status="transcript_done")
+    await db.set_chat_state(chat_id=100, mode="awaiting_freestyle", job_id="J_FT")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("Summarize the key business lessons from this video")
+    enq.assert_awaited_once_with({"task": "enrichment", "job_id": "J_FT"})
+    job = await db.get_job("J_FT")
+    assert job["freestyle_prompt"] == "Summarize the key business lessons from this video"
+    assert await db.get_chat_state(100) is None
+
+
+@pytest.mark.asyncio
+async def test_awaiting_freestyle_defers_when_still_processing(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    await _seed_job(temp_db, "J_FP", chat_id=100, status="processing")
+    await db.set_chat_state(chat_id=100, mode="awaiting_freestyle", job_id="J_FP")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("Tell me the main takeaways in bullet points")
+    enq.assert_not_awaited()
+    job = await db.get_job("J_FP")
+    assert job["freestyle_prompt"] == "Tell me the main takeaways in bullet points"
+    assert await db.get_chat_state(100) is None
+    msg = sent.await_args.args[1]
+    assert "transcript" in msg.lower() or "ready" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_awaiting_freestyle_rejects_too_short(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    await _seed_job(temp_db, "J_FS2", chat_id=100, status="transcript_done")
+    await db.set_chat_state(chat_id=100, mode="awaiting_freestyle", job_id="J_FS2")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("hi")
+    enq.assert_not_awaited()
+    assert await db.get_chat_state(100) is not None
+    assert "too short" in sent.await_args.args[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_awaiting_freestyle_rejects_too_long(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    await _seed_job(temp_db, "J_FS3", chat_id=100, status="transcript_done")
+    await db.set_chat_state(chat_id=100, mode="awaiting_freestyle", job_id="J_FS3")
+    enq = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("x" * 1001)
+    enq.assert_not_awaited()
+    assert await db.get_chat_state(100) is not None
+    assert "too long" in sent.await_args.args[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_cancel_clears_awaiting_freestyle_state(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    await db.set_chat_state(chat_id=100, mode="awaiting_freestyle", job_id="J_X")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/cancel")
+    assert "abandoned" in sent.await_args.args[1].lower()
+    assert await db.get_chat_state(100) is None
+
+
+# ---------------------------------------------------------------------------
 # reprocess callback tests (startup-recovery one-tap retry, ADR-0010)
 # ---------------------------------------------------------------------------
 
