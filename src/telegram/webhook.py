@@ -493,12 +493,17 @@ async def _cmd_force(ctx: SlashCtx) -> None:
             "Instagram Reels, and TikTok videos.",
         )
         return
-    job_id = await database.create_job(
-        chat_id=ctx.chat_id,
-        url=url,
-        content_type=pipeline,
-        message_id=ctx.message_id,
-    )
+    existing = await database.find_recent_job_by_url(ctx.chat_id, url)
+    if existing:
+        job_id = existing["id"]
+        await database.reset_job(job_id)
+    else:
+        job_id = await database.create_job(
+            chat_id=ctx.chat_id,
+            url=url,
+            content_type=pipeline,
+            message_id=ctx.message_id,
+        )
     await queue.enqueue({"task": "video", "job_id": job_id})
     await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
 

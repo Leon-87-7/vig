@@ -163,6 +163,39 @@ async def create_job(
     return job_id
 
 
+async def reset_job(job_id: str) -> None:
+    """Reset a job back to pending, clearing all result fields. Increments attempt."""
+    async with connection() as conn:
+        await conn.execute(
+            """
+            UPDATE jobs SET
+                status = 'pending',
+                attempt = attempt + 1,
+                error_msg = NULL,
+                drive_url = NULL,
+                title = NULL,
+                transcript = NULL,
+                bot_message_id = NULL,
+                key_phrases = NULL,
+                template_analysis = NULL,
+                ai_category = NULL,
+                ai_topic = NULL,
+                ai_objective = NULL,
+                ai_action_points = NULL,
+                ai_tools = NULL,
+                ai_market_data = NULL,
+                processing_time_ms = NULL,
+                promise_gap = NULL,
+                completed_at = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (job_id,),
+        )
+        await conn.commit()
+    log.info("job_reset", job_id=job_id)
+
+
 async def get_job(job_id: str) -> dict[str, Any] | None:
     async with connection() as conn:
         cursor = await conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
