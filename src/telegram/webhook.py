@@ -65,77 +65,9 @@ async def _clear_batch(chat_id: int) -> None:
     await client.delete(f"photo_batch_active:{chat_id}", f"photo_batch_files:{chat_id}")
 
 
-async def _enrich_github_repos(links: list[dict]) -> list[dict]:
-    """Mutate links in-place with GitHub enrichment data.
-
-    For each link whose URL contains ``github.com``, attempts to fetch
-    repository metadata via ``enrich_repo``.  Sets ``_enriched=True``
-    and attaches ``_stars``, ``_forks``, ``_language``, ``_days_ago``,
-    ``_gh_description`` on success; sets ``_enriched=False`` on failure
-    (404, network error, or missing token).
-
-    If ``settings.GITHUB_TOKEN`` is absent, returns ``links`` unchanged
-    (no ``_enriched`` keys are set, so ``build_enriched_links_message``
-    renders them via its un-enriched ``others`` branch).
-    """
-    from urllib.parse import urlparse
-    from src.services.github import enrich_repo
-
-    token = settings.GITHUB_TOKEN
-    if not token:
-        return links
-
-    gh_links = [lnk for lnk in links if "github.com" in lnk.get("url", "")]
-    if not gh_links:
-        return links
-
-    def _parse_owner_repo(url: str) -> tuple[str, str] | None:
-        parsed = urlparse(url)
-        segments = [s for s in parsed.path.split("/") if s]
-        if len(segments) >= 2:
-            return segments[0], segments[1]
-        return None
-
-    parsed_pairs = [_parse_owner_repo(lnk["url"]) for lnk in gh_links]
-
-    # gather concurrently only for valid owner/repo pairs
-    valid_indices = [(i, pair) for i, pair in enumerate(parsed_pairs) if pair is not None]
-    if valid_indices:
-        coros = [enrich_repo(owner, repo, token) for _, (owner, repo) in valid_indices]
-        api_results: list[dict | None] = list(await asyncio.gather(*coros, return_exceptions=False))
-    else:
-        api_results = []
-
-    now = datetime.now(timezone.utc)
-    result_iter = iter(api_results)
-
-    for i, lnk in enumerate(gh_links):
-        pair = parsed_pairs[i]
-        if pair is None:
-            lnk["_enriched"] = False
-            continue
-        data = next(result_iter)
-        if data is None:
-            lnk["_enriched"] = False
-        else:
-            pushed_at_raw = data.get("pushed_at") or ""
-            try:
-                pushed = datetime.fromisoformat(pushed_at_raw.replace("Z", "+00:00"))
-                days_ago = (now - pushed).days
-            except Exception:
-                days_ago = 0
-            lnk["_enriched"] = True
-            lnk["_stars"] = data.get("stars", 0)
-            lnk["_forks"] = data.get("forks", 0)
-            lnk["_language"] = data.get("language")
-            lnk["_days_ago"] = days_ago
-            lnk["_gh_description"] = data.get("description")
-
-    return links
-
-
 async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) -> None:
     from src.services.gemini_photo import call_gemini_photo_links
+    from src.services.github import enrich_github_links
     from src.utils.markdown import build_enriched_links_message
 
     await send_message(chat_id, "🔍 Scanning image for links...")
@@ -149,7 +81,7 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
     links = result.get("links", [])
     summary = result.get("summary", "")
     if links:
-        links = await _enrich_github_repos(links)
+        links = await enrich_github_links(links)
         await send_message(chat_id, build_enriched_links_message(links))
         if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
             from src import brain
@@ -165,6 +97,7 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
 
 async def _process_batch(chat_id: int) -> None:
     from src.services.gemini_photo import call_gemini_photo_links
+    from src.services.github import enrich_github_links
     from src.utils.markdown import build_enriched_links_message
 
     file_ids = await _get_batch_files(chat_id)
@@ -182,7 +115,7 @@ async def _process_batch(chat_id: int) -> None:
     )
     links = result.get("links", [])
     if links:
-        links = await _enrich_github_repos(links)
+        links = await enrich_github_links(links)
         await send_message(chat_id, build_enriched_links_message(links))
         if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
             from src import brain
@@ -508,6 +441,60 @@ async def _cmd_force(ctx: SlashCtx) -> None:
     await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
 
 
+_PROTECTED_DOMAINS = {"github.com"}
+
+async def _cmd_ignore(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /ignore <domain or URL> [more...]")
+        return
+    from urllib.parse import urlparse as _urlparse
+    added, protected = [], []
+    for raw in ctx.parts[1:]:
+        host = _urlparse(raw).hostname or raw
+        domain = host.lower().removeprefix("www.")
+        if domain in _PROTECTED_DOMAINS:
+            protected.append(domain)
+            continue
+        await database.add_ignored_domain(domain)
+        added.append(domain)
+    parts = []
+    if added:
+        parts.append("🚫 Ignored: " + ", ".join(f"`{d}`" for d in added))
+    if protected:
+        parts.append("⛔ Cannot ignore: " + ", ".join(f"`{d}`" for d in protected))
+    await send_message(ctx.chat_id, "\n".join(parts))
+
+
+async def _cmd_unignore(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /unignore <domain or URL> [more...]")
+        return
+    from urllib.parse import urlparse as _urlparse
+    removed, missing = [], []
+    for raw in ctx.parts[1:]:
+        host = _urlparse(raw).hostname or raw
+        domain = host.lower().removeprefix("www.")
+        if await database.remove_ignored_domain(domain):
+            removed.append(domain)
+        else:
+            missing.append(domain)
+    parts = []
+    if removed:
+        parts.append("✅ Removed: " + ", ".join(f"`{d}`" for d in removed))
+    if missing:
+        parts.append("⚠️ Not found: " + ", ".join(f"`{d}`" for d in missing))
+    await send_message(ctx.chat_id, "\n".join(parts))
+
+
+async def _cmd_ignore_list(ctx: SlashCtx) -> None:
+    domains = sorted(await database.get_ignored_domains())
+    if not domains:
+        await send_message(ctx.chat_id, "No ignored domains yet. Use /ignore <domain>.")
+        return
+    lines = "\n".join(f"• `{d}`" for d in domains)
+    await send_message(ctx.chat_id, f"🚫 Ignored domains ({len(domains)}):\n{lines}")
+
+
 _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/cancel":           _cmd_cancel,
     "/spec":             _cmd_spec,
@@ -516,6 +503,9 @@ _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/photobatch-start": _cmd_photobatch_start,
     "/photobatch-end":   _cmd_photobatch_end,
     "/force":            _cmd_force,
+    "/ignore":          _cmd_ignore,
+    "/unignore":        _cmd_unignore,
+    "/ignore_list":     _cmd_ignore_list,
     **{f"/{t}": _cmd_template for t in PROMPT_TEMPLATES},
 }
 

@@ -11,6 +11,7 @@ from src.config import settings
 from src.services import brave, frames, gemini, sheets
 from src.services import transcript as transcript_svc
 from src.services.drive import upload_file
+from src.services.github import enrich_github_links
 from src.telegram.sender import send_message, send_photo
 from src.utils.logger import get_logger
 from src.utils.markdown import build_enriched_links_message
@@ -96,7 +97,8 @@ async def run(job: dict) -> None:
     )
     main_idx = max(0, min(vision.get("main_frame_index", 0), len(raw_frames) - 1))
     summary = vision.get("summary", "")
-    links: list[dict] = filter_vision_links(vision.get("links", []))
+    ignored = await database.get_ignored_domains()
+    links: list[dict] = filter_vision_links(vision.get("links", []), extra_ignored=ignored)
 
     # 3. Brave Search enrichment (opt-in)
     if links:
@@ -128,6 +130,7 @@ async def run(job: dict) -> None:
 
     # 7. Send links message (if any); prefer its message_id as the forwarding anchor
     if links:
+        links = await enrich_github_links(links)
         links_result = await send_message(chat_id, f"{tag}\n{build_enriched_links_message(links)}")
         bot_message_id = links_result.get("message_id", bot_message_id)
 

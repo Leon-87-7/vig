@@ -9,10 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Instagram cookies read-only crash** — `transcript_server` now copies Instagram cookies to a writable `tmp_dir` before passing them to yt-dlp; the production `/app/credentials/` mount is read-only and yt-dlp's attempt to write back updated cookies caused `EROFS errno 30`.
+- **Transcript error visibility** — replaced opaque `has_error` flag with a warning log containing `error_type` and `error_msg` (first 200 chars) so transcript failures are debuggable from worker logs.
+- **Short-pipeline link cleanup** — `filter_vision_links` drops generic root/promo URLs and deduplicates by hostname+first-path-segment (collapses same-org GitHub repos). Brave search now queries by full URL (not just hostname), canonicalizes the result URL to correct Gemini hallucinated typos, and strips HTML tags + decodes entities from title/description fields.
 - **Photo link hallucination (#11)** — Gemini was appending `.com` to every brand name/card label visible in screenshots (e.g. `threadcan.com`, `redactai.com`) because the prompt instructed it to "infer full URL from brand name". Rewrote `_PHOTO_PROMPT` to require a verbatim OCR quote (surrounding phrase context, not just the bare domain) for each link, and added `_filter_grounded_links()` post-filter: any URL whose domain doesn't appear literally in `verbatim` (or the summary) is dropped; links whose verbatim phrase matches `\bfollowed by\b` (Instagram/TikTok follower UI chrome) are also dropped. Also updated the monkeypatches in 6 PRD callback tests to target the now-top-level `src.telegram.webhook` bindings.
 
 ### Added
 
+- **URL deduplication** — per-chat dedup blocks reprocessing of already-queued or completed jobs; `/force <url>` bypasses the gate. Catches pending/processing jobs too, so back-to-back sends of the same URL within seconds are also blocked. `database.find_recent_job_by_url` excludes only failed/stale rows; dedup is skipped when a template command is active (explicit reprocess intent).
+- **`/force` in-place reset** — `/force` now resets the existing job row in-place (same job ID, `attempt` incremented, all result fields cleared) instead of inserting a new row. Falls back to a fresh job only when no prior row exists for the URL in that chat.
+- **Show-job-done button** — duplicate-URL notice now includes an inline "Show job done" button; pressing it forwards the original completion message and collapses the keyboard to a "here you go" reply. Completion `bot_message_id` is stored on finished jobs so the forward is always available.
+- **yt-dlp subtitle fallback** — `transcript_server` falls back to yt-dlp subtitle extraction when `YouTubeTranscriptApi` is IP-blocked, and catches caption-extraction errors that previously surfaced as raw exception responses.
 - **Mini-PRD intent slot** (#7) — long-video PRDs can now be personalized with a user-supplied project direction. Tapping `📐 Build Spec` opens a sub-menu (`🤖 Build auto Spec` / `✍️ Text your intent`); the intent path arms a 10-minute `chat_state` window, prompts via ForceReply, and generates a PRD biased by the user's text using `gemini-2.5-pro`.
 - **`/spec <suffix> [intent…]` command** — recovery path that works without buttons. Per-chat, suffix-matched on the last 4 chars of a job ID, most-recent-wins on collision. Bare form triggers the auto slot; with trailing text triggers the intent slot. Rejects short-video suffixes with a helpful message and falls back to a "last 5 jobs in this chat" listing on no-match.
 - **`/cancel` command** — clears any armed `chat_state` row and tells the user whether anything was actually canceled.
@@ -26,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **HTML parse mode for Telegram messages** — replaced Markdown V1 escaping with HTML escaping (`_escape_html` / `_escape_attr`) so unbalanced `_` or `*` in AI-generated text no longer triggers Telegram 400 errors. Added UTF-16-aware 4096-char message chunking (`_split_message`); `/find` results and tool links now render as HTML `<a>` tags.
+- **Unified template-matching table** — `templates.py` now owns a single keyword table (the deduped union of the old routing phrases and `TEMPLATE_INDICATORS`). `score_template_match` and `validate_template_choice` moved into `templates.py`; `validation.py` is deleted. Adding a keyword now updates both routing and mismatch-warning paths together.
 - **PRD generation is now lazy-on-click.** Previously, `enrichment.py` tail-called `prd_auto` for any job categorized as `Technical Tutorial`. That gated too narrowly and generated documents users often never opened. The Technical-Tutorial tail-call is removed; the `📐 Build Spec` button remains the single entry point for all long videos. PRDs run only when the user asks for them.
 - **`run_auto` no longer self-delivers.** Telegram document send + summary message moved out of `run_auto`'s body so it can be shared with the resend path and the intent path. On cached re-runs, the pipeline calls `drive.update_file` instead of `drive.upload_file`.
 - **`append_prd_row` signature** — adds keyword-only `slot` and `intent_text` arguments (defaults preserve auto-path behavior).

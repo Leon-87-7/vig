@@ -251,7 +251,11 @@ def _format_template_analysis(template: str, analysis: dict) -> str:
             lines += ["", "💡 Pro Tips", _escape_html(analysis["pro_tips"])]
     elif template == "technical":
         if analysis.get("tech_stack"):
-            lines += ["", "🔧 Tech Stack", ", ".join(_escape_html(t) for t in analysis["tech_stack"])]
+            lines += [
+                "",
+                "🔧 Tech Stack",
+                ", ".join(_escape_html(t) for t in analysis["tech_stack"]),
+            ]
         if analysis.get("architecture"):
             lines += ["", "🏗 Architecture", _escape_html(analysis["architecture"])]
         if analysis.get("config_notes"):
@@ -280,7 +284,9 @@ def _format_template_analysis(template: str, analysis: dict) -> str:
                 f"• {_escape_html(p)}" for p in analysis["supporting_points"]
             ]
         if analysis.get("key_quotes"):
-            lines += ["", "💬 Key Quotes"] + [f'"{_escape_html(q)}"' for q in analysis["key_quotes"]]
+            lines += ["", "💬 Key Quotes"] + [
+                f'"{_escape_html(q)}"' for q in analysis["key_quotes"]
+            ]
         if analysis.get("conclusion"):
             lines += ["", "🎯 Conclusion", _escape_html(analysis["conclusion"])]
     return "\n".join(lines)
@@ -306,7 +312,9 @@ def _build_enrichment_message(
         desc = _escape_html(t.get("description", ""))
         tools_lines.append(f"• {prefix} {name}: {desc}")
 
-    action_lines = [f"• {_escape_html(ap)}" for ap in enrichment.action_points_str.split(" | ") if ap]
+    action_lines = [
+        f"• {_escape_html(ap)}" for ap in enrichment.action_points_str.split(" | ") if ap
+    ]
 
     transcript_line = (
         f'📄 <a href="{_escape_attr(drive_url)}">Transcript</a>'
@@ -316,7 +324,7 @@ def _build_enrichment_message(
 
     parts = [
         f"{tag}",
-        f"=📺 {title}",
+        f"📺 {title}",
         f"🗃️ {_escape_html(enrichment.category)}",
         f"🎫 {_escape_html(enrichment.topic)}",
         "",

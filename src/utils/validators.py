@@ -132,8 +132,10 @@ def _is_github_path(parsed) -> bool:
     return host == "github.com" and len(path_segs) >= 1
 
 
-def filter_vision_links(links: list[dict]) -> list[dict]:
-    """Drop generic-root and promo links; deduplicate by hostname+first-path-segment."""
+def filter_vision_links(
+    links: list[dict], extra_ignored: set[str] | frozenset[str] = frozenset()
+) -> list[dict]:
+    """Drop generic-root, promo, and user-ignored links; deduplicate by hostname+first-path-segment."""
     seen_prefix: set[str] = set()
     result = []
     for lnk in links:
@@ -144,7 +146,9 @@ def filter_vision_links(links: list[dict]) -> list[dict]:
             continue
         if _is_generic(parsed) or _is_promo(parsed):
             continue
-        host = (parsed.hostname or "").lower()
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        if host in extra_ignored:
+            continue
         segs = [s for s in (parsed.path or "").split("/") if s]
         prefix = f"{host}/{segs[0]}" if segs else host
         if prefix in seen_prefix:

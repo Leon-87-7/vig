@@ -75,6 +75,12 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url);
 
+-- User-managed domain ignore list for Gemini Vision link filtering (/ignore command).
+CREATE TABLE IF NOT EXISTS ignored_domains (
+    domain      TEXT PRIMARY KEY,
+    added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Per-chat conversational mode (slice #7 uses this for ✍️ Text your intent flow).
 -- Schema created here in slice #1; behaviour wired in slice #7.
 CREATE TABLE IF NOT EXISTS chat_state (
@@ -138,6 +144,29 @@ async def connection() -> AsyncIterator[aiosqlite.Connection]:
         yield conn
     finally:
         await conn.close()
+
+
+async def get_ignored_domains() -> set[str]:
+    async with connection() as conn:
+        cur = await conn.execute("SELECT domain FROM ignored_domains")
+        return {row[0] for row in await cur.fetchall()}
+
+
+async def add_ignored_domain(domain: str) -> None:
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT OR IGNORE INTO ignored_domains (domain) VALUES (?)", (domain,)
+        )
+        await conn.commit()
+
+
+async def remove_ignored_domain(domain: str) -> bool:
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM ignored_domains WHERE domain=?", (domain,)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
 
 
 async def create_job(
