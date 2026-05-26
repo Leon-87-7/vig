@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -23,7 +23,12 @@ from src.processors.enrichment import (
 
 def _utf16_units(s: str) -> int:
     return len(s.encode("utf-16-le")) // 2
-from src.services.gemini_client import GeminiClient
+
+
+def _make_response(text: str) -> MagicMock:
+    r = MagicMock()
+    r.text = text
+    return r
 
 
 # ---------------------------------------------------------------------------
@@ -142,10 +147,10 @@ async def test_enrich_both_keys_failed_raises(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
     monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "paid-key")
 
-    def _boom(prompt: str, api_key: str, model: str, schema: type | dict | None) -> str:
+    def _boom(parts, *, api_key: str, model: str, schema=None):
         raise RuntimeError("network error")
 
-    with patch.object(GeminiClient, "_call_sync", side_effect=_boom):
+    with patch("src.services.gemini._call_sync", side_effect=_boom):
         with pytest.raises(EnrichmentUnavailableError):
             await enrich({"title": "Test Video", "transcript": "some transcript"})
 
@@ -156,7 +161,7 @@ async def test_enrich_returns_enrichment_on_success(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
     monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "")
 
-    with patch.object(GeminiClient, "_call_sync", return_value=_SAMPLE_GEMINI_JSON):
+    with patch("src.services.gemini._call_sync", return_value=_make_response(_SAMPLE_GEMINI_JSON)):
         result, template_analysis, promise_gap = await enrich({"title": "Test Video", "transcript": "some transcript"})
 
     assert isinstance(result, Enrichment)
@@ -176,7 +181,7 @@ async def test_enrich_pops_and_returns_promise_gap(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("src.config.settings.GEMINI_FREE_API_KEY", "free-key")
     monkeypatch.setattr("src.config.settings.GEMINI_PAID_API_KEY", "")
 
-    with patch.object(GeminiClient, "_call_sync", return_value=_SAMPLE_GEMINI_JSON):
+    with patch("src.services.gemini._call_sync", return_value=_make_response(_SAMPLE_GEMINI_JSON)):
         result, template_analysis, promise_gap = await enrich(
             {"title": "Test Video", "transcript": "some transcript"}
         )

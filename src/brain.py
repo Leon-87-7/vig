@@ -40,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_links_updated_at ON links(updated_at);
 """
 
 
-def _embed_sync(text: str, api_key: str) -> np.ndarray:
+def _embed_sync(text: str, *, api_key: str) -> np.ndarray:
     from google import genai
     from google.genai import types
 
@@ -54,15 +54,18 @@ def _embed_sync(text: str, api_key: str) -> np.ndarray:
 
 
 async def _embed(text: str) -> np.ndarray | None:
-    """Try brain key → free key → paid key. Return None if all fail (NULL stored; refresh repairs)."""
-    keys = [k for k in [settings.GEMINI_FREE_API_KEY, settings.GEMINI_PAID_API_KEY] if k]
-    for key in keys:
-        try:
-            return await asyncio.to_thread(_embed_sync, text, key)
-        except Exception as exc:
-            log.warning("brain.embed_failed", error=str(exc))
-    log.error("brain.embed_all_keys_failed", text_preview=text[:60])
-    return None
+    """Free→paid key fallback via shared loop. Return None if all fail (NULL stored; refresh repairs)."""
+    from src.services.gemini import GeminiUnavailableError, _call_with_fallback
+
+    try:
+        return await _call_with_fallback(
+            _embed_sync, text,
+            log_ok="brain.embed_ok",
+            log_fail="brain.embed_key_failed",
+        )
+    except GeminiUnavailableError:
+        log.error("brain.embed_all_keys_failed", text_preview=text[:60])
+        return None
 
 
 async def _resolve_title(url: str, topic: str) -> str:
