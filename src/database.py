@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     template_detection_method   TEXT,
     processing_time_ms          INTEGER,
     promise_gap                 TEXT,
+    bot_message_id              INTEGER,
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
@@ -118,6 +119,11 @@ async def init_db() -> None:
         await conn.commit()
         try:
             await conn.execute("ALTER TABLE jobs ADD COLUMN promise_gap TEXT")
+            await conn.commit()
+        except Exception:
+            pass  # column already exists
+        try:
+            await conn.execute("ALTER TABLE jobs ADD COLUMN bot_message_id INTEGER")
             await conn.commit()
         except Exception:
             pass  # column already exists
@@ -296,7 +302,7 @@ async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
     """
     async with connection() as conn:
         cursor = await conn.execute(
-            "SELECT id, title, drive_url, content_type, status FROM jobs "
+            "SELECT id, title, drive_url, content_type, status, bot_message_id FROM jobs "
             "WHERE chat_id = ? AND url = ? AND status NOT IN ('failed', 'stale') "
             "ORDER BY created_at DESC, id DESC LIMIT 1",
             (chat_id, url),

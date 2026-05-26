@@ -15,6 +15,8 @@ from src.config import settings
 from src.telegram.sender import (
     answer_callback_query,
     download_photo,
+    edit_message_text,
+    forward_message,
     send_force_reply,
     send_inline_keyboard,
     send_message,
@@ -33,6 +35,7 @@ class CallbackCtx:
     job_id: str      # payload after ":" in callback data
     cq_id: str
     data: str        # full raw data string
+    message_id: int | None = None  # message_id of the message containing the inline keyboard
 
 
 @dataclass
@@ -309,6 +312,18 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
     await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
 
 
+async def _cb_show_done(ctx: CallbackCtx) -> None:
+    """Forward the original completion message and collapse the dedup keyboard."""
+    job = await database.get_job(ctx.job_id)
+    if not job or not job.get("bot_message_id"):
+        await answer_callback_query(ctx.cq_id, text="Original message not available.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    await forward_message(ctx.chat_id, ctx.chat_id, job["bot_message_id"])
+    if ctx.message_id:
+        await edit_message_text(ctx.chat_id, ctx.message_id, "here you go")
+
+
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "gemini_no":         _cb_gemini_no,
     "gemini_yes":        _cb_gemini_yes,
@@ -319,6 +334,7 @@ _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "prd_retry_intent":  _cb_prd_retry_intent,
     "enrichment_retry":  _cb_enrichment_retry,
     "reprocess":         _cb_reprocess,
+    "show_done":         _cb_show_done,
 }
 
 
@@ -326,7 +342,9 @@ async def _handle_callback(callback: dict) -> None:
     """Dispatch callback_query events from inline keyboard button presses."""
     cq_id = callback.get("id", "")
     data = callback.get("data", "")
-    chat_id = (callback.get("message") or {}).get("chat", {}).get("id")
+    cb_message = callback.get("message") or {}
+    chat_id = cb_message.get("chat", {}).get("id")
+    cb_message_id = cb_message.get("message_id")
     log.info("callback_received", callback_data=data, chat_id=chat_id)
 
     prefix, _, job_id = data.partition(":")
@@ -336,7 +354,7 @@ async def _handle_callback(callback: dict) -> None:
         await answer_callback_query(cq_id)
         return
 
-    ctx = CallbackCtx(chat_id=chat_id, job_id=job_id, cq_id=cq_id, data=data)
+    ctx = CallbackCtx(chat_id=chat_id, job_id=job_id, cq_id=cq_id, data=data, message_id=cb_message_id)
     await handler(ctx)
 
 
@@ -439,13 +457,27 @@ async def _reply_cached_job(chat_id: int, job: dict) -> None:
     """Send a dedup notice. Caller should not enqueue."""
     job_tag = f"job_{job['id'][-4:]}"
     status = job.get("status", "")
-    if status == "completed":
-        drive_line = f"\n📄 <a href=\"{job['drive_url']}\">Open in Drive</a>" if job.get("drive_url") else ""
+    if status in ("done", "transcript_done"):
+        if job.get("content_type") == "long":
+            sheet_id = settings.GOOGLE_SHEETS_ID_LONG
+        else:
+            sheet_id = settings.GOOGLE_SHEETS_ID_SHORT
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}" if sheet_id else None
+        drive_line = f"\n📊 <a href=\"{sheet_url}\">Open in Sheets</a>" if sheet_url else ""
         title_line = f"\n🎬 {html.escape(job['title'])}" if job.get("title") else ""
         body = f"⚡ Already processed ({job_tag}){title_line}{drive_line}\n\nUse /force &lt;url&gt; to reprocess."
+        if job.get("bot_message_id"):
+            await send_inline_keyboard(
+                chat_id,
+                body,
+                buttons=[[{"text": "Show job done", "callback_data": f"show_done:{job['id']}"}]],
+                parse_mode="HTML",
+            )
+        else:
+            await send_message(chat_id, body, parse_mode="HTML")
     else:
         body = f"⏳ Already in queue ({job_tag}, {status}) — hang tight.\n\nUse /force &lt;url&gt; to start a second run."
-    await send_message(chat_id, body, parse_mode="HTML")
+        await send_message(chat_id, body, parse_mode="HTML")
 
 
 async def _cmd_force(ctx: SlashCtx) -> None:

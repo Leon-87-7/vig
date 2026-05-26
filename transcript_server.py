@@ -123,7 +123,7 @@ def get_transcript():
     if not url:
         return jsonify([{"error": {"type": "missing_url", "message": "No URL provided"}}]), 400
 
-    # YouTube path (unchanged)
+    # YouTube path: try YouTubeTranscriptApi first, fall back to yt-dlp subtitles
     video_id = extract_video_id(url)
     if video_id:
         try:
@@ -131,8 +131,34 @@ def get_transcript():
             transcript = ytt.fetch(video_id)
             text = " ".join([snippet.text for snippet in transcript])
             return jsonify([{"videoId": video_id, "text": text}])
-        except Exception as e:
-            return jsonify([{"error": {"type": type(e).__name__, "message": str(e)}}])
+        except Exception:
+            pass  # IP blocked or no captions — fall through to yt-dlp
+
+        tmp_dir = tempfile.mkdtemp()
+        try:
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "skip_download": True,
+                "writeautomaticsub": True,
+                "writesubtitles": True,
+                "subtitleslangs": ["en", "en-orig"],
+                "subtitlesformat": "vtt",
+                "outtmpl": os.path.join(tmp_dir, "%(id)s.%(ext)s"),
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(url, download=True)
+            vtt_files = [f for f in os.listdir(tmp_dir) if f.endswith(".vtt")]
+            if vtt_files:
+                text = _parse_vtt(os.path.join(tmp_dir, vtt_files[0]))
+                if text:
+                    return jsonify([{"videoId": video_id, "text": text}])
+        except Exception:
+            pass
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        return jsonify([{"error": {"type": "IpBlocked", "message": "Could not retrieve transcript via YouTubeTranscriptApi or yt-dlp"}}])
 
     # Non-YouTube fallback: yt-dlp subtitle extraction (TikTok, Instagram Reels, etc.)
     tmp_dir = tempfile.mkdtemp()

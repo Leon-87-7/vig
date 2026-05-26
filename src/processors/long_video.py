@@ -51,6 +51,15 @@ async def run(job: dict) -> None:
         log.warning("transcript_error", job_id=job_id, error=transcript_resp["error"])
         transcript = ""
 
+    if not transcript.strip():
+        await database.update_job_status(job_id, "error", error_msg="transcript_empty")
+        await send_message(
+            chat_id,
+            f"{tag}\n⚠️ No transcript available for this video — it may have auto-captions disabled or be too new. Try again later or use /force &lt;url&gt;.",
+            parse_mode="HTML",
+        )
+        return
+
     title = meta_resp.get("title", "") or "Untitled"
     channel = meta_resp.get("channel", "")
     views = meta_resp.get("views", "")
@@ -97,8 +106,13 @@ async def run(job: dict) -> None:
     )
 
     # 6. Telegram delivery sequence
-    await send_document(chat_id, md_text.encode(), filename=f"{slug}.md", caption=f"{tag}\n📜 The transcript is here")
-    await send_message(chat_id, f"{tag}\n✅ Transcript saved to Drive!")
+    doc_caption = f"{tag}\n📜 Transcript ready"
+    if drive_url:
+        doc_caption += f'\n📄 <a href="{drive_url}">Open in Drive</a>'
+    doc_result = await send_document(chat_id, md_text.encode(), filename=f"{slug}.md", caption=doc_caption, parse_mode="HTML")
+    bot_message_id = doc_result.get("message_id")
+    if bot_message_id:
+        await database.update_job_status(job_id, "transcript_done", bot_message_id=bot_message_id)
     await send_inline_keyboard(
         chat_id,
         f"{tag}\nRun Gemini analysis on this video?",

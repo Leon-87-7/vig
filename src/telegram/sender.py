@@ -117,11 +117,14 @@ async def send_document(
     filename: str,
     *,
     caption: str | None = None,
+    parse_mode: str | None = None,
 ) -> dict[str, Any]:
     """Send a document via multipart/form-data."""
     data: dict[str, Any] = {"chat_id": str(chat_id)}
     if caption:
         data["caption"] = caption
+    if parse_mode:
+        data["parse_mode"] = parse_mode
     files = {"document": (filename, file_bytes, "text/markdown")}
     response = await _http().post(_endpoint("sendDocument"), data=data, files=files)
     _raise_for_status(response, method="sendDocument", chat_id=chat_id)
@@ -137,6 +140,8 @@ async def send_inline_keyboard(
     chat_id: int,
     text: str,
     buttons: list[list[dict]],
+    *,
+    parse_mode: str | None = None,
 ) -> dict[str, Any]:
     """Send a message with an inline keyboard. buttons is the inline_keyboard array."""
     payload: dict[str, Any] = {
@@ -144,6 +149,8 @@ async def send_inline_keyboard(
         "text": text,
         "reply_markup": {"inline_keyboard": buttons},
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
     response = await _http().post(_endpoint("sendMessage"), json=payload)
     _raise_for_status(response, method="sendMessage", chat_id=chat_id)
     body = response.json()
@@ -177,6 +184,40 @@ async def send_force_reply(
         raise RuntimeError(f"Telegram sendMessage (ForceReply) failed: {body!r}")
     log.info("telegram_force_reply_sent", chat_id=chat_id)
     return body.get("result", {})
+
+
+async def forward_message(chat_id: int, from_chat_id: int, message_id: int) -> dict[str, Any]:
+    """Forward a message from from_chat_id to chat_id."""
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "from_chat_id": from_chat_id,
+        "message_id": message_id,
+    }
+    response = await _http().post(_endpoint("forwardMessage"), json=payload)
+    _raise_for_status(response, method="forwardMessage", chat_id=chat_id)
+    body = response.json()
+    if not body.get("ok"):
+        log.error("telegram_forward_failed", chat_id=chat_id, response=body)
+        raise RuntimeError(f"Telegram forwardMessage failed: {body!r}")
+    log.info("telegram_message_forwarded", chat_id=chat_id, message_id=message_id)
+    return body.get("result", {})
+
+
+async def edit_message_text(chat_id: int, message_id: int, text: str) -> None:
+    """Edit the text of a message and remove any inline keyboard."""
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "reply_markup": {"inline_keyboard": []},
+    }
+    response = await _http().post(_endpoint("editMessageText"), json=payload)
+    _raise_for_status(response, method="editMessageText", chat_id=chat_id)
+    body = response.json()
+    if not body.get("ok"):
+        log.error("telegram_edit_failed", chat_id=chat_id, message_id=message_id, response=body)
+        raise RuntimeError(f"Telegram editMessageText failed: {body!r}")
+    log.info("telegram_message_edited", chat_id=chat_id, message_id=message_id)
 
 
 async def answer_callback_query(callback_query_id: str, text: str | None = None) -> None:

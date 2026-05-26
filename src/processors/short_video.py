@@ -123,11 +123,16 @@ async def run(job: dict) -> None:
 
     best_frame_b64 = raw_frames[main_idx]["base64"]
     best_frame_bytes = base64.b64decode(best_frame_b64)
-    await send_photo(chat_id, best_frame_bytes, caption=f"{tag}\n🖼️ Main frame: {summary}")
+    photo_result = await send_photo(chat_id, best_frame_bytes, caption=f"{tag}\n🖼️ Main frame: {summary}")
+    bot_message_id: int = photo_result.get("message_id")
 
-    # 7. Send links message (if any)
+    # 7. Send links message (if any); prefer its message_id as the forwarding anchor
     if links:
-        await send_message(chat_id, f"{tag}\n{build_enriched_links_message(links)}")
+        links_result = await send_message(chat_id, f"{tag}\n{build_enriched_links_message(links)}")
+        bot_message_id = links_result.get("message_id", bot_message_id)
+
+    if bot_message_id:
+        await database.update_job_status(job_id, "done", bot_message_id=bot_message_id)
 
     # 8. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job
