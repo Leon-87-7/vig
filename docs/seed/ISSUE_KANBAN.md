@@ -38,17 +38,18 @@
 | [#35](https://github.com/Leon-87-7/vig/issues/35) | Recover orphaned jobs at worker startup (ADR-0010)                                  | Infra / Worker          | Committed to main (7ba1a95); closed on GH; 43 tests green                |
 | [#37](https://github.com/Leon-87-7/vig/issues/37) | Slimming sweep: dedup trivial helpers (ID gen, links formatter, EMBEDDING_DIM)      | Refactor                | Closed on GH; changes local (uncommitted); 49 touched-module tests green |
 | [#38](https://github.com/Leon-87-7/vig/issues/38) | Unify the two template-matching tables into the Template module                     | Refactor                | Closed on GH                                                             |
+| [#41](https://github.com/Leon-87-7/vig/issues/41) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch | DB / PRD           | Merged; PR #44; closed on GH                                             |
+| [#43](https://github.com/Leon-87-7/vig/issues/43) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration tracking | DB    | Merged; PR #45; closed on GH; 17 db tests green                         |
 | —                                                  | fix(database): phantom status filter in find_recent_job_by_url ('failed'/'stale')   | DB / Dedup              | No issue; fixed directly; committed to main                              |
 
 ---
 
 ## Needs Triage
 
-|                                                 # | Title                                                                                            | Area     | Depends On |
-| ------------------------------------------------: | ------------------------------------------------------------------------------------------------ | -------- | ---------- |
-| [#41](https://github.com/Leon-87-7/vig/issues/41) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch         | DB / PRD | none       |
-| [#42](https://github.com/Leon-87-7/vig/issues/42) | refactor(database): move links table DDL from brain.py into database.py                         | DB / Brain | none     |
-| [#43](https://github.com/Leon-87-7/vig/issues/43) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration tracking | DB     | best after #42 |
+|                                                 # | Title                                                                                           | Area       | Depends On |
+| ------------------------------------------------: | ----------------------------------------------------------------------------------------------- | ---------- | ---------- |
+| [#42](https://github.com/Leon-87-7/vig/issues/42) | refactor(database): move links table DDL from brain.py into database.py                        | DB / Brain | none       |
+| [#47](https://github.com/Leon-87-7/vig/issues/47) | bug(test_short_video): short_video.run() hits no such table: ignored_domains in template tests | Test / DB  | none       |
 
 ---
 
@@ -118,7 +119,8 @@ Ordered by unblocked-first, then dependency chain.
 
 — fix: phantom status filter (find_recent_job_by_url) ✓ (no issue; committed directly)
 
-#41 add set_prd_slot_status 🔍 needs-triage
+#41 add set_prd_slot_status ✓
 #42 move links DDL into database.py 🔍 needs-triage
-#43 PRAGMA user_version migrations 🔍 needs-triage (best after #42)
+#43 PRAGMA user_version migrations ✓ (best after #42)
+#47 short_video ignored_domains missing in tests 🔍 needs-triage
 ```
