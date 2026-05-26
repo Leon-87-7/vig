@@ -10,7 +10,7 @@ This document is the single source of truth for domain language and architecture
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Job**                          | A unit of work representing one URL submitted by a user. Lives in the `jobs` table. ID format: `YYYYMMDD_HHMMSS_XXXX`.                                                                                                                                                                                                                                                                                                                           |
 | **Short video**                  | Instagram Reel, TikTok, or YouTube Short — processed via `processors/short_video.py`. Transcript via sidecar, then Gemini text enrichment + Brave Search.                                                                                                                                                                                                                                                                                        |
-| **Long video**                   | Full-length YouTube video — processed via `processors/long_video.py`. Same pipeline as short but with frame extraction.                                                                                                                                                                                                                                                                                                                          |
+| **Long video**                   | Full-length YouTube video — processed via `processors/long_video.py`. Two-phase pipeline: Phase 1 produces a transcript markdown uploaded to Drive; Phase 2 is Gemini enrichment, triggered either by user confirmation (plain-URL jobs) or automatically (explicit-command jobs). Unlike short video, enrichment is a separate queued task, not inline.                                                                                           |
 | **Content type**                 | Enum: `short` or `long`. Detected at webhook routing time by `validators.detect_pipeline`.                                                                                                                                                                                                                                                                                                                                                       |
 | **Status FSM**                   | Job status lifecycle: `pending → processing → transcript_done → enriching → done` (or `error`/`cancelled`).                                                                                                                                                                                                                                                                                                                                      |
 | **Enrichment**                   | Gemini text pass that classifies the job: category, topic, objective, action points, tools, market data.                                                                                                                                                                                                                                                                                                                                         |
@@ -56,6 +56,7 @@ This document is the single source of truth for domain language and architecture
 | **URL deduplication**            | Per-chat gate that blocks resubmission of a URL whose job is still pending, processing, or done. Bypassed when a template slash command is the active trigger (explicit reprocess intent). The duplicate notice includes a "Show job done" inline button that forwards the original completion message.                                                                                                                                            |
 | **Force reprocess**              | `/force <url>` bypasses the dedup gate and resets the existing job row in-place — same job ID, `attempt` incremented, all result fields cleared — before re-enqueuing. Falls back to creating a fresh job only when no prior row exists for that URL in the chat.                                                                                                                                                                                 |
 | **Ignored domain**               | A user-managed per-chat blocklist stored in the `ignored_domains` SQLite table. Added via `/ignore <domain\|URL>` (space-separated, one or more per call), removed via `/unignore`, listed via `/ignore_list`. `github.com` is protected and cannot be added. The short pipeline's `filter_vision_links` receives the list as `extra_ignored` and drops matching links before Brave enrichment.                                                   |
+| **Enrichment confirmation gate** | Inline keyboard sent to the user after a long-video transcript is ready, offering "👎 No Thanks / ✨ Run Gemini / 📐 Build Spec". Present only for plain-URL long-video jobs (`template_detection_method != "explicit_command"`). Skipped entirely when the job was submitted via a template slash command — the worker auto-enqueues the enrichment task without asking.                                                                          |
 
 ---
 
@@ -118,11 +119,29 @@ External services used by both containers:
 ```
 URL arrives → jobs row (pending) → Redis enqueue
 → worker dequeues → short_video.run
-  → transcript service (yt-dlp) → transcript text stored in jobs.transcript
-  → status = transcript_done → Telegram: ask user to enrich?
-  [user confirms] → enrichment.run
-    → Gemini text: category, topic, objective, action_points, tools, market_data
+  → transcript service (yt-dlp) → transcript text
+  → Gemini text enrichment (inline — no confirmation, no separate queue task)
+    → category, topic, objective, action_points, tools, market_data
     → Drive upload → Sheets append → Telegram delivery
+    → fire-and-forget brain.ingest_links
+  → status = done
+```
+
+## Data Flow — Long Video
+
+```
+URL arrives → jobs row (pending) → Redis enqueue
+→ worker dequeues → long_video.run   [Phase 1]
+  → transcript service (yt-dlp) → transcript + metadata
+  → template auto-detect (plain-URL jobs only; explicit-command jobs skip)
+  → Drive upload of transcript markdown
+  → status = transcript_done → Telegram: send transcript document
+  → if explicit_command: worker auto-enqueues {"task":"enrichment"} (no user prompt)
+  → if plain URL: Telegram keyboard [No Thanks] [Run Gemini] [Build Spec]
+  [user clicks ✨ Run Gemini] → callback → enqueue {"task":"enrichment"}
+→ worker dequeues → enrichment.run   [Phase 2]
+  → Gemini text enrichment
+    → Drive upload → Sheets append → Telegram delivery + "Build Spec" button
     → fire-and-forget brain.ingest_links
   → status = done
 ```
