@@ -37,14 +37,18 @@
 | [#34](https://github.com/Leon-87-7/vig/issues/34) | feat: promise-gap Telegram render                                                   | Enrichment              | Committed to main (22c7de2); closed on GH                                |
 | [#35](https://github.com/Leon-87-7/vig/issues/35) | Recover orphaned jobs at worker startup (ADR-0010)                                  | Infra / Worker          | Committed to main (7ba1a95); closed on GH; 43 tests green                |
 | [#37](https://github.com/Leon-87-7/vig/issues/37) | Slimming sweep: dedup trivial helpers (ID gen, links formatter, EMBEDDING_DIM)      | Refactor                | Closed on GH; changes local (uncommitted); 49 touched-module tests green |
+| [#38](https://github.com/Leon-87-7/vig/issues/38) | Unify the two template-matching tables into the Template module                     | Refactor                | Closed on GH                                                             |
+| —                                                  | fix(database): phantom status filter in find_recent_job_by_url ('failed'/'stale')   | DB / Dedup              | No issue; fixed directly; committed to main                              |
 
 ---
 
 ## Needs Triage
 
-|      # | Title | Area | Depends On |
-| -----: | ----- | ---- | ---------- |
-| (none) |       |      |            |
+|                                                 # | Title                                                                                            | Area     | Depends On |
+| ------------------------------------------------: | ------------------------------------------------------------------------------------------------ | -------- | ---------- |
+| [#41](https://github.com/Leon-87-7/vig/issues/41) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch         | DB / PRD | none       |
+| [#42](https://github.com/Leon-87-7/vig/issues/42) | refactor(database): move links table DDL from brain.py into database.py                         | DB / Brain | none     |
+| [#43](https://github.com/Leon-87-7/vig/issues/43) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration tracking | DB     | best after #42 |
 
 ---
 
@@ -55,7 +59,6 @@ Ordered by unblocked-first, then dependency chain.
 |                                                 # | Title                                                               | Area     | Depends On |
 | ------------------------------------------------: | ------------------------------------------------------------------- | -------- | ---------- |
 | [#36](https://github.com/Leon-87-7/vig/issues/36) | fix: photo pipeline missing ADR-0005 UI-chrome filter (3 red tests) | Photo    | none       |
-| [#38](https://github.com/Leon-87-7/vig/issues/38) | Unify the two template-matching tables into the Template module     | Refactor | none       |
 | [#39](https://github.com/Leon-87-7/vig/issues/39) | Collapse the Gemini service triplet into one module (HITL)          | Refactor | none       |
 
 ---
@@ -104,7 +107,7 @@ Ordered by unblocked-first, then dependency chain.
 └── #27 Webhook slash dispatch table ✓
 
 #37 Slimming sweep — dedup ID gen / links formatter / EMBEDDING_DIM ✓ (slimming-doc #3/#4/#5)
-#38 Unify template-matching tables 🤖 ready-for-agent (slimming-doc #2)
+#38 Unify template-matching tables ✓
 #39 Collapse Gemini service triplet (HITL) 🤖 ready-for-agent (slimming-doc #1; reversal approved → ADR-0011)
 
 #33 Promise-gap extraction ✓
@@ -112,4 +115,10 @@ Ordered by unblocked-first, then dependency chain.
 
 #35 Orphaned-job reaper (ADR-0010) ✓
 #36 Photo UI-chrome filter (ADR-0005) 🤖 ready-for-agent
+
+— fix: phantom status filter (find_recent_job_by_url) ✓ (no issue; committed directly)
+
+#41 add set_prd_slot_status 🔍 needs-triage
+#42 move links DDL into database.py 🔍 needs-triage
+#43 PRAGMA user_version migrations 🔍 needs-triage (best after #42)
 ```
