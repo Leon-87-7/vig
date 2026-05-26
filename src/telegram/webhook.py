@@ -142,9 +142,69 @@ async def _cb_gemini_yes(ctx: CallbackCtx) -> None:
     if not job or job.get("status") != "transcript_done":
         await answer_callback_query(ctx.cq_id, text="This job is not ready for enrichment.")
         return
-    await database.update_job_status(ctx.job_id, "enriching")
-    await queue.enqueue({"task": "enrichment", "job_id": ctx.job_id})
     await answer_callback_query(ctx.cq_id)
+    await send_inline_keyboard(
+        ctx.chat_id,
+        "✨ Pick a Gemini template:",
+        buttons=[
+            [
+                {"text": "📝 Summary",   "callback_data": f"template_pick:summary:{ctx.job_id}"},
+                {"text": "🔧 Method",    "callback_data": f"template_pick:method:{ctx.job_id}"},
+            ],
+            [
+                {"text": "💻 Technical", "callback_data": f"template_pick:technical:{ctx.job_id}"},
+                {"text": "⭐ Review",    "callback_data": f"template_pick:review:{ctx.job_id}"},
+            ],
+            [
+                {"text": "📖 Narrative", "callback_data": f"template_pick:narrative:{ctx.job_id}"},
+                {"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{ctx.job_id}"},
+            ],
+        ],
+    )
+
+
+async def _cb_template_pick(ctx: CallbackCtx) -> None:
+    # ctx.job_id = "{template}:{actual_job_id}" (everything after first ":")
+    template, _, actual_job_id = ctx.job_id.partition(":")
+    if not actual_job_id:
+        await answer_callback_query(ctx.cq_id, text="Invalid callback data.")
+        return
+    job = await database.get_job(actual_job_id)
+    if not job or job.get("status") != "transcript_done":
+        await answer_callback_query(ctx.cq_id, text="Job not ready for enrichment.")
+        return
+    async with database.connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET template=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (template, actual_job_id),
+        )
+        await conn.commit()
+    if ctx.message_id:
+        await edit_message_text(ctx.chat_id, ctx.message_id, f"You chose {template.capitalize()}")
+    await queue.enqueue({"task": "enrichment", "job_id": actual_job_id})
+    await answer_callback_query(ctx.cq_id)
+    log.info("template_pick.enqueued", chat_id=ctx.chat_id, job_id=actual_job_id, template=template)
+
+
+async def _cb_template_freestyle(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
+    async with database.connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET template='freestyle', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (ctx.job_id,),
+        )
+        await conn.commit()
+    await database.set_chat_state(ctx.chat_id, mode="awaiting_freestyle", job_id=ctx.job_id, expires_minutes=10)
+    await answer_callback_query(ctx.cq_id)
+    await send_force_reply(
+        ctx.chat_id,
+        "✍️ Reply with your Gemini prompt (reply within 10 min; /cancel to abandon)",
+        input_field_placeholder="Your Gemini prompt...",
+    )
+    log.info("template_freestyle.armed", chat_id=ctx.chat_id, job_id=ctx.job_id)
 
 
 async def _cb_prd_build_spec(ctx: CallbackCtx) -> None:
@@ -254,16 +314,18 @@ async def _cb_show_done(ctx: CallbackCtx) -> None:
 
 
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
-    "gemini_no":         _cb_gemini_no,
-    "gemini_yes":        _cb_gemini_yes,
-    "prd_build_spec":    _cb_prd_build_spec,
-    "prd_auto":          _cb_prd_auto,
-    "prd_retry_auto":    _cb_prd_auto,
-    "prd_intent_prompt": _cb_prd_intent_prompt,
-    "prd_retry_intent":  _cb_prd_retry_intent,
-    "enrichment_retry":  _cb_enrichment_retry,
-    "reprocess":         _cb_reprocess,
-    "show_done":         _cb_show_done,
+    "gemini_no":          _cb_gemini_no,
+    "gemini_yes":         _cb_gemini_yes,
+    "template_pick":      _cb_template_pick,
+    "template_freestyle":  _cb_template_freestyle,
+    "prd_build_spec":     _cb_prd_build_spec,
+    "prd_auto":           _cb_prd_auto,
+    "prd_retry_auto":     _cb_prd_auto,
+    "prd_intent_prompt":  _cb_prd_intent_prompt,
+    "prd_retry_intent":   _cb_prd_retry_intent,
+    "enrichment_retry":   _cb_enrichment_retry,
+    "reprocess":          _cb_reprocess,
+    "show_done":          _cb_show_done,
 }
 
 
@@ -293,6 +355,8 @@ async def _cmd_cancel(ctx: SlashCtx) -> None:
     await queue._client().delete(f"pending_template:{ctx.chat_id}")
     if state and state.get("mode") == "awaiting_intent":
         await send_message(ctx.chat_id, "✍️ Intent canceled.")
+    elif state and state.get("mode") == "awaiting_freestyle":
+        await send_message(ctx.chat_id, "✍️ Freestyle prompt abandoned.")
     else:
         await send_message(ctx.chat_id, "Nothing to cancel.")
 
@@ -567,6 +631,34 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
     log.info("prd.chat_state.consumed", chat_id=chat_id, job_id=job_id)
 
 
+async def _handle_awaiting_freestyle(chat_id: int, text: str, state: dict) -> None:
+    """Handle user reply when awaiting_freestyle chat state is armed."""
+    job_id = state["job_id"]
+    stripped = text.strip()
+    if len(stripped) < 5:
+        await send_message(chat_id, "✍️ Prompt too short (min 5 chars). Reply again or /cancel to abandon.")
+        return
+    if len(stripped) > 1000:
+        await send_message(chat_id, "✍️ Prompt too long (max 1000 chars). Reply again or /cancel to abandon.")
+        return
+    async with database.connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET freestyle_prompt=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (stripped, job_id),
+        )
+        await conn.commit()
+    await database.clear_chat_state(chat_id)
+    log.info("freestyle.prompt.stored", chat_id=chat_id, job_id=job_id, prompt_len=len(stripped))
+    job = await database.get_job(job_id)
+    if job and job.get("status") == "transcript_done":
+        await queue.enqueue({"task": "enrichment", "job_id": job_id})
+        log.info("freestyle.enrichment.enqueued", chat_id=chat_id, job_id=job_id)
+        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting Gemini analysis")
+    else:
+        log.info("freestyle.prompt.deferred", chat_id=chat_id, job_id=job_id)
+        await send_message(chat_id, f"job_{job_id[-4:]}:\n✍️ Prompt saved — Gemini will start when transcript is ready")
+
+
 async def _handle_spec(chat_id: int, parts: list[str]) -> None:
     """Dispatch /spec <suffix> [intent...]."""
     if len(parts) < 2:
@@ -690,7 +782,10 @@ async def webhook(
         except Exception:
             expires_at = None
         if expires_at and expires_at > _dt.now(_tz.utc):
-            await _handle_awaiting_intent(chat_id, text, state)
+            if state.get("mode") == "awaiting_freestyle":
+                await _handle_awaiting_freestyle(chat_id, text, state)
+            else:
+                await _handle_awaiting_intent(chat_id, text, state)
             return {"ok": True}
         else:
             log.info("prd.chat_state.expired_or_missed", chat_id=chat_id)

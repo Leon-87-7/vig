@@ -56,8 +56,11 @@ async def _dispatch(task: dict) -> None:
                 if job.get("template_detection_method") == "explicit_command":
                     refreshed = await database.get_job(job_id)
                     if refreshed and refreshed.get("status") == "transcript_done":
-                        await queue.enqueue({"task": "enrichment", "job_id": job_id})
-                        log.info("enrichment_auto_enqueued", job_id=job_id)
+                        if refreshed.get("template") == "freestyle" and not refreshed.get("freestyle_prompt"):
+                            log.info("enrichment_auto_enqueue_deferred_awaiting_freestyle", job_id=job_id)
+                        else:
+                            await queue.enqueue({"task": "enrichment", "job_id": job_id})
+                            log.info("enrichment_auto_enqueued", job_id=job_id)
             else:
                 log.error("unknown_content_type", job_id=job_id, content_type=job["content_type"])
         except Exception:
