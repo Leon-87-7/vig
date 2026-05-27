@@ -46,6 +46,12 @@
 | [#39](https://github.com/Leon-87-7/vig/issues/39) | Collapse the Gemini service triplet into one module (ADR-0011)                      | Refactor                | Merged; PR #49; commit bd4d949; closed on GH                            |
 | [#42](https://github.com/Leon-87-7/vig/issues/42) | refactor(database): move links table DDL from brain.py into database.py             | DB / Brain              | Completed; links DDL in database.py SCHEMA_SQL; brain.py SCHEMA_SQL removed; closed on GH |
 | [#47](https://github.com/Leon-87-7/vig/issues/47) | bug(test_short_video): short_video.run() hits no such table: ignored_domains        | Test / DB               | Merged; PR #50; commit 5dbdd2b; closed on GH                            |
+| [#51](https://github.com/Leon-87-7/vig/issues/51) | feat(db): add jobs.freestyle_prompt column                                          | DB                      | Merged; PR #55; commit 004d6ab; closed on GH                            |
+| [#52](https://github.com/Leon-87-7/vig/issues/52) | feat(enrichment): substitute freestyle_prompt in place of template extra_instructions | Enrichment            | Merged; PR #56; commit c8e52ce; closed on GH                            |
+| [#53](https://github.com/Leon-87-7/vig/issues/53) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue (ADR-0012) | Webhook / Long Video  | Merged; PR #57; commit 3092399; closed on GH                            |
+| [#54](https://github.com/Leon-87-7/vig/issues/54) | feat(webhook): /freestyle slash command for both short and long pipelines           | Webhook / Templates     | Merged; PR #58; commit 128f9fb; closed on GH                            |
+| —                                                  | feat(webhook): /find UX — GitHub enrichment, full URL path, score floor 0.58       | Brain / Webhook         | No issue; committed directly (feat/find-ux session)                     |
+| —                                                  | feat(webhook): plain-text command shortcut — first word matched against _SLASH_TABLE | Webhook               | No issue; committed directly (same session)                             |
 
 ---
 
@@ -63,10 +69,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |      # | Title | Area | Depends On |
 | -----: | ----- | ---- | ---------- |
-| [#51](https://github.com/Leon-87-7/vig/issues/51) | feat(db): add jobs.freestyle_prompt column | DB | — |
-| [#52](https://github.com/Leon-87-7/vig/issues/52) | feat(enrichment): substitute freestyle_prompt in place of template extra_instructions | Enrichment | #51 |
-| [#53](https://github.com/Leon-87-7/vig/issues/53) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue (ADR-0012) | Webhook / Long Video | #51, #52 |
-| [#54](https://github.com/Leon-87-7/vig/issues/54) | feat(webhook): /freestyle slash command for both short and long pipelines | Webhook / Templates | #51, #52, #53 |
+| (none) |       |      |            |
 
 ---
 
@@ -131,8 +134,11 @@ Ordered by unblocked-first, then dependency chain.
 #43 PRAGMA user_version migrations ✓ (best after #42)
 #47 short_video ignored_domains missing in tests ✓ (PR #50)
 
-#51 jobs.freestyle_prompt column
-└── #52 enrichment freestyle substitution
-    └── #53 template picker keyboard (ADR-0012)
-        └── #54 /freestyle slash command
+#51 jobs.freestyle_prompt column ✓
+└── #52 enrichment freestyle substitution ✓
+    └── #53 template picker keyboard (ADR-0012) ✓
+        └── #54 /freestyle slash command ✓
+
+— /find UX (GitHub enrichment, full URL path, score floor) ✓
+— plain-text command shortcut (first word → _SLASH_TABLE) ✓
 ```
