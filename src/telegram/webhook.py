@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import html
 from collections.abc import Awaitable, Callable
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
@@ -406,16 +407,43 @@ async def _cmd_find(ctx: SlashCtx) -> None:
         return
     query = " ".join(ctx.parts[1:]).strip()
     from src import brain
-    results = await brain.search_links(query, top_k=5)
+    from src.services.github import enrich_github_links
+    from src.utils.markdown import _humanize_age
+    candidates = await brain.search_links(query, top_k=10)
+    results = [r for r in candidates if r["score"] >= 0.58][:5]
     if not results:
-        await send_message(ctx.chat_id, "No relevant links found in your brain.")
+        await send_message(ctx.chat_id, f'🔍 Nothing found for "<i>{html.escape(query)}</i>".\nTry a broader term or /rebuild-graph if you\'ve added links recently.', parse_mode="HTML")
     else:
-        lines = [
-            f'🔗 <a href="{html.escape(r["url"], quote=True)}"><b>{html.escape(r["title"])}</b></a>'
-            f'\n   Topic: {html.escape(r["topic"])}\n   Score: {r["score"]:.2f}'
-            for r in results
-        ]
-        await send_message(ctx.chat_id, "\n\n".join(lines), parse_mode="HTML")
+        await enrich_github_links(results)  # mutates in place; no-ops non-GitHub URLs
+        header = f'🔍 <b>{len(results)} result{"s" if len(results) != 1 else ""}</b> for "<i>{html.escape(query)}</i>"\n\n'
+        lines = []
+        for r in results:
+            parsed = urlparse(r["url"])
+            short_url = (parsed.netloc + parsed.path).rstrip("/")
+            short_url = short_url.removeprefix("www.")
+            entry = (
+                f'🔗 <b>{html.escape(r["title"])}</b>\n'
+                f'   <a href="{html.escape(r["url"], quote=True)}">{html.escape(short_url)}</a>'
+            )
+            if r.get("_enriched"):
+                desc = (r.get("_gh_description") or "").strip()
+                language = r.get("_language") or "N/A"
+                meta = f'⭐ {r["_stars"]} | 🔀 {r["_forks"]} | 💻 {language} | 📅 {_humanize_age(r["_days_ago"])}'
+                if desc:
+                    entry += f"\n   {html.escape(desc)}"
+                entry += f"\n   {meta}"
+            else:
+                topic = (r.get("topic") or "").strip()
+                if topic.lower().startswith(("the image", "the screenshot", "the photo")):
+                    topic_line = "📷 from a photo"
+                elif topic:
+                    topic_line = topic[:70].rstrip() + ("…" if len(topic) > 70 else "")
+                else:
+                    topic_line = ""
+                if topic_line:
+                    entry += f"\n   {html.escape(topic_line)}"
+            lines.append(entry)
+        await send_message(ctx.chat_id, header + "\n\n".join(lines), parse_mode="HTML")
 
 
 async def _cmd_rebuild_graph(ctx: SlashCtx) -> None:
@@ -831,7 +859,13 @@ async def webhook(
             log.info("prd.chat_state.expired_or_missed", chat_id=chat_id)
             # fall through to normal URL routing
 
-    # 3. Normal URL routing
+    # 3. Plain-text command shortcut: "find code" → "/find code", "rebuild-graph" → "/rebuild-graph"
+    first_word = text.split()[0].lower()
+    if ("/" + first_word) in _SLASH_TABLE:
+        await _dispatch_slash(chat_id, "/" + text, message_id)
+        return {"ok": True}
+
+    # 4. Normal URL routing
     client = queue._client()
     pending_template: str | None = await client.get(f"pending_template:{chat_id}")
     if pending_template:
