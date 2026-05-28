@@ -22,6 +22,13 @@ log = get_logger(__name__)
 
 
 SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS allowed_domains (
+    chat_id     INTEGER NOT NULL,
+    domain      TEXT NOT NULL,
+    added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chat_id, domain)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id                          TEXT PRIMARY KEY,         -- YYYYMMDD_HHMMSS_XXXX
     chat_id                     INTEGER NOT NULL,
@@ -153,6 +160,15 @@ _MIGRATIONS: list[list[str]] = [
         "DROP TABLE chat_state",
         "ALTER TABLE chat_state_v3 RENAME TO chat_state",
     ],
+    # v3 → v4: per-chat article allowlist (issue #61)
+    [
+        """CREATE TABLE IF NOT EXISTS allowed_domains (
+            chat_id     INTEGER NOT NULL,
+            domain      TEXT NOT NULL,
+            added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chat_id, domain)
+        )""",
+    ],
 ]
 
 
@@ -222,6 +238,36 @@ async def remove_ignored_domain(domain: str) -> bool:
     async with connection() as conn:
         cur = await conn.execute(
             "DELETE FROM ignored_domains WHERE domain=?", (domain,)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def add_allowed_domain(chat_id: int, domain: str) -> None:
+    """Insert (chat_id, domain) into allowed_domains. Idempotent on duplicate."""
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
+            (chat_id, domain),
+        )
+        await conn.commit()
+
+
+async def list_allowed_domains(chat_id: int) -> set[str]:
+    """Return the set of domains allowed for this chat."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT domain FROM allowed_domains WHERE chat_id = ?", (chat_id,)
+        )
+        return {row[0] for row in await cur.fetchall()}
+
+
+async def remove_allowed_domain(chat_id: int, domain: str) -> bool:
+    """Delete (chat_id, domain). Returns True if removed, False if not found."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
+            (chat_id, domain),
         )
         await conn.commit()
         return cur.rowcount > 0

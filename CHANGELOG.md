@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`/allowlist` family** (#61) — per-chat article domain allowlist. `/allowlist <domain> [more...]` adds domains (idempotent, multi-arg); `/unallowlist <domain>` removes with a friendly message on miss; `/allowlist_list` shows custom rows only (defaults not surfaced). Plain-text shortcuts supported. `ARTICLE_DEFAULT_DOMAINS` frozenset (15 dev-reading platforms) added to `validators.py`. URL rejection message now includes the hint: "If this is an article you'd like to track, try /allowlist <domain> first." Migration v3→v4 adds `allowed_domains(chat_id, domain, added_at, PRIMARY KEY(chat_id, domain))`.
+
 - **Explicit-command auto-enrichment** — long-video jobs submitted via a template slash command (`/method <url>` or the two-step `/method` → URL flow) no longer show the "Run Gemini analysis?" confirmation keyboard. The worker detects `template_detection_method == "explicit_command"` after Phase 1 completes and auto-enqueues the enrichment task if the job reached `transcript_done`. The confirmation gate is preserved for plain-URL long-video jobs.
 
 ### Changed

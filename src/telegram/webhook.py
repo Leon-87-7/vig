@@ -24,7 +24,7 @@ from src.telegram.sender import (
 )
 from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
-from src.utils.validators import detect_pipeline
+from src.utils.validators import detect_pipeline, _ARTICLE_HINT
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -615,6 +615,53 @@ async def _cmd_ignore_list(ctx: SlashCtx) -> None:
     await send_message(ctx.chat_id, f"🚫 Ignored domains ({len(domains)}):\n{lines}")
 
 
+def _normalize_domain(raw: str) -> str:
+    """Strip to bare hostname, lowercase, drop 'www.' prefix."""
+    from urllib.parse import urlparse as _urlparse
+    host = _urlparse(raw).hostname or raw
+    return host.lower().removeprefix("www.")
+
+
+async def _cmd_allowlist(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /allowlist <domain or URL> [more...]")
+        return
+    added = []
+    for raw in ctx.parts[1:]:
+        domain = _normalize_domain(raw)
+        await database.add_allowed_domain(ctx.chat_id, domain)
+        added.append(domain)
+    await send_message(ctx.chat_id, "✅ Allowlisted: " + ", ".join(f"`{d}`" for d in added))
+
+
+async def _cmd_unallowlist(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /unallowlist <domain or URL> [more...]")
+        return
+    removed, missing = [], []
+    for raw in ctx.parts[1:]:
+        domain = _normalize_domain(raw)
+        if await database.remove_allowed_domain(ctx.chat_id, domain):
+            removed.append(domain)
+        else:
+            missing.append(domain)
+    parts = []
+    if removed:
+        parts.append("✅ Removed: " + ", ".join(f"`{d}`" for d in removed))
+    if missing:
+        parts.append("⚠️ Not in your allowlist: " + ", ".join(f"`{d}`" for d in missing))
+    await send_message(ctx.chat_id, "\n".join(parts))
+
+
+async def _cmd_allowlist_list(ctx: SlashCtx) -> None:
+    domains = sorted(await database.list_allowed_domains(ctx.chat_id))
+    if not domains:
+        await send_message(ctx.chat_id, "No custom allowlist entries yet. Use /allowlist <domain>.")
+        return
+    lines = "\n".join(f"• `{d}`" for d in domains)
+    await send_message(ctx.chat_id, f"✅ Allowlisted domains ({len(domains)}):\n{lines}")
+
+
 _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/cancel":           _cmd_cancel,
     "/spec":             _cmd_spec,
@@ -626,6 +673,9 @@ _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/ignore":          _cmd_ignore,
     "/unignore":        _cmd_unignore,
     "/ignore_list":     _cmd_ignore_list,
+    "/allowlist":        _cmd_allowlist,
+    "/unallowlist":      _cmd_unallowlist,
+    "/allowlist_list":   _cmd_allowlist_list,
     "/freestyle":        _cmd_freestyle,
     **{f"/{t}": _cmd_template for t in PROMPT_TEMPLATES},
 }
@@ -873,7 +923,8 @@ async def webhook(
         await send_message(
             chat_id,
             "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-            "Instagram Reels (not /p/ carousels), and TikTok videos.",
+            "Instagram Reels (not /p/ carousels), and TikTok videos.\n"
+            + _ARTICLE_HINT,
         )
         log.info("url_rejected", chat_id=chat_id, url=text)
         return {"ok": True}

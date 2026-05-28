@@ -9,6 +9,26 @@ Pipeline = Literal["short", "long", "rejected"]
 
 _TIKTOK_VIDEO_PATH = re.compile(r"^/@[^/]+/video/\d+", re.IGNORECASE)
 
+ARTICLE_DEFAULT_DOMAINS: frozenset[str] = frozenset({
+    "substack.com",
+    "medium.com",
+    "dev.to",
+    "ghost.io",
+    "hashnode.com",
+    "freecodecamp.org",
+    "css-tricks.com",
+    "smashingmagazine.com",
+    "stackoverflow.blog",
+    "aws.amazon.com",
+    "blog.cloudflare.com",
+    "github.blog",
+    "netflixtechblog.com",
+    "engineering.fb.com",
+    "engineering.linkedin.com",
+})
+
+_ARTICLE_HINT = "If this is an article you'd like to track, try /allowlist <domain> first."
+
 
 def detect_pipeline(url: str) -> Pipeline:
     """Return the pipeline a URL should be routed to.
