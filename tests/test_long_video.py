@@ -58,13 +58,13 @@ from src.services import sheets as sheets_svc
 
 @pytest.mark.asyncio
 async def test_append_long_row(monkeypatch) -> None:
-    """append_long_row calls the correct sheet ID with the right column order."""
-    monkeypatch.setattr("src.services.sheets.settings.GOOGLE_SHEETS_ID_LONG", "long-sheet-id")
+    """append_long_row writes to the consolidated workbook's YouTube Transcript Index tab."""
+    monkeypatch.setattr("src.services.sheets.settings.GOOGLE_SHEETS_ID", "consolidated-sheet-id")
 
     captured: list = []
 
-    def fake_append_sync(spreadsheet_id, values):
-        captured.append((spreadsheet_id, values))
+    def fake_append_sync(tab_name, values):
+        captured.append((tab_name, values))
 
     with patch("src.services.sheets._append_sync", side_effect=fake_append_sync):
         await sheets_svc.append_long_row(
@@ -78,8 +78,8 @@ async def test_append_long_row(monkeypatch) -> None:
         )
 
     assert len(captured) == 1
-    sheet_id, row = captured[0]
-    assert sheet_id == "long-sheet-id"
+    tab_name, row = captured[0]
+    assert tab_name == "YouTube Transcript Index"
     # Verify column order: url, video_id, title, channel, ...
     assert row[0] == "https://youtube.com/watch?v=x"
     assert row[1] == "vid123"
@@ -88,6 +88,35 @@ async def test_append_long_row(monkeypatch) -> None:
     assert row[5] == 5000  # char_count
     assert row[6] == "file-abc"  # drive_file_id
     assert row[9] == "ok"  # status
+
+
+@pytest.mark.asyncio
+async def test_append_long_row_tab_qualified_range(monkeypatch) -> None:
+    """End-to-end: append_long_row resolves to range='YouTube Transcript Index!A1'."""
+    monkeypatch.setattr("src.services.sheets.settings.GOOGLE_SHEETS_ID", "consolidated-sheet-id")
+
+    mock_values = MagicMock()
+    mock_values.append.return_value.execute.return_value = {}
+    mock_spreadsheets = MagicMock()
+    mock_spreadsheets.values.return_value = mock_values
+    mock_service = MagicMock()
+    mock_service.spreadsheets.return_value = mock_spreadsheets
+
+    with patch("src.services.sheets._build_service", return_value=mock_service):
+        await sheets_svc.append_long_row(
+            {"id": "job1", "url": "https://youtube.com/watch?v=x", "title": "T", "drive_url": "https://d/x"},
+            video_id="vid123",
+            channel="C",
+            views="1",
+            description_links_raw="",
+            char_count=1,
+            drive_file_id="fid",
+        )
+
+    mock_values.append.assert_called_once()
+    call_kwargs = mock_values.append.call_args.kwargs
+    assert call_kwargs["spreadsheetId"] == "consolidated-sheet-id"
+    assert call_kwargs["range"] == "YouTube Transcript Index!A1"
 
 
 # ---------------------------------------------------------------------------

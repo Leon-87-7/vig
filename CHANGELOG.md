@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Sheets workbook consolidated into one ID with named tabs (#59)** — replaced `GOOGLE_SHEETS_ID_SHORT` / `_LONG` / `_PRD` env vars with a single `GOOGLE_SHEETS_ID`. `_append_sync` now takes a `tab_name` argument and writes to `"<tab>!A1"` (tab-qualified A1 notation). Tab routing is enforced in code (`src/services/sheets.py`): long → `YouTube Transcript Index`, short → `Short Video Analysis`, PRD → `mini PRD`. The `Article Analysis` tab is reserved for the upcoming article pipeline (#62). See ADR-0013.
 - **Long-video status message collapses to one** — the initial "🔊 Analyzing your video..." message now edits in-place to "🍪 Transcript done, now sent to Drive" via `editMessageText` instead of sending a second message, reducing chat noise during processing.
 - **Template command reception message** — replaced `"📥 Received with **{template}** template!"` with `"📥 Received\n✨ Kicking off Gemini analysis ({template})"` in both the one-shot (`/method <url>`) and two-step (`/method` → URL) paths to reflect the intent-first UX.
 

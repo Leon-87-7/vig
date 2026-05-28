@@ -40,8 +40,10 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_REFRESH_TOKEN: str = ""
     GOOGLE_DRIVE_FOLDER_SHORT: str = ""
     GOOGLE_DRIVE_FOLDER_LONG: str = ""
-    GOOGLE_SHEETS_ID_SHORT: str = ""
-    GOOGLE_SHEETS_ID_LONG: str = ""
+    # Single consolidated workbook holding all per-domain tabs (ADR-0013).
+    # Tabs: 'YouTube Transcript Index', 'Short Video Analysis',
+    # 'Article Analysis', 'mini PRD'. Tab routing lives in src/services/sheets.py.
+    GOOGLE_SHEETS_ID: str = ""
 
     # Slice #4 — Gemini enrichment
     GEMINI_FREE_API_KEY: str = ""
@@ -55,7 +57,6 @@ class Settings(BaseSettings):
 
     # Slices #6/#7 — Mini-PRD
     GOOGLE_DRIVE_FOLDER_PRD: str = ""
-    GOOGLE_SHEETS_ID_PRD: str = ""
     PRD_MAX_TRANSCRIPT_CHARS: int = 60_000
     PRD_INTENT_COOLDOWN_SECONDS: int = 15
     PRD_INCLUDE_FRAMES: bool = False

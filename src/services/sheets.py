@@ -16,6 +16,12 @@ log = get_logger(__name__)
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
+# Tab names inside the consolidated workbook (ADR-0013).
+# Each per-domain helper writes to a fixed tab; routing is enforced in code, not config.
+TAB_LONG = "YouTube Transcript Index"
+TAB_SHORT = "Short Video Analysis"
+TAB_PRD = "mini PRD"
+
 
 def _build_service() -> Any:
     if settings.GOOGLE_OAUTH_REFRESH_TOKEN:
@@ -35,11 +41,17 @@ def _build_service() -> Any:
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
-def _append_sync(spreadsheet_id: str, values: list) -> None:
+def _append_sync(tab_name: str, values: list) -> None:
+    """Append `values` to the consolidated workbook's `tab_name` tab.
+
+    Range is tab-qualified A1 notation (`"<tab_name>!A1"`) — the Sheets v4 API
+    routes the write to the named tab. With a bare `"A1"` range the API
+    silently lands the row in the first tab regardless of intent (ADR-0013).
+    """
     service = _build_service()
     service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range="A1",
+        spreadsheetId=settings.GOOGLE_SHEETS_ID,
+        range=f"{tab_name}!A1",
         valueInputOption="USER_ENTERED",
         insertDataOption="INSERT_ROWS",
         body={"values": [values]},
@@ -47,7 +59,7 @@ def _append_sync(spreadsheet_id: str, values: list) -> None:
 
 
 async def append_short_row(job: dict) -> None:
-    """Append one row to GOOGLE_SHEETS_ID_SHORT.
+    """Append one row to the 'Short Video Analysis' tab of GOOGLE_SHEETS_ID.
 
     Expected columns (must match sheet header order):
     job_id, url, chat_id, status, platform, title, duration_s, frame_count,
@@ -78,7 +90,7 @@ async def append_short_row(job: dict) -> None:
         job.get("error_msg", ""),
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_SHORT, row)
+        await asyncio.to_thread(_append_sync, TAB_SHORT, row)
         log.info("sheets_short_appended", job_id=job.get("id"))
     except Exception:
         log.exception("sheets_short_failed", job_id=job.get("id"))
@@ -94,8 +106,8 @@ async def append_long_row(
     char_count: int,
     drive_file_id: str,
 ) -> None:
-    """
-    Append one row to GOOGLE_SHEETS_ID_LONG.
+    """Append one row to the 'YouTube Transcript Index' tab of GOOGLE_SHEETS_ID.
+
     Columns (§13.15 verified shape):
       url, video_id, title, channel, description_links_raw, char_count,
       drive_file_id, drive_url, fetched_at, status,
@@ -121,7 +133,7 @@ async def append_long_row(
         "",  # ai_market_data
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_LONG, row)
+        await asyncio.to_thread(_append_sync, TAB_LONG, row)
         log.info("sheets_long_appended", job_id=job.get("id"))
     except Exception:
         log.exception("sheets_long_failed", job_id=job.get("id"))
@@ -136,7 +148,8 @@ async def append_prd_row(
     slot: str = "auto",
     intent_text: str | None = None,
 ) -> None:
-    """Append one row to GOOGLE_SHEETS_ID_PRD.
+    """Append one row to the 'mini PRD' tab of GOOGLE_SHEETS_ID.
+
     Columns: job_id, video_url, title, slot, intent_text, drive_url, created_at
     """
     row = [
@@ -149,7 +162,7 @@ async def append_prd_row(
         datetime.now(timezone.utc).isoformat(),
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_PRD, row)
+        await asyncio.to_thread(_append_sync, TAB_PRD, row)
         log.info("sheets_prd_appended", job_id=job_id, slot=slot)
     except Exception:
         log.exception("sheets_prd_failed", job_id=job_id, slot=slot)
