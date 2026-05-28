@@ -67,9 +67,12 @@
 
 Ordered by unblocked-first, then dependency chain.
 
-|      # | Title | Area | Depends On |
-| -----: | ----- | ---- | ---------- |
-| (none) |       |      |            |
+|                                                 # | Title                                                                                          | Area               | Depends On     |
+| ------------------------------------------------: | ---------------------------------------------------------------------------------------------- | ------------------ | -------------- |
+| [#59](https://github.com/Leon-87-7/vig/issues/59) | refactor(sheets): consolidate three GOOGLE_SHEETS_ID_* env vars into one with named tabs (ADR-0013) | Refactor / Sheets  | —              |
+| [#60](https://github.com/Leon-87-7/vig/issues/60) | feat(jina): markdown_cache + /download_md utility + /force cache invalidation                  | Article / Utility  | —              |
+| [#61](https://github.com/Leon-87-7/vig/issues/61) | feat(allowlist): /allowlist family + allowed_domains table + ARTICLE_DEFAULT_DOMAINS + rejection hint | Article / Webhook  | —              |
+| [#62](https://github.com/Leon-87-7/vig/issues/62) | feat(article): end-to-end article URL pipeline — Jina → cache → doc → paywall → Gemini → sheets → brain | Article            | #59, #60, #61  |
 
 ---
 
@@ -141,4 +144,11 @@ Ordered by unblocked-first, then dependency chain.
 
 — /find UX (GitHub enrichment, full URL path, score floor) ✓
 — plain-text command shortcut (first word → _SLASH_TABLE) ✓
+
+Article URL feature (postgrill: docs/features/postgrill/article-url-feature.md)
+#59 Sheets consolidation (ADR-0013) ─────────┐
+                                             │
+#60 Jina + markdown_cache + /download_md ────┼──► #62 Article pipeline end-to-end
+                                             │
+#61 Article allowlist CRUD ──────────────────┘
 ```
