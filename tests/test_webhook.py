@@ -1112,3 +1112,69 @@ async def test_awaiting_freestyle_short_video_enqueues_video_task(
     msg = sent.await_args.args[1]
     assert "freestyle" in msg.lower()
     assert "J_SH"[-4:] in msg
+
+
+# ---------------------------------------------------------------------------
+# /allowlist family tests (issue #61)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_allowlist_multi_arg_adds_both_domains(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    """Multi-arg /allowlist foo.com bar.com adds both domains."""
+    from src import database as db
+
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/allowlist foo.com bar.com")
+    domains = await db.list_allowed_domains(100)
+    assert "foo.com" in domains
+    assert "bar.com" in domains
+
+
+@pytest.mark.asyncio
+async def test_unallowlist_nonexistent_returns_friendly_message(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    """/unallowlist nonexistent.com sends a friendly not-found message."""
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/unallowlist nonexistent.com")
+    msg = sent.await_args.args[1]
+    assert "nonexistent.com" in msg
+    # Should NOT send an error traceback — a friendly user-facing message.
+    assert "Not in your allowlist" in msg or "not in" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_allowlist_list_returns_custom_rows_only(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    """/allowlist_list shows only rows the user added — defaults are NOT surfaced."""
+    from src import database as db
+
+    await db.add_allowed_domain(100, "myblog.com")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("/allowlist_list")
+    msg = sent.await_args.args[1]
+    assert "myblog.com" in msg
+    # Default domains must NOT appear in the list output
+    assert "substack.com" not in msg
+    assert "medium.com" not in msg
+
+
+@pytest.mark.asyncio
+async def test_allowlist_plain_text_shortcut(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    """Plain-text 'allowlist foo.com' (no leading slash) is dispatched as /allowlist."""
+    from src import database as db
+
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    await _post_webhook("allowlist foo.com")
+    domains = await db.list_allowed_domains(100)
+    assert "foo.com" in domains
