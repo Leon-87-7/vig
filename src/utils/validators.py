@@ -5,12 +5,35 @@ import unicodedata
 from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
-Pipeline = Literal["short", "long", "rejected"]
+Pipeline = Literal["short", "long", "article", "rejected"]
 
 _TIKTOK_VIDEO_PATH = re.compile(r"^/@[^/]+/video/\d+", re.IGNORECASE)
 
+ARTICLE_DEFAULT_DOMAINS: frozenset[str] = frozenset({
+    "substack.com",
+    "medium.com",
+    "dev.to",
+    "ghost.io",
+    "hashnode.com",
+    "freecodecamp.org",
+    "css-tricks.com",
+    "smashingmagazine.com",
+    "stackoverflow.blog",
+    "aws.amazon.com",
+    "blog.cloudflare.com",
+    "github.blog",
+    "netflixtechblog.com",
+    "engineering.fb.com",
+    "engineering.linkedin.com",
+})
 
-def detect_pipeline(url: str) -> Pipeline:
+_ARTICLE_HINT = "If this is an article you'd like to track, try /allowlist <domain> first."
+
+
+def detect_pipeline(
+    url: str,
+    extra_domains: frozenset[str] = frozenset(),
+) -> Pipeline:
     """Return the pipeline a URL should be routed to.
 
     Short pipeline:
@@ -21,6 +44,10 @@ def detect_pipeline(url: str) -> Pipeline:
     Long pipeline:
         - youtube.com/watch?v={id}
         - youtu.be/{id}
+
+    Article pipeline:
+        - host in ARTICLE_DEFAULT_DOMAINS (or a subdomain thereof)
+        - host in extra_domains (per-chat allowlist, caller-supplied)
 
     Rejected (no job created):
         - instagram.com/p/{id} (carousel/photo posts)
@@ -62,12 +89,17 @@ def detect_pipeline(url: str) -> Pipeline:
     if host == "youtu.be" and len(path) > 1:
         return "long"
 
+    # Article — default domains and per-chat allowlist
+    all_article_domains = ARTICLE_DEFAULT_DOMAINS | extra_domains
+    if any(host == d or host.endswith("." + d) for d in all_article_domains):
+        return "article"
+
     return "rejected"
 
 
 def is_video_url(text: str) -> bool:
     """True if the entire message text is a single URL the bot would accept."""
-    return detect_pipeline(text) in {"short", "long"}
+    return detect_pipeline(text) in {"short", "long", "article"}
 
 
 # ---------------------------------------------------------------------------

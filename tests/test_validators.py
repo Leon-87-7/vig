@@ -158,3 +158,39 @@ def test_slugify_max_length() -> None:
 
 
 import re  # noqa: E402 — imported here to avoid top-level shadowing in this test module
+
+
+# ---------------------------------------------------------------------------
+# ARTICLE_DEFAULT_DOMAINS + rejection hint (issue #61)
+# ---------------------------------------------------------------------------
+
+from src.utils.validators import ARTICLE_DEFAULT_DOMAINS, _ARTICLE_HINT
+
+
+def test_article_default_domains_is_frozenset() -> None:
+    assert isinstance(ARTICLE_DEFAULT_DOMAINS, frozenset)
+
+
+def test_article_default_domains_contains_named_platforms() -> None:
+    expected = {
+        "substack.com",
+        "medium.com",
+        "dev.to",
+        "ghost.io",
+        "hashnode.com",
+        "freecodecamp.org",
+        "css-tricks.com",
+        "smashingmagazine.com",
+        "stackoverflow.blog",
+        "aws.amazon.com",
+        "blog.cloudflare.com",
+        "github.blog",
+        "netflixtechblog.com",
+        "engineering.fb.com",
+        "engineering.linkedin.com",
+    }
+    assert expected <= ARTICLE_DEFAULT_DOMAINS
+
+
+def test_article_hint_verbatim_in_module() -> None:
+    assert "If this is an article you'd like to track, try /allowlist <domain> first." in _ARTICLE_HINT

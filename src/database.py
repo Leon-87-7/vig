@@ -22,6 +22,13 @@ log = get_logger(__name__)
 
 
 SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS allowed_domains (
+    chat_id     INTEGER NOT NULL,
+    domain      TEXT NOT NULL,
+    added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chat_id, domain)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id                          TEXT PRIMARY KEY,         -- YYYYMMDD_HHMMSS_XXXX
     chat_id                     INTEGER NOT NULL,
@@ -67,7 +74,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
-    CHECK(content_type IN ('short', 'long')),
+    CHECK(content_type IN ('short', 'long', 'article')),
     CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
     CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
@@ -92,6 +99,13 @@ CREATE TABLE IF NOT EXISTS chat_state (
     created_at   TEXT NOT NULL,
     expires_at   TEXT NOT NULL,
     CHECK(mode IN ('awaiting_intent', 'awaiting_freestyle'))
+);
+
+-- Jina Reader markdown cache (issue #60 / ADR-0013).
+CREATE TABLE IF NOT EXISTS markdown_cache (
+    url         TEXT PRIMARY KEY,
+    content     TEXT NOT NULL,
+    fetched_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Second Brain semantic link graph (src/brain.py data-access layer).
@@ -121,10 +135,10 @@ def generate_id() -> str:
 
 
 # Each list entry is one migration step (v0→v1, v1→v2, …).
-# Statements in a step run together; if any raises it propagates — except
-# "duplicate column name", which means the column was already added by an
-# older code path and is safe to skip.
-_MIGRATIONS: list[list[str]] = [
+# Entries may be a list[str] (SQL statements) or an async callable(conn).
+# SQL statements swallow "duplicate column name" errors; callables are
+# responsible for their own idempotency.
+_MIGRATIONS: list = [
     # v0 → v1: template system, promise_gap, bot_message_id (post-launch columns)
     [
         "ALTER TABLE jobs ADD COLUMN template TEXT",
@@ -153,20 +167,124 @@ _MIGRATIONS: list[list[str]] = [
         "DROP TABLE chat_state",
         "ALTER TABLE chat_state_v3 RENAME TO chat_state",
     ],
+    # v3 → v4: per-chat article allowlist (issue #61)
+    [
+        """CREATE TABLE IF NOT EXISTS allowed_domains (
+            chat_id     INTEGER NOT NULL,
+            domain      TEXT NOT NULL,
+            added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chat_id, domain)
+        )""",
+    ],
+    # v4 → v5: Jina Reader markdown cache (issue #60)
+    [
+        """CREATE TABLE IF NOT EXISTS markdown_cache (
+            url        TEXT PRIMARY KEY,
+            content    TEXT NOT NULL,
+            fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )""",
+    ],
+    # v5 → v6: expand content_type CHECK to include 'article' (issue #62)
+    # Callable because SELECT * fails when old table has fewer columns than jobs_v6.
+    None,  # replaced with _migrate_v5_v6 after function definition below
 ]
+
+_V6_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v6 (
+    id                          TEXT PRIMARY KEY,
+    chat_id                     INTEGER NOT NULL,
+    message_id                  INTEGER,
+    url                         TEXT NOT NULL,
+    content_type                TEXT NOT NULL,
+    status                      TEXT NOT NULL DEFAULT 'pending',
+    attempt                     INTEGER NOT NULL DEFAULT 1,
+    error_msg                   TEXT,
+    drive_url                   TEXT,
+    title                       TEXT,
+    transcript                  TEXT,
+    ai_category                 TEXT,
+    ai_topic                    TEXT,
+    ai_objective                TEXT,
+    ai_action_points            TEXT,
+    ai_tools                    TEXT,
+    ai_market_data              TEXT,
+    prd_auto_status             TEXT,
+    prd_auto_drive_file_id      TEXT,
+    prd_auto_drive_url          TEXT,
+    prd_auto_json               TEXT,
+    prd_intent_status           TEXT,
+    prd_intent_drive_file_id    TEXT,
+    prd_intent_drive_url        TEXT,
+    prd_intent_json             TEXT,
+    prd_intent_text             TEXT,
+    prd_intent_completed_at     TEXT,
+    sheets_row_id               TEXT,
+    template                    TEXT,
+    template_analysis           TEXT,
+    key_phrases                 TEXT,
+    validation_warning_sent     INTEGER DEFAULT 0,
+    template_detection_method   TEXT,
+    processing_time_ms          INTEGER,
+    promise_gap                 TEXT,
+    bot_message_id              INTEGER,
+    freestyle_prompt            TEXT,
+    created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at                TIMESTAMP,
+    CHECK(content_type IN ('short', 'long', 'article')),
+    CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
+    CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
+    CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
+)"""
+
+_V6_COLS = [
+    "id", "chat_id", "message_id", "url", "content_type", "status", "attempt",
+    "error_msg", "drive_url", "title", "transcript", "ai_category", "ai_topic",
+    "ai_objective", "ai_action_points", "ai_tools", "ai_market_data",
+    "prd_auto_status", "prd_auto_drive_file_id", "prd_auto_drive_url", "prd_auto_json",
+    "prd_intent_status", "prd_intent_drive_file_id", "prd_intent_drive_url",
+    "prd_intent_json", "prd_intent_text", "prd_intent_completed_at", "sheets_row_id",
+    "template", "template_analysis", "key_phrases", "validation_warning_sent",
+    "template_detection_method", "processing_time_ms", "promise_gap", "bot_message_id",
+    "freestyle_prompt", "created_at", "updated_at", "completed_at",
+]
+
+
+async def _migrate_v5_v6(conn: aiosqlite.Connection) -> None:
+    """Expand content_type CHECK to include 'article' via selective column copy."""
+    await conn.execute(_V6_CREATE)
+    cur = await conn.execute("PRAGMA table_info(jobs)")
+    rows = await cur.fetchall()
+    existing = {row[1] for row in rows}
+    copy_cols = [c for c in _V6_COLS if c in existing]
+    if copy_cols:
+        col_str = ", ".join(copy_cols)
+        await conn.execute(
+            f"INSERT OR IGNORE INTO jobs_v6 ({col_str}) SELECT {col_str} FROM jobs"
+        )
+    await conn.execute("DROP TABLE jobs")
+    await conn.execute("ALTER TABLE jobs_v6 RENAME TO jobs")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url)")
+
+
+_MIGRATIONS[5] = _migrate_v5_v6
 
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
     cur = await conn.execute("PRAGMA user_version")
     row = await cur.fetchone()
     current_version: int = row[0]
-    for step, statements in enumerate(_MIGRATIONS[current_version:], start=current_version):
-        for stmt in statements:
-            try:
-                await conn.execute(stmt)
-            except aiosqlite.OperationalError as exc:
-                if "duplicate column name" not in str(exc):
-                    raise
+    for step, migration_step in enumerate(_MIGRATIONS[current_version:], start=current_version):
+        if callable(migration_step):
+            await migration_step(conn)
+        else:
+            for stmt in migration_step:
+                try:
+                    await conn.execute(stmt)
+                except aiosqlite.OperationalError as exc:
+                    if "duplicate column name" not in str(exc):
+                        raise
         new_version = step + 1
         await conn.execute(f"PRAGMA user_version = {new_version}")
         await conn.commit()
@@ -222,6 +340,36 @@ async def remove_ignored_domain(domain: str) -> bool:
     async with connection() as conn:
         cur = await conn.execute(
             "DELETE FROM ignored_domains WHERE domain=?", (domain,)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def add_allowed_domain(chat_id: int, domain: str) -> None:
+    """Insert (chat_id, domain) into allowed_domains. Idempotent on duplicate."""
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
+            (chat_id, domain),
+        )
+        await conn.commit()
+
+
+async def list_allowed_domains(chat_id: int) -> set[str]:
+    """Return the set of domains allowed for this chat."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT domain FROM allowed_domains WHERE chat_id = ?", (chat_id,)
+        )
+        return {row[0] for row in await cur.fetchall()}
+
+
+async def remove_allowed_domain(chat_id: int, domain: str) -> bool:
+    """Delete (chat_id, domain). Returns True if removed, False if not found."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
+            (chat_id, domain),
         )
         await conn.commit()
         return cur.rowcount > 0
@@ -442,3 +590,41 @@ async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Markdown cache (Jina Reader — issue #60 / ADR-0013)
+# ---------------------------------------------------------------------------
+
+
+async def get_markdown_cache(url: str) -> dict | None:
+    """Return the markdown_cache row for *url*, or None if absent."""
+    async with connection() as conn:
+        cursor = await conn.execute(
+            "SELECT url, content, fetched_at FROM markdown_cache WHERE url = ?",
+            (url,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def insert_markdown_cache(url: str, content: str) -> None:
+    """Insert or replace a markdown_cache row for *url*."""
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT OR REPLACE INTO markdown_cache (url, content, fetched_at) "
+            "VALUES (?, ?, CURRENT_TIMESTAMP)",
+            (url, content),
+        )
+        await conn.commit()
+    log.info("markdown_cache.inserted", url=url, content_len=len(content))
+
+
+async def delete_markdown_cache(url: str) -> bool:
+    """Delete the markdown_cache row for *url*. Returns True if a row was deleted."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM markdown_cache WHERE url = ?", (url,)
+        )
+        await conn.commit()
+        return cur.rowcount > 0

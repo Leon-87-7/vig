@@ -11,6 +11,8 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
+import re
+
 from src import database, queue
 from src.config import settings
 from src.telegram.sender import (
@@ -18,13 +20,14 @@ from src.telegram.sender import (
     download_photo,
     edit_message_text,
     forward_message,
+    send_document,
     send_force_reply,
     send_inline_keyboard,
     send_message,
 )
 from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
-from src.utils.validators import detect_pipeline
+from src.utils.validators import detect_pipeline, _ARTICLE_HINT
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -359,6 +362,8 @@ async def _handle_freestyle_url(chat_id: int, url: str, pipeline: str, message_i
     if pipeline == "long":
         await queue.enqueue({"task": "video", "job_id": job_id})
         await send_message(chat_id, f"📥 Received\n✨ Kicking off Gemini analysis (freestyle)\njob_{job_id[-4:]}")
+    elif pipeline == "article":
+        await send_message(chat_id, f"📥 Article received — reply with your prompt\njob_{job_id[-4:]}")
     await database.set_chat_state(chat_id, mode="awaiting_freestyle", job_id=job_id, expires_minutes=10)
     await send_force_reply(
         chat_id,
@@ -374,12 +379,13 @@ async def _cmd_freestyle(ctx: SlashCtx) -> None:
         await send_message(ctx.chat_id, "📥 `/freestyle` ready — send the URL now (2 min window).")
         return
     url = ctx.parts[1]
-    pipeline = detect_pipeline(url)
+    extra_domains = await database.list_allowed_domains(ctx.chat_id)
+    pipeline = detect_pipeline(url, frozenset(extra_domains))
     if pipeline == "rejected":
         await send_message(
             ctx.chat_id,
             "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-            "Instagram Reels, and TikTok videos.",
+            "Instagram Reels, TikTok videos, and allowlisted article domains.",
         )
         return
     await _handle_freestyle_url(ctx.chat_id, url, pipeline, ctx.message_id)
@@ -514,10 +520,7 @@ async def _reply_cached_job(chat_id: int, job: dict) -> None:
     job_tag = f"job_{job['id'][-4:]}"
     status = job.get("status", "")
     if status in ("done", "transcript_done"):
-        if job.get("content_type") == "long":
-            sheet_id = settings.GOOGLE_SHEETS_ID_LONG
-        else:
-            sheet_id = settings.GOOGLE_SHEETS_ID_SHORT
+        sheet_id = settings.GOOGLE_SHEETS_ID
         sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}" if sheet_id else None
         drive_line = f"\n📊 <a href=\"{sheet_url}\">Open in Sheets</a>" if sheet_url else ""
         title_line = f"\n🎬 {html.escape(job['title'])}" if job.get("title") else ""
@@ -541,27 +544,105 @@ async def _cmd_force(ctx: SlashCtx) -> None:
         await send_message(ctx.chat_id, "Usage: /force <url>")
         return
     url = ctx.parts[1]
-    pipeline = detect_pipeline(url)
+
+    # Check for existing job and/or markdown cache row.
+    extra_domains = await database.list_allowed_domains(ctx.chat_id)
+    pipeline = detect_pipeline(url, frozenset(extra_domains))
+    existing_job = await database.find_recent_job_by_url(ctx.chat_id, url) if pipeline != "rejected" else None
+    existing_cache = await database.get_markdown_cache(url)
+
+    if existing_job:
+        # State 1: job exists (with or without a cache row) — reset + reprocess.
+        if existing_cache:
+            await database.delete_markdown_cache(url)
+        job_id = existing_job["id"]
+        await database.reset_job(job_id)
+        task_type = "article" if existing_job.get("content_type") == "article" else "video"
+        await queue.enqueue({"task": task_type, "job_id": job_id})
+        await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
+        return
+
+    if existing_cache:
+        # State 2: cache-only — delete cache and acknowledge.
+        await database.delete_markdown_cache(url)
+        await send_message(ctx.chat_id, "🗑️ Markdown cache cleared for that URL.")
+        log.info("force.cache_only_cleared", chat_id=ctx.chat_id, url=url)
+        return
+
+    # State 3: neither — create and dispatch.
     if pipeline == "rejected":
         await send_message(
             ctx.chat_id,
             "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-            "Instagram Reels, and TikTok videos.",
+            "Instagram Reels, TikTok videos, and allowlisted article domains.",
         )
         return
-    existing = await database.find_recent_job_by_url(ctx.chat_id, url)
-    if existing:
-        job_id = existing["id"]
-        await database.reset_job(job_id)
-    else:
-        job_id = await database.create_job(
-            chat_id=ctx.chat_id,
-            url=url,
-            content_type=pipeline,
-            message_id=ctx.message_id,
-        )
-    await queue.enqueue({"task": "video", "job_id": job_id})
+    job_id = await database.create_job(
+        chat_id=ctx.chat_id,
+        url=url,
+        content_type=pipeline,
+        message_id=ctx.message_id,
+    )
+    task_type = "article" if pipeline == "article" else "video"
+    await queue.enqueue({"task": task_type, "job_id": job_id})
     await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
+
+
+def _sanitize_title(title: str, url: str, max_len: int = 80) -> str:
+    """Return a safe filename stem from *title*, falling back to the URL hostname.
+
+    Keeps ``[a-zA-Z0-9 \\-_]``, truncates to *max_len* chars.
+    """
+    if title:
+        safe = re.sub(r"[^a-zA-Z0-9 \-_]", "", title)
+        safe = safe.strip()[:max_len]
+        if safe:
+            return safe
+    # Fallback: use hostname from URL
+    return urlparse(url).hostname or "document"
+
+
+async def _cmd_download_md(ctx: SlashCtx) -> None:
+    """/download_md <URL> — fetch URL as Markdown via Jina, cache, send as document."""
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /download_md <URL>")
+        return
+    url = ctx.parts[1]
+
+    # 1. Cache lookup
+    cached = await database.get_markdown_cache(url)
+    if cached:
+        title_body = cached["content"]
+        # Re-extract title for filename: stored content is title + "\n\n" + body
+        # But we need the title separately — store it with a sentinel in content.
+        # Actually content is just raw markdown; we re-derive filename from first heading.
+        # Simpler: store as "title\n---\nbody" was not chosen. Instead derive from content.
+        # We stored body (not title); title was stored separately? No — let's re-read the design:
+        # insert_markdown_cache stores the *full* markdown content (title + "\n\n" + body)
+        # Actually looking at the handler below we store title + "\n\n" + body as content.
+        # For cache-hit, derive filename the same way.
+        first_line = title_body.split("\n", 1)[0].lstrip("# ").strip()
+        filename = _sanitize_title(first_line, url) + ".md"
+        await send_document(ctx.chat_id, title_body.encode(), filename)
+        log.info("download_md.cache_hit", chat_id=ctx.chat_id, url=url)
+        return
+
+    # 2. Cache miss — call Jina
+    from src.services.jina import JinaFetchError, fetch_markdown
+    try:
+        title, body = await fetch_markdown(url)
+    except JinaFetchError as exc:
+        await send_message(ctx.chat_id, f"❌ Failed to fetch URL (HTTP {exc.status_code}).")
+        return
+
+    # 3. Build document content and persist
+    content = (title + "\n\n" + body).strip() if title else body.strip()
+    await database.insert_markdown_cache(url, content)
+
+    # 4. Send as Telegram document
+    filename = _sanitize_title(title, url) + ".md"
+    await send_document(ctx.chat_id, content.encode(), filename)
+    log.info("download_md.fetched", chat_id=ctx.chat_id, url=url, filename=filename)
 
 
 _PROTECTED_DOMAINS = {"github.com"}
@@ -618,6 +699,53 @@ async def _cmd_ignore_list(ctx: SlashCtx) -> None:
     await send_message(ctx.chat_id, f"🚫 Ignored domains ({len(domains)}):\n{lines}")
 
 
+def _normalize_domain(raw: str) -> str:
+    """Strip to bare hostname, lowercase, drop 'www.' prefix."""
+    from urllib.parse import urlparse as _urlparse
+    host = _urlparse(raw).hostname or raw
+    return host.lower().removeprefix("www.")
+
+
+async def _cmd_allowlist(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /allowlist <domain or URL> [more...]")
+        return
+    added = []
+    for raw in ctx.parts[1:]:
+        domain = _normalize_domain(raw)
+        await database.add_allowed_domain(ctx.chat_id, domain)
+        added.append(domain)
+    await send_message(ctx.chat_id, "✅ Allowlisted: " + ", ".join(f"`{d}`" for d in added))
+
+
+async def _cmd_unallowlist(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /unallowlist <domain or URL> [more...]")
+        return
+    removed, missing = [], []
+    for raw in ctx.parts[1:]:
+        domain = _normalize_domain(raw)
+        if await database.remove_allowed_domain(ctx.chat_id, domain):
+            removed.append(domain)
+        else:
+            missing.append(domain)
+    parts = []
+    if removed:
+        parts.append("✅ Removed: " + ", ".join(f"`{d}`" for d in removed))
+    if missing:
+        parts.append("⚠️ Not in your allowlist: " + ", ".join(f"`{d}`" for d in missing))
+    await send_message(ctx.chat_id, "\n".join(parts))
+
+
+async def _cmd_allowlist_list(ctx: SlashCtx) -> None:
+    domains = sorted(await database.list_allowed_domains(ctx.chat_id))
+    if not domains:
+        await send_message(ctx.chat_id, "No custom allowlist entries yet. Use /allowlist <domain>.")
+        return
+    lines = "\n".join(f"• `{d}`" for d in domains)
+    await send_message(ctx.chat_id, f"✅ Allowlisted domains ({len(domains)}):\n{lines}")
+
+
 _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/cancel":           _cmd_cancel,
     "/spec":             _cmd_spec,
@@ -629,7 +757,11 @@ _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/ignore":          _cmd_ignore,
     "/unignore":        _cmd_unignore,
     "/ignore_list":     _cmd_ignore_list,
+    "/allowlist":        _cmd_allowlist,
+    "/unallowlist":      _cmd_unallowlist,
+    "/allowlist_list":   _cmd_allowlist_list,
     "/freestyle":        _cmd_freestyle,
+    "/download_md":      _cmd_download_md,
     **{f"/{t}": _cmd_template for t in PROMPT_TEMPLATES},
 }
 
@@ -652,7 +784,7 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
     """Routing path when chat_state is armed and not expired."""
     job_id = state["job_id"]
     pipeline = detect_pipeline(text)
-    if pipeline in ("short", "long"):
+    if pipeline in ("short", "long", "article"):
         await database.clear_chat_state(chat_id)
         log.info("prd.chat_state.canceled_by_url", chat_id=chat_id, old_job_id=job_id)
         cached = await database.find_recent_job_by_url(chat_id, text)
@@ -664,7 +796,8 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
         new_job_id = await database.create_job(
             chat_id=chat_id, url=text, content_type=pipeline
         )
-        await queue.enqueue({"task": "video", "job_id": new_job_id})
+        task_type = "article" if pipeline == "article" else "video"
+        await queue.enqueue({"task": task_type, "job_id": new_job_id})
         await send_message(chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
         return
     stripped = text.strip()
@@ -718,6 +851,10 @@ async def _handle_awaiting_freestyle(chat_id: int, text: str, state: dict) -> No
         await queue.enqueue({"task": "video", "job_id": job_id})
         log.info("freestyle.video.enqueued", chat_id=chat_id, job_id=job_id)
         await send_message(chat_id, f"📥 Received\n✨ Kicking off Gemini analysis (freestyle)\njob_{job_id[-4:]}")
+    elif job and job.get("content_type") == "article":
+        await queue.enqueue({"task": "article", "job_id": job_id})
+        log.info("freestyle.article.enqueued", chat_id=chat_id, job_id=job_id)
+        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting article analysis")
     elif job and job.get("status") == "transcript_done":
         await queue.enqueue({"task": "enrichment", "job_id": job_id})
         log.info("freestyle.enrichment.enqueued", chat_id=chat_id, job_id=job_id)
@@ -871,14 +1008,29 @@ async def webhook(
     if pending_template:
         await client.delete(f"pending_template:{chat_id}")
 
-    pipeline = detect_pipeline(text)
+    extra_domains = await database.list_allowed_domains(chat_id)
+    pipeline = detect_pipeline(text, frozenset(extra_domains))
     if pipeline == "rejected":
         await send_message(
             chat_id,
             "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-            "Instagram Reels (not /p/ carousels), and TikTok videos.",
+            "Instagram Reels (not /p/ carousels), and TikTok videos.\n"
+            + _ARTICLE_HINT,
         )
         log.info("url_rejected", chat_id=chat_id, url=text)
+        return {"ok": True}
+
+    if pipeline == "article":
+        if not pending_template:
+            cached = await database.find_recent_job_by_url(chat_id, text)
+            if cached:
+                await _reply_cached_job(chat_id, cached)
+                return {"ok": True}
+        job_id = await database.create_job(
+            chat_id=chat_id, url=text, content_type="article", message_id=message_id,
+        )
+        await queue.enqueue({"task": "article", "job_id": job_id})
+        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
         return {"ok": True}
 
     if pending_template == "freestyle":

@@ -121,8 +121,8 @@ from src.services import sheets as sheets_svc
 
 @pytest.mark.asyncio
 async def test_sheets_append_short_row(monkeypatch) -> None:
-    """append_short_row calls the correct sheet ID."""
-    monkeypatch.setattr("src.services.sheets.settings.GOOGLE_SHEETS_ID_SHORT", "short-sheet-id")
+    """append_short_row writes to the consolidated workbook and Short Video Analysis tab."""
+    monkeypatch.setattr("src.services.sheets.settings.GOOGLE_SHEETS_ID", "consolidated-sheet-id")
 
     mock_values = MagicMock()
     mock_values.append.return_value.execute.return_value = {}
@@ -141,7 +141,8 @@ async def test_sheets_append_short_row(monkeypatch) -> None:
 
     mock_values.append.assert_called_once()
     call_kwargs = mock_values.append.call_args.kwargs
-    assert call_kwargs["spreadsheetId"] == "short-sheet-id"
+    assert call_kwargs["spreadsheetId"] == "consolidated-sheet-id"
+    assert call_kwargs["range"] == "Short Video Analysis!A1"
 
 
 # ---------------------------------------------------------------------------

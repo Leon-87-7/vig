@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re as _re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,6 +16,13 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+
+# Tab names inside the consolidated workbook (ADR-0013).
+# Each per-domain helper writes to a fixed tab; routing is enforced in code, not config.
+TAB_LONG = "YouTube Transcript Index"
+TAB_SHORT = "Short Video Analysis"
+TAB_PRD = "mini PRD"
+TAB_ARTICLE = "Article Analysis"
 
 
 def _build_service() -> Any:
@@ -35,19 +43,42 @@ def _build_service() -> Any:
     return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
-def _append_sync(spreadsheet_id: str, values: list) -> None:
+def _append_sync(tab_name: str, values: list) -> int | None:
+    """Append `values` to the consolidated workbook's `tab_name` tab.
+
+    Range is tab-qualified A1 notation (`"<tab_name>!A1"`) — the Sheets v4 API
+    routes the write to the named tab. With a bare `"A1"` range the API
+    silently lands the row in the first tab regardless of intent (ADR-0013).
+
+    Returns the 1-based row index written (parsed from the API's updatedRange),
+    or None when the API response doesn't include that information.
+    """
     service = _build_service()
-    service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range="A1",
+    result = service.spreadsheets().values().append(
+        spreadsheetId=settings.GOOGLE_SHEETS_ID,
+        range=f"{tab_name}!A1",
         valueInputOption="USER_ENTERED",
         insertDataOption="INSERT_ROWS",
+        body={"values": [values]},
+    ).execute()
+    updated_range = result.get("updates", {}).get("updatedRange", "")
+    m = _re.search(r"!A(\d+)", updated_range)
+    return int(m.group(1)) if m else None
+
+
+def _update_sync(tab_name: str, row_idx: int, values: list) -> None:
+    """Overwrite a single row at 1-based *row_idx* in *tab_name*."""
+    service = _build_service()
+    service.spreadsheets().values().update(
+        spreadsheetId=settings.GOOGLE_SHEETS_ID,
+        range=f"{tab_name}!A{row_idx}",
+        valueInputOption="USER_ENTERED",
         body={"values": [values]},
     ).execute()
 
 
 async def append_short_row(job: dict) -> None:
-    """Append one row to GOOGLE_SHEETS_ID_SHORT.
+    """Append one row to the 'Short Video Analysis' tab of GOOGLE_SHEETS_ID.
 
     Expected columns (must match sheet header order):
     job_id, url, chat_id, status, platform, title, duration_s, frame_count,
@@ -78,7 +109,7 @@ async def append_short_row(job: dict) -> None:
         job.get("error_msg", ""),
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_SHORT, row)
+        await asyncio.to_thread(_append_sync, TAB_SHORT, row)
         log.info("sheets_short_appended", job_id=job.get("id"))
     except Exception:
         log.exception("sheets_short_failed", job_id=job.get("id"))
@@ -94,8 +125,8 @@ async def append_long_row(
     char_count: int,
     drive_file_id: str,
 ) -> None:
-    """
-    Append one row to GOOGLE_SHEETS_ID_LONG.
+    """Append one row to the 'YouTube Transcript Index' tab of GOOGLE_SHEETS_ID.
+
     Columns (§13.15 verified shape):
       url, video_id, title, channel, description_links_raw, char_count,
       drive_file_id, drive_url, fetched_at, status,
@@ -121,10 +152,64 @@ async def append_long_row(
         "",  # ai_market_data
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_LONG, row)
+        await asyncio.to_thread(_append_sync, TAB_LONG, row)
         log.info("sheets_long_appended", job_id=job.get("id"))
     except Exception:
         log.exception("sheets_long_failed", job_id=job.get("id"))
+
+
+def _article_row(job: dict, *, domain: str) -> list:
+    """Build the 11-column Article Analysis row from a completed job dict."""
+    action_points = job.get("ai_action_points") or ""
+    tools = job.get("ai_tools") or ""
+    promise_gap_raw = job.get("promise_gap")
+    try:
+        import json as _json
+        pg = _json.loads(promise_gap_raw) if promise_gap_raw else {}
+        gaps = pg.get("gaps", [])
+        hidden = pg.get("hidden_value", [])
+        promise_gap_str = " | ".join(gaps + hidden)
+    except Exception:
+        promise_gap_str = promise_gap_raw or ""
+    return [
+        job.get("id", ""),
+        job.get("url", ""),
+        domain,
+        job.get("title", ""),
+        job.get("ai_topic", ""),
+        job.get("ai_objective", ""),
+        action_points,
+        tools,
+        promise_gap_str,
+        job.get("created_at", ""),
+        job.get("status", ""),
+    ]
+
+
+async def append_article_row(job: dict, *, domain: str) -> int | None:
+    """Append one row to the 'Article Analysis' tab and return the 1-based row index.
+
+    Columns: job_id, url, domain, title, topic, objective, action_points, tools,
+             promise_gap, submitted_at, status
+    """
+    row = _article_row(job, domain=domain)
+    try:
+        row_idx = await asyncio.to_thread(_append_sync, TAB_ARTICLE, row)
+        log.info("sheets_article_appended", job_id=job.get("id"), row_idx=row_idx)
+        return row_idx
+    except Exception:
+        log.exception("sheets_article_failed", job_id=job.get("id"))
+        return None
+
+
+async def update_article_row(row_idx: int, job: dict, *, domain: str) -> None:
+    """Overwrite the existing Article Analysis row at *row_idx* (1-based) in-place."""
+    row = _article_row(job, domain=domain)
+    try:
+        await asyncio.to_thread(_update_sync, TAB_ARTICLE, row_idx, row)
+        log.info("sheets_article_updated", job_id=job.get("id"), row_idx=row_idx)
+    except Exception:
+        log.exception("sheets_article_update_failed", job_id=job.get("id"))
 
 
 async def append_prd_row(
@@ -136,7 +221,8 @@ async def append_prd_row(
     slot: str = "auto",
     intent_text: str | None = None,
 ) -> None:
-    """Append one row to GOOGLE_SHEETS_ID_PRD.
+    """Append one row to the 'mini PRD' tab of GOOGLE_SHEETS_ID.
+
     Columns: job_id, video_url, title, slot, intent_text, drive_url, created_at
     """
     row = [
@@ -149,7 +235,7 @@ async def append_prd_row(
         datetime.now(timezone.utc).isoformat(),
     ]
     try:
-        await asyncio.to_thread(_append_sync, settings.GOOGLE_SHEETS_ID_PRD, row)
+        await asyncio.to_thread(_append_sync, TAB_PRD, row)
         log.info("sheets_prd_appended", job_id=job_id, slot=slot)
     except Exception:
         log.exception("sheets_prd_failed", job_id=job_id, slot=slot)

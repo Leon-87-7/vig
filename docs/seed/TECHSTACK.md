@@ -238,11 +238,12 @@ Files are shared "anyone with link" (reader). The shareable URL is sent to the u
 
 ## 11. Reporting — Google Sheets API v4
 
-**What:** Append-only logging of completed jobs. Three sheets — one per artifact type — written after Drive upload completes.
+**What:** Append-only logging of completed jobs. A single consolidated workbook (`GOOGLE_SHEETS_ID`) holds one tab per artifact type — written after Drive upload completes. Tab routing is enforced in `src/services/sheets.py`, not config (ADR-0013).
 
-- `SHEETS_ID_SHORT` columns: `id, chat_id, url, title, platform, drive_url, processing_time_ms, created_at`
-- `SHEETS_ID_LONG` columns: `id, chat_id, url, title, channel, views, ai_category, ai_topic, ai_objective, ai_action_points, ai_tools, ai_market_data, drive_url, created_at`
-- `SHEETS_ID_PRD` columns: `job_id, video_url, title, slot, intent_text, drive_url, created_at` — one row per PRD generation (max 2 per job from the two-slot model). `slot` is `'auto'` or `'intent'`; `intent_text` is NULL for auto. Independent from `SHEETS_ID_LONG` because PRD generations happen at unpredictable times (e.g. weeks later via `/spec`) and append-only semantics require independent rows rather than retroactive updates.
+- Tab `Short Video Analysis` columns: `id, chat_id, url, title, platform, drive_url, processing_time_ms, created_at`
+- Tab `YouTube Transcript Index` columns: `id, chat_id, url, title, channel, views, ai_category, ai_topic, ai_objective, ai_action_points, ai_tools, ai_market_data, drive_url, created_at`
+- Tab `mini PRD` columns: `job_id, video_url, title, slot, intent_text, drive_url, created_at` — one row per PRD generation (max 2 per job from the two-slot model). `slot` is `'auto'` or `'intent'`; `intent_text` is NULL for auto. Independent from the long tab because PRD generations happen at unpredictable times (e.g. weeks later via `/spec`) and append-only semantics require independent rows rather than retroactive updates.
+- Tab `Article Analysis` — reserved for the upcoming article pipeline (issue #62).
 
 **Why here:**
 
