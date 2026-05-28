@@ -514,10 +514,7 @@ async def _reply_cached_job(chat_id: int, job: dict) -> None:
     job_tag = f"job_{job['id'][-4:]}"
     status = job.get("status", "")
     if status in ("done", "transcript_done"):
-        if job.get("content_type") == "long":
-            sheet_id = settings.GOOGLE_SHEETS_ID_LONG
-        else:
-            sheet_id = settings.GOOGLE_SHEETS_ID_SHORT
+        sheet_id = settings.GOOGLE_SHEETS_ID
         sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}" if sheet_id else None
         drive_line = f"\n📊 <a href=\"{sheet_url}\">Open in Sheets</a>" if sheet_url else ""
         title_line = f"\n🎬 {html.escape(job['title'])}" if job.get("title") else ""
