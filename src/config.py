@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     BRAVE_API_KEY: str = ""
     ENABLE_BRAVE_SEARCH: bool = True
 
+    # Article pipeline — Jina Reader
+    JINA_API_KEY: str = ""
+
     # Slices #2/#3 — Google
     GOOGLE_SERVICE_ACCOUNT_JSON: str = "/app/credentials/service_account.json"
     GOOGLE_OAUTH_CLIENT_ID: str = ""
