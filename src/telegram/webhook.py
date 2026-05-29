@@ -598,6 +598,19 @@ async def _cmd_force(ctx: SlashCtx) -> None:
         await database.reset_job(job_id)
         content_type = existing_job.get("content_type")
         task_type = "repo" if content_type == "repo" else ("article" if content_type == "article" else "video")
+        if pipeline == "repo":
+            try:
+                from urllib.parse import urlparse as _urlparse
+                parts = [s for s in _urlparse(lookup_url).path.split("/") if s]
+                owner_r, repo_r = parts[0], parts[1]
+                redis_client = queue._client()
+                await redis_client.delete(
+                    f"github_repo_bundle:{owner_r}/{repo_r}",
+                    f"github_meta:{owner_r}/{repo_r}",
+                )
+                log.info("force.repo_bundle_cache_cleared", owner=owner_r, repo=repo_r)
+            except Exception:
+                log.warning("force.repo_cache_clear_failed", url=lookup_url)
         await queue.enqueue({"task": task_type, "job_id": job_id})
         await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
         return

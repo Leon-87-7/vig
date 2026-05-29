@@ -1352,3 +1352,44 @@ async def test_force_neither_job_nor_cache_rejects_unsupported_url(
     sent.assert_awaited_once()
     msg = sent.await_args.args[1]
     assert "Unsupported" in msg or "unsupported" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_force_repo_deletes_both_redis_cache_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When /force is called with a repo URL and an existing job, both Redis keys are deleted."""
+    deleted: list[str] = []
+
+    class SpyRedis:
+        async def delete(self, *keys: str) -> int:
+            deleted.extend(keys)
+            return len(keys)
+        async def get(self, key: str) -> None:
+            return None
+        async def lpos(self, *a, **kw) -> None:
+            return None
+
+    monkeypatch.setattr("src.queue._redis", SpyRedis())
+    monkeypatch.setattr("src.telegram.webhook.queue._client", lambda: SpyRedis())
+
+    existing_job = {
+        "id": "20260101_120000_ABCD", "content_type": "repo",
+        "bot_message_id": None, "drive_url": None, "status": "done",
+    }
+    monkeypatch.setattr("src.telegram.webhook.database.find_recent_job_by_url",
+                        AsyncMock(return_value=existing_job))
+    monkeypatch.setattr("src.telegram.webhook.database.list_allowed_domains",
+                        AsyncMock(return_value=set()))
+    monkeypatch.setattr("src.telegram.webhook.database.get_markdown_cache",
+                        AsyncMock(return_value=None))
+    monkeypatch.setattr("src.telegram.webhook.database.reset_job", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.database.clear_chat_state", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.queue.enqueue", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+
+    # Dispatch /force via the slash handler directly
+    from src.telegram.webhook import _cmd_force, SlashCtx
+    ctx = SlashCtx(chat_id=1, parts=["/force", "https://github.com/owner/repo"], message_id=None)
+    await _cmd_force(ctx)
+
+    assert "github_repo_bundle:owner/repo" in deleted
+    assert "github_meta:owner/repo" in deleted
