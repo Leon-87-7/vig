@@ -300,7 +300,8 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
         content_type=job["content_type"],
         template=job.get("template"),
     )
-    await queue.enqueue({"task": "video", "job_id": new_job_id})
+    task_type = "article" if job["content_type"] == "article" else "video"
+    await queue.enqueue({"task": task_type, "job_id": new_job_id})
     log.info("reprocess_enqueued", orphan_job_id=ctx.job_id, new_job_id=new_job_id)
     await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
 
