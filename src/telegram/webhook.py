@@ -316,7 +316,11 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
         content_type=job["content_type"],
         template=job.get("template"),
     )
-    task_type = "article" if job["content_type"] == "article" else "video"
+    task_type = (
+        "repo" if job["content_type"] == "repo"
+        else "article" if job["content_type"] == "article"
+        else "video"
+    )
     await queue.enqueue({"task": task_type, "job_id": new_job_id})
     log.info("reprocess_enqueued", orphan_job_id=ctx.job_id, new_job_id=new_job_id)
     await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
@@ -1067,11 +1071,17 @@ async def webhook(
 
     if pipeline == "repo":
         repo_url = normalize_repo_url(text)
-        if not pending_template:
-            cached = await database.find_recent_job_by_url(chat_id, repo_url)
-            if cached:
-                await _reply_cached_job(chat_id, cached)
-                return {"ok": True}
+        if pending_template:
+            await client.set(f"pending_template:{chat_id}", pending_template, ex=120)
+            await send_message(
+                chat_id,
+                f"ℹ️ `/{pending_template}` templates don't apply to repo URLs yet — "
+                "your template is still active for the next video or article.",
+            )
+        cached = await database.find_recent_job_by_url(chat_id, repo_url)
+        if cached:
+            await _reply_cached_job(chat_id, cached)
+            return {"ok": True}
         job_id = await database.create_job(
             chat_id=chat_id, url=repo_url, content_type="repo", message_id=message_id,
         )

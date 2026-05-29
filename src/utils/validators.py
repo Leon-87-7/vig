@@ -100,7 +100,7 @@ def detect_pipeline(
     # GitHub — reject gists and enterprise hosts first
     if host == "gist.github.com":
         return "rejected"
-    if host.startswith("github.") and host != "github.com":
+    if host.startswith("github.") and host != "github.com" and host != "github.blog":
         return "rejected"
 
     # GitHub — repo routing
@@ -127,7 +127,7 @@ def normalize_repo_url(url: str) -> str:
 
 
 def is_video_url(text: str) -> bool:
-    """True if the entire message text is a single URL the bot would accept."""
+    """True if text is a single video or article URL (excludes repo URLs)."""
     return detect_pipeline(text) in {"short", "long", "article"}
 
 
