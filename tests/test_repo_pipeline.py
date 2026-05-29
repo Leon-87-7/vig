@@ -1,4 +1,4 @@
-"""Tests for the repo pipeline stub processor (issue #66)."""
+"""Tests for the repo pipeline processor (issue #67)."""
 from __future__ import annotations
 
 import os
@@ -9,7 +9,23 @@ import pytest
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
 os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "test-secret")
 
-from src.processors.repo import _format_stub_message, _days_ago, _parse_owner_repo
+from src.processors.repo import _format_bundle_message, _days_ago, _parse_owner_repo
+
+_BUNDLE = {
+    "owner": "anthropics",
+    "repo": "claude-code",
+    "metadata": {
+        "stars": 12_345, "forks": 678, "language": "TypeScript",
+        "pushed_at": "2026-01-01T00:00:00Z", "description": "AI tool",
+        "archived": False,
+    },
+    "default_branch": "main",
+    "readme": "x" * 200,
+    "readme_raw_bytes": 5_000,
+    "tree": ["a.py", "b.py", "c.py"],
+    "manifests": {"pyproject.toml": "[tool]", "package.json": "{}"},
+    "no_readme": False,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -22,51 +38,6 @@ def test_parse_owner_repo_bare() -> None:
 
 def test_parse_owner_repo_subpath() -> None:
     assert _parse_owner_repo("https://github.com/owner/repo/blob/main/README.md") == ("owner", "repo")
-
-
-# ---------------------------------------------------------------------------
-# _format_stub_message — with metadata
-# ---------------------------------------------------------------------------
-
-_META = {
-    "stars": 1234,
-    "forks": 56,
-    "language": "Python",
-    "pushed_at": "2026-01-01T00:00:00Z",
-}
-
-
-def test_stub_message_contains_owner_repo() -> None:
-    msg = _format_stub_message("anthropics", "claude-code", _META)
-    assert "anthropics/claude-code" in msg
-
-
-def test_stub_message_contains_stats() -> None:
-    msg = _format_stub_message("anthropics", "claude-code", _META)
-    assert "1,234" in msg   # stars formatted with comma
-    assert "56" in msg      # forks
-    assert "Python" in msg
-
-
-def test_stub_message_contains_placeholder_text() -> None:
-    msg = _format_stub_message("anthropics", "claude-code", _META)
-    assert "placeholder" in msg.lower()
-
-
-def test_stub_message_contains_link() -> None:
-    msg = _format_stub_message("anthropics", "claude-code", _META)
-    assert "https://github.com/anthropics/claude-code" in msg
-
-
-# ---------------------------------------------------------------------------
-# _format_stub_message — without metadata (API unavailable)
-# ---------------------------------------------------------------------------
-
-def test_stub_message_no_meta_shows_dashes() -> None:
-    msg = _format_stub_message("owner", "repo", None)
-    assert "—" in msg
-    assert "owner/repo" in msg
-    assert "https://github.com/owner/repo" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -87,44 +58,59 @@ def test_days_ago_past_date_positive() -> None:
 
 
 # ---------------------------------------------------------------------------
-# run() integration — mocked DB, sender, enrich_repo
+# _format_bundle_message
+# ---------------------------------------------------------------------------
+
+def test_bundle_message_has_stats() -> None:
+    msg = _format_bundle_message("anthropics", "claude-code", _BUNDLE)
+    assert "12,345" in msg
+    assert "678" in msg
+    assert "TypeScript" in msg
+
+
+def test_bundle_message_has_readme_stats() -> None:
+    msg = _format_bundle_message("anthropics", "claude-code", _BUNDLE)
+    assert "200 bytes" in msg
+    assert "4.9 KB" in msg
+
+
+def test_bundle_message_has_tree_count() -> None:
+    msg = _format_bundle_message("anthropics", "claude-code", _BUNDLE)
+    assert "3 files" in msg
+
+
+def test_bundle_message_has_manifest_list() -> None:
+    msg = _format_bundle_message("anthropics", "claude-code", _BUNDLE)
+    assert "pyproject.toml" in msg
+    assert "package.json" in msg
+
+
+def test_bundle_message_no_manifests_shows_none() -> None:
+    bundle = {**_BUNDLE, "manifests": {}}
+    msg = _format_bundle_message("anthropics", "claude-code", bundle)
+    assert "none" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# run() integration — mocked DB, sender, fetch_repo_bundle
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_run_sends_message_and_marks_done(monkeypatch: pytest.MonkeyPatch) -> None:
-    sent: list[str] = []
+async def test_run_calls_fetch_repo_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
+    bundle_calls: list[tuple] = []
 
-    async def fake_send(chat_id, text):
-        sent.append(text)
+    async def fake_bundle(owner, repo, token):
+        bundle_calls.append((owner, repo))
+        return _BUNDLE
 
-    async def fake_update_status(job_id, status, **_kwargs):
-        pass
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", fake_bundle)
+    monkeypatch.setattr("src.processors.repo.send_message", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
 
-    async def fake_enrich(owner, repo, token):
-        return _META
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
 
-    monkeypatch.setattr("src.processors.repo.send_message", fake_send)
-    monkeypatch.setattr("src.processors.repo.database.update_job_status", fake_update_status)
-    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "test-token")
-
-    with patch("src.services.github.enrich_repo", new=AsyncMock(return_value=_META)):
-        import src.processors.repo as repo_mod
-        monkeypatch.setattr(repo_mod, "send_message", fake_send)
-
-        # Patch enrich_repo inside the module's lazy import path
-        import src.services.github as gh_mod
-        monkeypatch.setattr(gh_mod, "enrich_repo", AsyncMock(return_value=_META))
-
-        job = {
-            "id": "abc123",
-            "chat_id": 999,
-            "url": "https://github.com/anthropics/claude-code",
-        }
-        import src.database as db_mod
-        monkeypatch.setattr(db_mod, "update_job_status", fake_update_status)
-
-        from src.processors.repo import run
-        await run(job)
-
-    assert len(sent) == 1
-    assert "anthropics/claude-code" in sent[0]
+    assert ("anthropics", "claude-code") in bundle_calls
