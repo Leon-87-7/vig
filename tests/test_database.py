@@ -540,3 +540,24 @@ async def test_migration_v3_to_v4_creates_markdown_cache(tmp_path, monkeypatch) 
 
     assert row is not None, "markdown_cache table must exist after v3→v4 migration"
     assert version == len(database._MIGRATIONS)
+
+
+@pytest.mark.asyncio
+async def test_create_repo_job() -> None:
+    """content_type='repo' must be accepted by the jobs CHECK constraint."""
+    import tempfile, os, src.database as db
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
+    old = db.settings.DB_PATH
+    try:
+        db.settings.DB_PATH = db_path
+        await db.init_db()
+        job_id = await db.create_job(
+            chat_id=1, url="https://github.com/owner/repo", content_type="repo"
+        )
+        job = await db.get_job(job_id)
+        assert job is not None
+        assert job["content_type"] == "repo"
+    finally:
+        db.settings.DB_PATH = old
+        os.unlink(db_path)
