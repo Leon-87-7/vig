@@ -20,6 +20,7 @@ from src.services.github import (
     fetch_tree,
     fetch_manifest,
     _detect_manifests,
+    fetch_repo_bundle,
 )
 
 
@@ -240,3 +241,110 @@ async def test_fetch_manifest_returns_none_on_404() -> None:
     with patch("src.services.github._manifest_sync", return_value=None):
         result = await fetch_manifest("owner", "repo", "Cargo.toml", "tok")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# fetch_repo_bundle
+# ---------------------------------------------------------------------------
+
+class TrackingRedis:
+    """In-memory Redis double that tracks TTLs."""
+    def __init__(self) -> None:
+        self._store: dict[str, str] = {}
+        self._ttls: dict[str, int] = {}
+
+    async def get(self, key: str) -> str | None:
+        return self._store.get(key)
+
+    async def set(self, key: str, value: str, ex: int | None = None) -> None:
+        self._store[key] = value
+        if ex is not None:
+            self._ttls[key] = ex
+
+
+_SAMPLE_BUNDLE = {
+    "owner": "octocat", "repo": "Hello-World",
+    "metadata": {"stars": 10, "forks": 2, "language": "Python",
+                 "pushed_at": "2026-01-01T00:00:00Z", "description": "hi",
+                 "archived": False},
+    "default_branch": "main",
+    "readme": "Hello", "readme_raw_bytes": 5,
+    "tree": ["README.md"], "manifests": {}, "no_readme": False,
+}
+
+
+@pytest.mark.asyncio
+async def test_fetch_repo_bundle_cache_hit_no_api_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cache hit: bundle returned from Redis, no GitHub API calls made."""
+    fake_redis = TrackingRedis()
+    fake_redis._store["github_repo_bundle:octocat/Hello-World"] = json.dumps(_SAMPLE_BUNDLE)
+
+    import src.queue as q
+    monkeypatch.setattr(q, "_redis", fake_redis)
+
+    with patch("src.services.github._fetch_bundle_meta_sync") as mock_meta:
+        result = await fetch_repo_bundle("octocat", "Hello-World", "tok")
+
+    mock_meta.assert_not_called()
+    assert result["owner"] == "octocat"
+    assert result["readme"] == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_fetch_repo_bundle_cold_cache_written_with_7day_ttl(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cache miss: bundle assembled, written to Redis with 7-day TTL."""
+    fake_redis = TrackingRedis()
+
+    import src.queue as q
+    monkeypatch.setattr(q, "_redis", fake_redis)
+
+    meta = {"stars": 5, "forks": 1, "language": "Go", "pushed_at": "2026-01-01T00:00:00Z",
+            "description": None, "archived": False, "default_branch": "main"}
+
+    with (
+        patch("src.services.github._fetch_bundle_meta_sync", return_value=meta),
+        patch("src.services.github._readme_sync", return_value=b"# Hello"),
+        patch("src.services.github._tree_sync", return_value=["README.md", "go.mod"]),
+        patch("src.services.github._manifest_sync", return_value="module x\n\ngo 1.21"),
+    ):
+        result = await fetch_repo_bundle("octocat", "myrepo", "tok")
+
+    assert "go.mod" in result["manifests"]
+    cached_raw = fake_redis._store.get("github_repo_bundle:octocat/myrepo")
+    assert cached_raw is not None
+    assert fake_redis._ttls.get("github_repo_bundle:octocat/myrepo") == 86_400 * 7
+
+
+@pytest.mark.asyncio
+async def test_fetch_repo_bundle_no_readme_sets_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When README is 404, bundle has no_readme=True and empty readme string."""
+    fake_redis = TrackingRedis()
+    import src.queue as q
+    monkeypatch.setattr(q, "_redis", fake_redis)
+
+    meta = {"stars": 0, "forks": 0, "language": None, "pushed_at": None,
+            "description": None, "archived": False, "default_branch": "main"}
+
+    with (
+        patch("src.services.github._fetch_bundle_meta_sync", return_value=meta),
+        patch("src.services.github._readme_sync", return_value=None),
+        patch("src.services.github._tree_sync", return_value=[".gitignore"]),
+        patch("src.services.github._manifest_sync", return_value=None),
+    ):
+        result = await fetch_repo_bundle("ghost", "empty-repo", "tok")
+
+    assert result["no_readme"] is True
+    assert result["readme"] == ""
+    assert result["readme_raw_bytes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_fetch_repo_bundle_404_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When metadata call returns None (404), fetch_repo_bundle raises FileNotFoundError."""
+    fake_redis = TrackingRedis()
+    import src.queue as q
+    monkeypatch.setattr(q, "_redis", fake_redis)
+
+    with patch("src.services.github._fetch_bundle_meta_sync", return_value=None):
+        with pytest.raises(FileNotFoundError):
+            await fetch_repo_bundle("ghost", "private-repo", "tok")

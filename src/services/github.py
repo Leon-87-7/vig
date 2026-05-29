@@ -105,6 +105,96 @@ async def fetch_manifest(owner: str, repo: str, path: str, token: str) -> str | 
         return None
 
 
+def _fetch_bundle_meta_sync(owner: str, repo: str, token: str) -> dict | None:
+    """Full metadata including default_branch. Returns None on 404. Raises on 403/5xx."""
+    url = f"https://api.github.com/repos/{owner}/{repo}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    resp = requests.get(url, headers=headers, timeout=10)
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    data = resp.json()
+    return {
+        "stars": data["stargazers_count"],
+        "forks": data["forks_count"],
+        "language": data.get("language"),
+        "pushed_at": data.get("pushed_at"),
+        "description": data.get("description"),
+        "archived": data.get("archived", False),
+        "default_branch": data.get("default_branch", "main"),
+    }
+
+
+async def fetch_repo_bundle(owner: str, repo: str, token: str) -> dict:
+    """Assemble the full repo bundle with README, file tree, and manifests.
+
+    Cache key: github_repo_bundle:{owner}/{repo}, TTL 7 days.
+    Raises FileNotFoundError on 404, requests.HTTPError on 403/5xx.
+    """
+    from src import queue
+
+    cache_key = f"github_repo_bundle:{owner}/{repo}"
+    client = queue._client()
+
+    try:
+        cached = await client.get(cache_key)
+        if cached:
+            log.info("github_bundle_cache_hit", repo=f"{owner}/{repo}")
+            return json.loads(cached)
+    except Exception:
+        log.warning("github_bundle_cache_read_failed", repo=f"{owner}/{repo}")
+
+    meta = await asyncio.to_thread(_fetch_bundle_meta_sync, owner, repo, token)
+    if meta is None:
+        raise FileNotFoundError(f"{owner}/{repo} not found or private")
+
+    default_branch = meta.pop("default_branch")
+
+    readme_raw_bytes_obj, tree = await asyncio.gather(
+        asyncio.to_thread(_readme_sync, owner, repo, token),
+        asyncio.to_thread(_tree_sync, owner, repo, default_branch, token),
+    )
+
+    no_readme = readme_raw_bytes_obj is None
+    readme_raw_bytes = len(readme_raw_bytes_obj) if readme_raw_bytes_obj else 0
+    readme_text = readme_raw_bytes_obj.decode("utf-8", errors="replace") if readme_raw_bytes_obj else ""
+    readme_preprocessed = preprocess_readme(readme_text)
+
+    manifest_paths = _detect_manifests(tree)
+    manifest_contents: list[str | None] = []
+    if manifest_paths:
+        manifest_contents = list(await asyncio.gather(*[
+            asyncio.to_thread(_manifest_sync, owner, repo, path, token)
+            for path in manifest_paths
+        ]))
+
+    manifests = {
+        path: content
+        for path, content in zip(manifest_paths, manifest_contents)
+        if content is not None
+    }
+
+    bundle = {
+        "owner": owner,
+        "repo": repo,
+        "metadata": meta,
+        "default_branch": default_branch,
+        "readme": readme_preprocessed,
+        "readme_raw_bytes": readme_raw_bytes,
+        "tree": tree,
+        "manifests": manifests,
+        "no_readme": no_readme,
+    }
+
+    try:
+        await client.set(cache_key, json.dumps(bundle), ex=_BUNDLE_TTL)
+        log.info("github_bundle_cache_written", repo=f"{owner}/{repo}")
+    except Exception:
+        log.warning("github_bundle_cache_write_failed", repo=f"{owner}/{repo}")
+
+    return bundle
+
+
 def _fetch_sync(owner: str, repo: str, token: str) -> dict | None:
     """Blocking HTTP call — run via asyncio.to_thread."""
     url = f"https://api.github.com/repos/{owner}/{repo}"
