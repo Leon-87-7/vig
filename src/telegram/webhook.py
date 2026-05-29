@@ -410,6 +410,12 @@ async def _cmd_freestyle(ctx: SlashCtx) -> None:
             "Instagram Reels, TikTok videos, and allowlisted article domains.",
         )
         return
+    if pipeline == "repo":
+        await send_message(
+            ctx.chat_id,
+            "ℹ️ `/freestyle` doesn't apply to repo URLs yet — send the URL without a command to get the standard analysis.",
+        )
+        return
     await _handle_freestyle_url(ctx.chat_id, url, pipeline, ctx.message_id)
 
 
