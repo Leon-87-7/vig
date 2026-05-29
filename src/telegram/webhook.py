@@ -27,7 +27,7 @@ from src.telegram.sender import (
 )
 from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
-from src.utils.validators import detect_pipeline, _ARTICLE_HINT
+from src.utils.validators import detect_pipeline, normalize_repo_url, _ARTICLE_HINT, _REPO_HINT
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -566,7 +566,8 @@ async def _cmd_force(ctx: SlashCtx) -> None:
     # Check for existing job and/or markdown cache row.
     extra_domains = await database.list_allowed_domains(ctx.chat_id)
     pipeline = detect_pipeline(url, frozenset(extra_domains))
-    existing_job = await database.find_recent_job_by_url(ctx.chat_id, url) if pipeline != "rejected" else None
+    lookup_url = normalize_repo_url(url) if pipeline == "repo" else url
+    existing_job = await database.find_recent_job_by_url(ctx.chat_id, lookup_url) if pipeline != "rejected" else None
     existing_cache = await database.get_markdown_cache(url)
 
     if existing_job:
@@ -575,7 +576,8 @@ async def _cmd_force(ctx: SlashCtx) -> None:
             await database.delete_markdown_cache(url)
         job_id = existing_job["id"]
         await database.reset_job(job_id)
-        task_type = "article" if existing_job.get("content_type") == "article" else "video"
+        content_type = existing_job.get("content_type")
+        task_type = "repo" if content_type == "repo" else ("article" if content_type == "article" else "video")
         await queue.enqueue({"task": task_type, "job_id": job_id})
         await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
         return
@@ -595,13 +597,14 @@ async def _cmd_force(ctx: SlashCtx) -> None:
             "Instagram Reels, TikTok videos, and allowlisted article domains.",
         )
         return
+    url_to_store = normalize_repo_url(url) if pipeline == "repo" else url
     job_id = await database.create_job(
         chat_id=ctx.chat_id,
-        url=url,
+        url=url_to_store,
         content_type=pipeline,
         message_id=ctx.message_id,
     )
-    task_type = "article" if pipeline == "article" else "video"
+    task_type = "repo" if pipeline == "repo" else ("article" if pipeline == "article" else "video")
     await queue.enqueue({"task": task_type, "job_id": job_id})
     await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
 
@@ -802,19 +805,20 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
     """Routing path when chat_state is armed and not expired."""
     job_id = state["job_id"]
     pipeline = detect_pipeline(text)
-    if pipeline in ("short", "long", "article"):
+    if pipeline in ("short", "long", "article", "repo"):
         await database.clear_chat_state(chat_id)
         log.info("prd.chat_state.canceled_by_url", chat_id=chat_id, old_job_id=job_id)
-        cached = await database.find_recent_job_by_url(chat_id, text)
+        url_to_store = normalize_repo_url(text) if pipeline == "repo" else text
+        cached = await database.find_recent_job_by_url(chat_id, url_to_store)
         if cached:
             await send_message(chat_id, "🔄 Previous intent canceled.")
             await _reply_cached_job(chat_id, cached)
             return
         await send_message(chat_id, "🔄 Started new job; previous intent canceled.")
         new_job_id = await database.create_job(
-            chat_id=chat_id, url=text, content_type=pipeline
+            chat_id=chat_id, url=url_to_store, content_type=pipeline
         )
-        task_type = "article" if pipeline == "article" else "video"
+        task_type = "repo" if pipeline == "repo" else ("article" if pipeline == "article" else "video")
         await queue.enqueue({"task": task_type, "job_id": new_job_id})
         await send_message(chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
         return
@@ -869,6 +873,10 @@ async def _handle_awaiting_freestyle(chat_id: int, text: str, state: dict) -> No
         await queue.enqueue({"task": "video", "job_id": job_id})
         log.info("freestyle.video.enqueued", chat_id=chat_id, job_id=job_id)
         await send_message(chat_id, f"📥 Received\n✨ Kicking off Gemini analysis (freestyle)\njob_{job_id[-4:]}")
+    elif job and job.get("content_type") == "repo":
+        await queue.enqueue({"task": "repo", "job_id": job_id})
+        log.info("freestyle.repo.enqueued", chat_id=chat_id, job_id=job_id)
+        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting repo analysis")
     elif job and job.get("content_type") == "article":
         await queue.enqueue({"task": "article", "job_id": job_id})
         log.info("freestyle.article.enqueued", chat_id=chat_id, job_id=job_id)
@@ -1029,11 +1037,17 @@ async def webhook(
     extra_domains = await database.list_allowed_domains(chat_id)
     pipeline = detect_pipeline(text, frozenset(extra_domains))
     if pipeline == "rejected":
+        try:
+            _host = (urlparse(text).hostname or "").lower().removeprefix("www.")
+        except Exception:
+            _host = ""
+        _github_hint = f"\n{_REPO_HINT}" if _host == "github.com" or _host.endswith(".github.com") else ""
         await send_message(
             chat_id,
             "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
             "Instagram Reels (not /p/ carousels), and TikTok videos.\n"
-            + _ARTICLE_HINT,
+            + _ARTICLE_HINT
+            + _github_hint,
         )
         log.info("url_rejected", chat_id=chat_id, url=text)
         return {"ok": True}
@@ -1048,6 +1062,20 @@ async def webhook(
             chat_id=chat_id, url=text, content_type="article", message_id=message_id,
         )
         await queue.enqueue({"task": "article", "job_id": job_id})
+        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        return {"ok": True}
+
+    if pipeline == "repo":
+        repo_url = normalize_repo_url(text)
+        if not pending_template:
+            cached = await database.find_recent_job_by_url(chat_id, repo_url)
+            if cached:
+                await _reply_cached_job(chat_id, cached)
+                return {"ok": True}
+        job_id = await database.create_job(
+            chat_id=chat_id, url=repo_url, content_type="repo", message_id=message_id,
+        )
+        await queue.enqueue({"task": "repo", "job_id": job_id})
         await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
         return {"ok": True}
 
