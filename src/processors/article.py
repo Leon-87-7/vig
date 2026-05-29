@@ -225,7 +225,11 @@ async def run(job: dict) -> None:
         raw = await gemini_client.generate(prompt, model="gemini-2.5-flash")
     except GeminiUnavailableError:
         await database.update_job_status(job_id, "error")
-        await send_message(chat_id, f"{tag}\n❌ Gemini unavailable. Please try again.")
+        await send_inline_keyboard(
+            chat_id,
+            f"{tag}\n⚠️ Gemini unavailable. Please try again.",
+            buttons=[[{"text": "🔄 Retry", "callback_data": f"article_retry:{job_id}"}]],
+        )
         return
 
     data = _extract_json(raw)

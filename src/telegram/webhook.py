@@ -283,6 +283,22 @@ async def _cb_enrichment_retry(ctx: CallbackCtx) -> None:
     await send_message(ctx.chat_id, "🍪 Retrying Gemini enrichment...")
 
 
+async def _cb_article_retry(ctx: CallbackCtx) -> None:
+    job = await database.get_job(ctx.job_id)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
+    status = job.get("status")
+    if status != "error":
+        await answer_callback_query(ctx.cq_id, text=f"Can't retry — job is in status '{status}'.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    await database.update_job_status(ctx.job_id, "pending")
+    await queue.enqueue({"task": "article", "job_id": ctx.job_id})
+    log.info("article_retry_enqueued", job_id=ctx.job_id)
+    await send_message(ctx.chat_id, f"job_{ctx.job_id[-4:]}:\n📥 Retrying Gemini enrichment...")
+
+
 async def _cb_reprocess(ctx: CallbackCtx) -> None:
     """One-tap retry for a 'processing' job orphaned by a restart (ADR-0010).
 
@@ -329,6 +345,7 @@ _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "prd_intent_prompt":  _cb_prd_intent_prompt,
     "prd_retry_intent":   _cb_prd_retry_intent,
     "enrichment_retry":   _cb_enrichment_retry,
+    "article_retry":      _cb_article_retry,
     "reprocess":          _cb_reprocess,
     "show_done":          _cb_show_done,
 }
