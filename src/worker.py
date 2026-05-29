@@ -79,7 +79,7 @@ async def _dispatch(task: dict) -> None:
             return
         try:
             from src.processors import article
-            await article.run(job)
+            await article.run(job, skip_document=task.get("skip_document", False))
         except Exception:
             log.exception("article_processor_error", job_id=job_id)
             await database.update_job_status(job_id, "error")

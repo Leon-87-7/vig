@@ -166,7 +166,7 @@ def _build_enrichment_message(
     return "\n".join(p for p in parts if p is not None)
 
 
-async def run(job: dict) -> None:
+async def run(job: dict, *, skip_document: bool = False) -> None:
     """Article pipeline: Jina → cache → paywall → Gemini → Sheets → Brain."""
     job_id = job["id"]
     chat_id = job["chat_id"]
@@ -213,7 +213,8 @@ async def run(job: dict) -> None:
 
     # 3. Send document to Telegram
     filename = _sanitize_title(title, url) + ".md"
-    await send_document(chat_id, content.encode(), filename)
+    if not skip_document:
+        await send_document(chat_id, content.encode(), filename)
 
     # 4. Build Gemini prompt
     freestyle_prompt = job.get("freestyle_prompt")
