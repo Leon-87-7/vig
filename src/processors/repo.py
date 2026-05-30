@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from src import brain, database
 from src.config import settings
 from src.services import gemini
+from src.services.gemini import GeminiUnavailableError
 from src.services.github import fetch_repo_bundle
 from src.services.sheets import append_repo_row, update_repo_row
 from src.telegram.sender import send_document, send_inline_keyboard, send_message
@@ -274,6 +275,21 @@ async def _sheets_update_safe(row_idx: int, job: dict, analysis: dict, bundle: d
         log.warning("repo_sheets_update_failed", job_id=job.get("id"), error=str(exc)[:120])
 
 
+def _classify_github_error(exc: Exception) -> str:
+    """Map a GitHub API exception to a user-visible message."""
+    if isinstance(exc, FileNotFoundError):
+        return "Repo not found or private — check the URL."
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    headers = getattr(getattr(exc, "response", None), "headers", {}) or {}
+    if status == 403 and str(headers.get("X-RateLimit-Remaining", "1")) == "0":
+        return "GitHub API limit hit, try again in an hour."
+    if status in (401, 403):
+        return "GitHub authentication failed — check GITHUB_TOKEN."
+    if status == 404:
+        return "Repo not found or private — check the URL."
+    return "GitHub unavailable, retry."
+
+
 async def run(job: dict) -> None:
     job_id = job["id"]
     chat_id = job["chat_id"]
@@ -283,12 +299,25 @@ async def run(job: dict) -> None:
     await database.update_job_status(job_id, "processing")
     owner, repo = _parse_owner_repo(url)
 
-    bundle = await fetch_repo_bundle(owner, repo, settings.GITHUB_TOKEN)
+    try:
+        bundle = await fetch_repo_bundle(owner, repo, settings.GITHUB_TOKEN)
+    except Exception as exc:
+        log.warning("repo_github_error", job_id=job_id, error=str(exc)[:120])
+        await database.update_job_status(job_id, "error", error_msg=str(exc)[:200])
+        await send_message(chat_id, f"❌ {_classify_github_error(exc)}")
+        return
 
     flags = {"no_readme": bundle.get("no_readme", False)}
     prompt = _build_repo_prompt(bundle, freestyle_prompt=freestyle_prompt, flags=flags)
 
-    raw = await gemini.generate(prompt, model="gemini-2.5-flash", schema=REPO_ANALYSIS_SCHEMA)
+    try:
+        raw = await gemini.generate(prompt, model="gemini-2.5-flash", schema=REPO_ANALYSIS_SCHEMA)
+    except GeminiUnavailableError as exc:
+        log.error("repo_gemini_failed", job_id=job_id)
+        await database.update_job_status(job_id, "error", error_msg=str(exc)[:200])
+        await send_message(chat_id, "❌ Gemini unavailable, try /force later.")
+        return
+
     try:
         analysis = _json.loads(raw)
     except Exception:
@@ -305,7 +334,15 @@ async def run(job: dict) -> None:
         ai_tools=_json.dumps(analysis.get("tech_stack", [])),
     )
 
-    # Document delivery — before summary; failure is non-fatal
+    # Warning prefix lines for archived / no-README
+    warning_lines: list[str] = []
+    meta = bundle.get("metadata") or {}
+    if meta.get("archived"):
+        warning_lines.append("⚠️ Archived — no longer maintained")
+    if bundle.get("no_readme"):
+        warning_lines.append("ℹ️ No README detected — analysis is shallower than usual")
+
+    # Document (non-fatal)
     filename = _sanitize_filename(owner, repo, job_id=job_id)
     try:
         await send_document(chat_id, render_repo_markdown(analysis, bundle).encode(), filename)
@@ -313,11 +350,10 @@ async def run(job: dict) -> None:
         log.warning("repo_doc_send_failed", job_id=job_id, error=str(exc)[:120])
 
     # Summary + Freestyle button
-    summary = _format_summary_message(owner, repo, analysis, bundle)
+    prefix = "\n".join(warning_lines) + "\n\n" if warning_lines else ""
+    summary = prefix + _format_summary_message(owner, repo, analysis, bundle)
     freestyle_btn = [[{"text": "✍️ Freestyle", "callback_data": f"freestyle:{job_id}"}]]
     await send_inline_keyboard(chat_id, summary, freestyle_btn)
-
-    log.info("repo_gemini_done", job_id=job_id, repo=f"{owner}/{repo}")
 
     # Sheets — fire-and-forget
     current_job = {"id": job_id, "url": url, "created_at": job.get("created_at", ""), "status": "done"}
@@ -329,7 +365,7 @@ async def run(job: dict) -> None:
 
     # Brain ingest — fire-and-forget
     asyncio.create_task(_brain_ingest_safe(
-        _normalize_repo_url(url),
-        topic=analysis.get("tagline", ""),
-        source_job_id=job_id,
+        _normalize_repo_url(url), topic=analysis.get("tagline", ""), source_job_id=job_id,
     ))
+
+    log.info("repo_pipeline_done", job_id=job_id, repo=f"{owner}/{repo}")

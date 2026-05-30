@@ -447,3 +447,119 @@ async def test_run_brain_failure_leaves_job_done(monkeypatch: pytest.MonkeyPatch
 
     assert "done" in statuses
     assert "error" not in statuses
+
+
+# ---------------------------------------------------------------------------
+# Task 11 — Edge cases: archived, no-README, GitHub API failures, GeminiUnavailableError (#72)
+# ---------------------------------------------------------------------------
+
+from src.services.gemini import GeminiUnavailableError
+
+
+@pytest.mark.asyncio
+async def test_run_archived_repo_warning_in_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    archived_bundle = {**_BUNDLE, "metadata": {**_BUNDLE["metadata"], "archived": True}}
+    texts: list[str] = []
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=archived_bundle))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard",
+                        AsyncMock(side_effect=lambda c, t, b, **kw: texts.append(t)))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+    assert any("⚠️ Archived" in t for t in texts)
+
+
+@pytest.mark.asyncio
+async def test_run_no_readme_warning_in_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    no_readme_bundle = {**_BUNDLE, "no_readme": True, "readme": ""}
+    texts: list[str] = []
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=no_readme_bundle))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard",
+                        AsyncMock(side_effect=lambda c, t, b, **kw: texts.append(t)))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+    assert any("ℹ️ No README" in t for t in texts)
+
+
+@pytest.mark.asyncio
+async def test_run_github_404_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    statuses: list[str] = []
+    user_messages: list[str] = []
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle",
+                        AsyncMock(side_effect=FileNotFoundError("not found")))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status",
+                        AsyncMock(side_effect=lambda jid, s, **kw: statuses.append(s)))
+    monkeypatch.setattr("src.processors.repo.send_message",
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+
+    assert "error" in statuses
+    assert any("check the URL" in m or "not found" in m.lower() for m in user_messages)
+
+
+@pytest.mark.asyncio
+async def test_run_gemini_unavailable_error_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    statuses: list[str] = []
+    user_messages: list[str] = []
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate",
+                        AsyncMock(side_effect=GeminiUnavailableError("both keys failed")))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status",
+                        AsyncMock(side_effect=lambda jid, s, **kw: statuses.append(s)))
+    monkeypatch.setattr("src.processors.repo.send_message",
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+
+    assert "error" in statuses
+    assert any("Gemini" in m or "/force" in m for m in user_messages)
+
+
+@pytest.mark.asyncio
+async def test_run_rate_limit_403_shows_rate_limit_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    user_messages: list[str] = []
+
+    class FakeHTTPError(Exception):
+        class response:
+            status_code = 403
+            headers = {"X-RateLimit-Remaining": "0"}
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle",
+                        AsyncMock(side_effect=FakeHTTPError()))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_message",
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+
+    assert any("limit" in m.lower() or "hour" in m.lower() for m in user_messages)
