@@ -264,3 +264,113 @@ async def test_run_sends_summary_with_freestyle_button(monkeypatch: pytest.Monke
     btns = keyboard_calls[0]["buttons"]
     flat = [btn for row in btns for btn in row]
     assert any("Freestyle" in b.get("text", "") for b in flat)
+
+
+# ---------------------------------------------------------------------------
+# Task 8 — render_repo_markdown + _sanitize_filename + document delivery (#69)
+# ---------------------------------------------------------------------------
+
+from src.processors.repo import render_repo_markdown, _sanitize_filename
+
+
+def test_render_has_all_section_headings() -> None:
+    md = render_repo_markdown(_ANALYSIS, _BUNDLE)
+    for heading in ("## Tech Stack", "## 🛠 For Developers", "## 🎓 For Education", "### Curriculum Hooks"):
+        assert heading in md, f"missing: {heading}"
+
+
+def test_render_includes_tagline() -> None:
+    md = render_repo_markdown(_ANALYSIS, _BUNDLE)
+    assert "AI coding assistant for the terminal" in md
+
+
+def test_render_archived_includes_warning_h2() -> None:
+    bundle = {**_BUNDLE, "metadata": {**_BUNDLE["metadata"], "archived": True}}
+    assert "## ⚠️ Archived" in render_repo_markdown(_ANALYSIS, bundle)
+
+
+def test_render_no_readme_includes_info_h2() -> None:
+    bundle = {**_BUNDLE, "no_readme": True}
+    assert "## ℹ️ No README" in render_repo_markdown(_ANALYSIS, bundle)
+
+
+def test_render_hook_with_file_pointer_includes_backtick_path() -> None:
+    md = render_repo_markdown(_ANALYSIS, _BUNDLE)
+    assert "`src/tools/`" in md
+
+
+def test_render_hook_without_file_pointer_omits_suffix() -> None:
+    analysis = {
+        **_ANALYSIS,
+        "for_education": {**_ANALYSIS["for_education"],
+                          "curriculum_hooks": [{"concept": "Async", "file_pointer": None, "why": "Core"}]},
+    }
+    md = render_repo_markdown(analysis, _BUNDLE)
+    assert "Async" in md
+    assert "`None`" not in md
+
+
+def test_render_empty_tech_stack_shows_none_placeholder() -> None:
+    analysis = {**_ANALYSIS, "tech_stack": []}
+    md = render_repo_markdown(analysis, _BUNDLE)
+    assert "_(none)_" in md
+
+
+def test_sanitize_filename_basic() -> None:
+    assert _sanitize_filename("anthropics", "claude-code") == "anthropics-claude-code.md"
+
+
+def test_sanitize_filename_dot_in_owner() -> None:
+    result = _sanitize_filename("golang.org", "go")
+    assert result.endswith(".md")
+    assert "golang" in result
+
+
+def test_sanitize_filename_fallback_on_empty() -> None:
+    result = _sanitize_filename("", "", job_id="20260101_120000_ABCD")
+    assert result == "20260101_120000_ABCD.md"
+
+
+@pytest.mark.asyncio
+async def test_run_sends_document_before_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+    call_order: list[str] = []
+
+    async def spy_doc(chat_id, file_bytes, filename, **kw):
+        call_order.append("doc")
+
+    async def spy_kbd(chat_id, text, buttons, **kw):
+        call_order.append("kbd")
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", spy_doc)
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", spy_kbd)
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+
+    assert call_order.index("doc") < call_order.index("kbd")
+
+
+@pytest.mark.asyncio
+async def test_run_document_failure_does_not_abort(monkeypatch: pytest.MonkeyPatch) -> None:
+    kbd_calls: list = []
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock(side_effect=RuntimeError("blip")))
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard",
+                        AsyncMock(side_effect=lambda *a, **kw: kbd_calls.append(1)))
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)   # must not raise
+
+    assert kbd_calls
