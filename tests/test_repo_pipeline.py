@@ -374,3 +374,76 @@ async def test_run_document_failure_does_not_abort(monkeypatch: pytest.MonkeyPat
     await run(job)   # must not raise
 
     assert kbd_calls
+
+
+# ---------------------------------------------------------------------------
+# Task 10 — Second Brain ingest (#71)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_run_ingests_normalized_repo_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """brain.ingest_links called with exactly the root repo URL (no subpaths)."""
+    import asyncio as _asyncio
+    ingest_calls: list[dict] = []
+
+    async def fake_ingest(links, topic, source_job_id):
+        ingest_calls.append({"links": links, "topic": topic, "source_job_id": source_job_id})
+
+    def eager_create_task(coro):
+        return _asyncio.ensure_future(coro)
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+    monkeypatch.setattr("src.brain.ingest_links", fake_ingest)
+    monkeypatch.setattr("asyncio.create_task", eager_create_task)
+
+    # URL with subpath — should be normalized
+    job = {"id": "abc", "chat_id": 1,
+           "url": "https://github.com/anthropics/claude-code/blob/main/README.md",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+    await _asyncio.sleep(0)  # yield so fire-and-forget tasks execute
+
+    brain_calls = [c for c in ingest_calls]
+    assert len(brain_calls) == 1
+    assert brain_calls[0]["links"][0]["url"] == "https://github.com/anthropics/claude-code"
+    assert brain_calls[0]["topic"] == _ANALYSIS["tagline"]
+    assert brain_calls[0]["source_job_id"] == "abc"
+
+
+@pytest.mark.asyncio
+async def test_run_brain_failure_leaves_job_done(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio as _asyncio
+    statuses: list[str] = []
+
+    async def failing_ingest(links, topic, source_job_id):
+        raise RuntimeError("embed failed")
+
+    def eager_create_task(coro):
+        return _asyncio.ensure_future(coro)
+
+    async def track_status(job_id, status, **kwargs):
+        statuses.append(status)
+
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", track_status)
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+    monkeypatch.setattr("src.brain.ingest_links", failing_ingest)
+    monkeypatch.setattr("asyncio.create_task", eager_create_task)
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+    await _asyncio.sleep(0)  # yield so fire-and-forget tasks execute
+
+    assert "done" in statuses
+    assert "error" not in statuses

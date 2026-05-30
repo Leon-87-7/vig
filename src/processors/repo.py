@@ -7,7 +7,7 @@ import re as _re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from src import database
+from src import brain, database
 from src.config import settings
 from src.services import gemini
 from src.services.github import fetch_repo_bundle
@@ -250,6 +250,14 @@ def render_repo_markdown(analysis: dict, bundle: dict) -> str:
     return "\n".join(lines)
 
 
+async def _brain_ingest_safe(repo_url: str, *, topic: str, source_job_id: str) -> None:
+    try:
+        await brain.ingest_links([{"url": repo_url}], topic=topic, source_job_id=source_job_id)
+        log.info("repo_brain_ingested", url=repo_url)
+    except Exception as exc:
+        log.warning("repo_brain_ingest_failed", url=repo_url, error=str(exc)[:120])
+
+
 async def _sheets_append_safe(job_id: str, job: dict, analysis: dict, bundle: dict) -> None:
     try:
         row_idx = await append_repo_row(job, analysis, bundle)
@@ -318,3 +326,10 @@ async def run(job: dict) -> None:
         asyncio.create_task(_sheets_update_safe(int(sheets_row_id), current_job, analysis, bundle))
     else:
         asyncio.create_task(_sheets_append_safe(job_id, current_job, analysis, bundle))
+
+    # Brain ingest — fire-and-forget
+    asyncio.create_task(_brain_ingest_safe(
+        _normalize_repo_url(url),
+        topic=analysis.get("tagline", ""),
+        source_job_id=job_id,
+    ))
