@@ -563,3 +563,111 @@ async def test_run_rate_limit_403_shows_rate_limit_message(monkeypatch: pytest.M
     await run(job)
 
     assert any("limit" in m.lower() or "hour" in m.lower() for m in user_messages)
+
+
+# ---------------------------------------------------------------------------
+# Task 12 — Freestyle re-run verification (#73)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_freestyle_prompt_passed_to_build_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """freestyle_prompt is forwarded to _build_repo_prompt."""
+    prompts_seen: list[str | None] = []
+
+    import src.processors.repo as repo_mod
+    original = repo_mod._build_repo_prompt
+
+    def spy_build(bundle, freestyle_prompt=None, flags=None):
+        prompts_seen.append(freestyle_prompt)
+        return original(bundle, freestyle_prompt=freestyle_prompt, flags=flags)
+
+    monkeypatch.setattr("src.processors.repo._build_repo_prompt", spy_build)
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": "explain for a Rust developer",
+           "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+
+    assert prompts_seen and prompts_seen[0] == "explain for a Rust developer"
+
+
+@pytest.mark.asyncio
+async def test_freestyle_with_sheets_row_id_calls_update_not_append(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With sheets_row_id set, _sheets_update_safe is called; _sheets_append_safe is not."""
+    import asyncio as _asyncio
+    update_calls: list = []
+    append_calls: list = []
+
+    async def fake_update_safe(row_idx, job, analysis, bundle):
+        update_calls.append(row_idx)
+
+    async def fake_append_safe(job_id, job, analysis, bundle):
+        append_calls.append(job_id)
+
+    def eager_create_task(coro):
+        return _asyncio.ensure_future(coro)
+
+    import src.processors.repo as repo_mod
+    monkeypatch.setattr(repo_mod, "_sheets_update_safe", fake_update_safe)
+    monkeypatch.setattr(repo_mod, "_sheets_append_safe", fake_append_safe)
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+    monkeypatch.setattr(repo_mod.asyncio, "create_task", eager_create_task)
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": "explain for a Rust developer",
+           "template_analysis": _json.dumps(_ANALYSIS), "sheets_row_id": "5"}
+    from src.processors.repo import run
+    await run(job)
+    await _asyncio.sleep(0)  # yield so fire-and-forget tasks execute
+
+    assert update_calls == [5]
+    assert not append_calls
+
+
+@pytest.mark.asyncio
+async def test_fresh_job_calls_append_not_update(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without sheets_row_id, _sheets_append_safe is called; _sheets_update_safe is not."""
+    import asyncio as _asyncio
+    update_calls: list = []
+    append_calls: list = []
+
+    async def fake_update_safe(row_idx, job, analysis, bundle):
+        update_calls.append(row_idx)
+
+    async def fake_append_safe(job_id, job, analysis, bundle):
+        append_calls.append(job_id)
+
+    def eager_create_task(coro):
+        return _asyncio.ensure_future(coro)
+
+    import src.processors.repo as repo_mod
+    monkeypatch.setattr(repo_mod, "_sheets_update_safe", fake_update_safe)
+    monkeypatch.setattr(repo_mod, "_sheets_append_safe", fake_append_safe)
+    monkeypatch.setattr("src.processors.repo.fetch_repo_bundle", AsyncMock(return_value=_BUNDLE))
+    monkeypatch.setattr("src.processors.repo.gemini.generate", AsyncMock(return_value=_json.dumps(_ANALYSIS)))
+    monkeypatch.setattr("src.processors.repo.send_document", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
+    monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
+    monkeypatch.setattr(repo_mod.asyncio, "create_task", eager_create_task)
+
+    job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
+           "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
+    from src.processors.repo import run
+    await run(job)
+    await _asyncio.sleep(0)  # yield so fire-and-forget tasks execute
+
+    assert append_calls == ["abc"]
+    assert not update_calls
