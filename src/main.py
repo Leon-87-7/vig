@@ -61,7 +61,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="vig — Video Intelligence Gateway", lifespan=lifespan)
 app.include_router(webhook.router)
-from src.api import brain_router
+from src.api.brain import brain_router
 
 app.include_router(brain_router)
 

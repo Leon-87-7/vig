@@ -423,6 +423,7 @@ async def init_db() -> None:
 async def connection() -> AsyncIterator[aiosqlite.Connection]:
     conn = await aiosqlite.connect(settings.DB_PATH)
     conn.row_factory = aiosqlite.Row
+    await conn.execute("PRAGMA foreign_keys=ON")
     try:
         yield conn
     finally:

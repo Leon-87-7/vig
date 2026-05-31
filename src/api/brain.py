@@ -9,7 +9,7 @@ from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-brain_router = APIRouter(prefix="/links", tags=["brain"])
+brain_router = APIRouter(prefix="/api/brain", tags=["brain"])
 
 
 @brain_router.get("/search")
