@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS markdown_cache (
     fetched_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Web dashboard users (issue #84 / S1 auth spine).
+CREATE TABLE IF NOT EXISTS users (
+    tg_id       INTEGER PRIMARY KEY,
+    username    TEXT,
+    first_name  TEXT NOT NULL,
+    last_name   TEXT,
+    photo_url   TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Second Brain semantic link graph (src/brain.py data-access layer).
 CREATE TABLE IF NOT EXISTS links (
     id            TEXT PRIMARY KEY,
@@ -376,6 +387,19 @@ async def _migrate_v7_v8(conn: aiosqlite.Connection) -> None:
 
 
 _MIGRATIONS.append(_migrate_v7_v8)
+
+# v8 → v9: users table for web dashboard auth (issue #84)
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS users (
+        tg_id       INTEGER PRIMARY KEY,
+        username    TEXT,
+        first_name  TEXT NOT NULL,
+        last_name   TEXT,
+        photo_url   TEXT,
+        created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+])
 
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
@@ -740,3 +764,35 @@ async def delete_markdown_cache(url: str) -> bool:
         )
         await conn.commit()
         return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Users (web dashboard auth — issue #84)
+# ---------------------------------------------------------------------------
+
+
+async def upsert_user(
+    *,
+    tg_id: int,
+    first_name: str,
+    username: str | None = None,
+    last_name: str | None = None,
+    photo_url: str | None = None,
+) -> None:
+    """Insert or update a Telegram user row (keyed by tg_id)."""
+    async with connection() as conn:
+        await conn.execute(
+            """
+            INSERT INTO users (tg_id, username, first_name, last_name, photo_url, updated_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(tg_id) DO UPDATE SET
+                username   = excluded.username,
+                first_name = excluded.first_name,
+                last_name  = excluded.last_name,
+                photo_url  = excluded.photo_url,
+                updated_at = excluded.updated_at
+            """,
+            (tg_id, username, first_name, last_name, photo_url),
+        )
+        await conn.commit()
+    log.info("user_upserted", tg_id=tg_id)
