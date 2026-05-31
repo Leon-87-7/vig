@@ -713,7 +713,7 @@ async def _cmd_ignore(ctx: SlashCtx) -> None:
         if domain in _PROTECTED_DOMAINS:
             protected.append(domain)
             continue
-        await database.add_ignored_domain(domain)
+        await database.add_ignored_domain(ctx.chat_id, domain)
         added.append(domain)
     parts = []
     if added:
@@ -732,7 +732,7 @@ async def _cmd_unignore(ctx: SlashCtx) -> None:
     for raw in ctx.parts[1:]:
         host = _urlparse(raw).hostname or raw
         domain = host.lower().removeprefix("www.")
-        if await database.remove_ignored_domain(domain):
+        if await database.remove_ignored_domain(ctx.chat_id, domain):
             removed.append(domain)
         else:
             missing.append(domain)
@@ -745,7 +745,7 @@ async def _cmd_unignore(ctx: SlashCtx) -> None:
 
 
 async def _cmd_ignore_list(ctx: SlashCtx) -> None:
-    domains = sorted(await database.get_ignored_domains())
+    domains = sorted(await database.get_ignored_domains(ctx.chat_id))
     if not domains:
         await send_message(ctx.chat_id, "No ignored domains yet. Use /ignore <domain>.")
         return

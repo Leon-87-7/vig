@@ -84,10 +84,12 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url);
 
--- User-managed domain ignore list for Gemini Vision link filtering (/ignore command).
+-- User-managed per-chat domain ignore list for Gemini Vision link filtering (/ignore command).
 CREATE TABLE IF NOT EXISTS ignored_domains (
-    domain      TEXT PRIMARY KEY,
-    added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    chat_id     INTEGER NOT NULL,
+    domain      TEXT NOT NULL,
+    added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chat_id, domain)
 );
 
 -- Per-chat conversational mode (slice #7 uses this for ✍️ Text your intent flow).
@@ -352,6 +354,30 @@ async def _migrate_v6_v7(conn: aiosqlite.Connection) -> None:
 _MIGRATIONS.append(_migrate_v6_v7)
 
 
+async def _migrate_v7_v8(conn: aiosqlite.Connection) -> None:
+    """Add chat_id to ignored_domains, changing PK from (domain) to (chat_id, domain)."""
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS ignored_domains_v2 (
+            chat_id  INTEGER NOT NULL,
+            domain   TEXT NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (chat_id, domain)
+        )
+    """)
+    # Backfill existing rows with the one chat_id present in jobs.
+    # Falls back to 0 if jobs is empty (fresh installs skip migrations anyway).
+    await conn.execute("""
+        INSERT OR IGNORE INTO ignored_domains_v2 (chat_id, domain, added_at)
+        SELECT COALESCE((SELECT chat_id FROM jobs LIMIT 1), 0), domain, added_at
+        FROM ignored_domains
+    """)
+    await conn.execute("DROP TABLE ignored_domains")
+    await conn.execute("ALTER TABLE ignored_domains_v2 RENAME TO ignored_domains")
+
+
+_MIGRATIONS.append(_migrate_v7_v8)
+
+
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
     cur = await conn.execute("PRAGMA user_version")
     row = await cur.fetchone()
@@ -403,24 +429,28 @@ async def connection() -> AsyncIterator[aiosqlite.Connection]:
         await conn.close()
 
 
-async def get_ignored_domains() -> set[str]:
+async def get_ignored_domains(chat_id: int) -> set[str]:
     async with connection() as conn:
-        cur = await conn.execute("SELECT domain FROM ignored_domains")
+        cur = await conn.execute(
+            "SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,)
+        )
         return {row[0] for row in await cur.fetchall()}
 
 
-async def add_ignored_domain(domain: str) -> None:
+async def add_ignored_domain(chat_id: int, domain: str) -> None:
     async with connection() as conn:
         await conn.execute(
-            "INSERT OR IGNORE INTO ignored_domains (domain) VALUES (?)", (domain,)
+            "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
+            (chat_id, domain),
         )
         await conn.commit()
 
 
-async def remove_ignored_domain(domain: str) -> bool:
+async def remove_ignored_domain(chat_id: int, domain: str) -> bool:
     async with connection() as conn:
         cur = await conn.execute(
-            "DELETE FROM ignored_domains WHERE domain=?", (domain,)
+            "DELETE FROM ignored_domains WHERE chat_id = ? AND domain = ?",
+            (chat_id, domain),
         )
         await conn.commit()
         return cur.rowcount > 0
