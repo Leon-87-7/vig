@@ -93,7 +93,7 @@ async def run(job: dict) -> None:
     vision = await gemini.call_gemini_vision(raw_frames)
     main_idx = max(0, min(vision.get("main_frame_index", 0), len(raw_frames) - 1))
     summary = vision.get("summary", "")
-    ignored = await database.get_ignored_domains()
+    ignored = await database.get_ignored_domains(chat_id)
     links: list[dict] = filter_vision_links(vision.get("links", []), extra_ignored=ignored)
 
     # 3. Brave Search enrichment (opt-in)
