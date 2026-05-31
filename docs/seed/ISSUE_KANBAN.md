@@ -56,6 +56,13 @@
 | [#60](https://github.com/Leon-87-7/vig/issues/60) | feat(jina): markdown_cache + /download_md utility + /force cache invalidation | Article / Utility | Committed to main; closed on GH |
 | [#61](https://github.com/Leon-87-7/vig/issues/61) | feat(allowlist): /allowlist family + allowed_domains table + ARTICLE_DEFAULT_DOMAINS + rejection hint | Article / Webhook | Committed to main; closed on GH |
 | [#62](https://github.com/Leon-87-7/vig/issues/62) | feat(article): end-to-end article URL pipeline — Jina → cache → doc → paywall → Gemini → sheets → brain | Article | Committed to main; closed on GH; 159/160 tests green |
+| [#67](https://github.com/Leon-87-7/vig/issues/67) | Repo pipeline #2: GitHub bundle fetch + Redis cache + README preprocessing + /force                        | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#68](https://github.com/Leon-87-7/vig/issues/68) | Repo pipeline #3: Gemini analysis + structured JSON + summary message                                      | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#69](https://github.com/Leon-87-7/vig/issues/69) | Repo pipeline #4: Telegram document delivery (`<owner>-<repo>.md`)                                         | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#70](https://github.com/Leon-87-7/vig/issues/70) | Repo pipeline #5: Sheets persistence (Repo Analysis tab + append/update)                                   | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#71](https://github.com/Leon-87-7/vig/issues/71) | Repo pipeline #6: Second Brain ingest (repo URL only)                                                      | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#72](https://github.com/Leon-87-7/vig/issues/72) | Repo pipeline #7: Edge cases (archived + no-README + distinct API errors)                                  | Repo Pipeline | Merged; PR #80; closed on GH |
+| [#73](https://github.com/Leon-87-7/vig/issues/73) | Repo pipeline #8: Freestyle re-run end-to-end (same job_id, cache hit, Sheets in-place update)            | Repo Pipeline | Merged; PR #80; closed on GH |
 
 ---
 
@@ -64,13 +71,6 @@
 |                                                   # | Title                                                                                                       | Area          | Depends On  |
 | --------------------------------------------------: | ----------------------------------------------------------------------------------------------------------- | ------------- | ----------- |
 | [#66](https://github.com/Leon-87-7/vig/issues/66)  | Repo pipeline #1: URL routing + stub processor (tracer bullet)                                              | Repo Pipeline | —           |
-| [#67](https://github.com/Leon-87-7/vig/issues/67)  | Repo pipeline #2: GitHub bundle fetch + Redis cache + README preprocessing + /force                         | Repo Pipeline | #66         |
-| [#68](https://github.com/Leon-87-7/vig/issues/68)  | Repo pipeline #3: Gemini analysis + structured JSON + summary message                                       | Repo Pipeline | #67         |
-| [#69](https://github.com/Leon-87-7/vig/issues/69)  | Repo pipeline #4: Telegram document delivery (`<owner>-<repo>.md`)                                          | Repo Pipeline | #68         |
-| [#70](https://github.com/Leon-87-7/vig/issues/70)  | Repo pipeline #5: Sheets persistence (Repo Analysis tab + append/update)                                   | Repo Pipeline | #68         |
-| [#71](https://github.com/Leon-87-7/vig/issues/71)  | Repo pipeline #6: Second Brain ingest (repo URL only)                                                       | Repo Pipeline | #68         |
-| [#72](https://github.com/Leon-87-7/vig/issues/72)  | Repo pipeline #7: Edge cases (archived + no-README + distinct API errors)                                   | Repo Pipeline | #68         |
-| [#73](https://github.com/Leon-87-7/vig/issues/73)  | Repo pipeline #8: Freestyle re-run end-to-end (same job_id, cache hit, Sheets in-place update)             | Repo Pipeline | #68, #70    |
 
 ---
 
@@ -78,9 +78,13 @@
 
 Ordered by unblocked-first, then dependency chain.
 
-|      # | Title | Area | Depends On |
-| -----: | ----- | ---- | ---------- |
-| (none) |       |      |            |
+|                                                  # | Title                                                                                                | Area                | Depends On    |
+| -------------------------------------------------: | ---------------------------------------------------------------------------------------------------- | ------------------- | ------------- |
+| [#75](https://github.com/Leon-87-7/vig/issues/75) | refactor(telegram): extract dispatch.py — CallbackCtx/SlashCtx contract module (ADR-0015)             | Refactor / Telegram | —             |
+| [#76](https://github.com/Leon-87-7/vig/issues/76) | refactor(telegram): extract callbacks.py — _cb_* + _CALLBACK_TABLE + handle_callback()                | Refactor / Telegram | #75           |
+| [#77](https://github.com/Leon-87-7/vig/issues/77) | refactor(telegram): extract domain_cmds.py — /ignore·/allowlist family + DOMAIN_COMMANDS              | Refactor / Telegram | #75           |
+| [#78](https://github.com/Leon-87-7/vig/issues/78) | refactor(telegram): extract photo.py — batch state machine + handle_photo_message() + PHOTO_COMMANDS  | Refactor / Telegram | #75           |
+| [#79](https://github.com/Leon-87-7/vig/issues/79) | refactor(telegram): finalize sender.* seam in webhook + line-count/glossary verification (ADR-0015)  | Refactor / Telegram | #76, #77, #78 |
 
 ---
 
@@ -163,11 +167,17 @@ Article URL feature (postgrill: docs/features/postgrill/article-url-feature.md)
 
 Repo URL feature (postgrill: docs/features/postgrill/repo-url-feature.md + ADR-0014)
 #66 URL routing + stub
-└── #67 bundle + cache + README preprocessing + /force
-    └── #68 Gemini analysis + summary ──┬── #69 document delivery
-                                        ├── #70 Sheets persistence ──┐
-                                        ├── #71 brain ingest         │
-                                        ├── #72 edge cases           │
-                                        └── #73 freestyle re-run ◄───┘
-                                              (also depends on #70)
+└── #67 bundle + cache + README preprocessing + /force ✓ (PR #80)
+    └── #68 Gemini analysis + summary ✓ ──┬── #69 document delivery ✓
+                                          ├── #70 Sheets persistence ✓ ──┐
+                                          ├── #71 brain ingest ✓         │
+                                          ├── #72 edge cases ✓           │
+                                          └── #73 freestyle re-run ✓ ◄───┘
+                                                (also depends on #70)
+
+webhook.py split (CONTEXT.md: Dispatch contract module / Telegram sender seam + ADR-0015)
+#75 extract dispatch.py (CallbackCtx/SlashCtx contract)
+├── #76 extract callbacks.py (_cb_* + _CALLBACK_TABLE + handle_callback) ──┐
+├── #77 extract domain_cmds.py (/ignore·/allowlist + DOMAIN_COMMANDS) ─────┤
+└── #78 extract photo.py (batch + handle_photo_message + PHOTO_COMMANDS) ──┴── #79 finalize sender.* seam in webhook + verify
 ```

@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
-    CHECK(content_type IN ('short', 'long', 'article')),
+    CHECK(content_type IN ('short', 'long', 'article', 'repo')),
     CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
     CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
@@ -230,7 +230,7 @@ _V6_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v6 (
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
-    CHECK(content_type IN ('short', 'long', 'article')),
+    CHECK(content_type IN ('short', 'long', 'article', 'repo')),
     CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
     CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
@@ -269,6 +269,87 @@ async def _migrate_v5_v6(conn: aiosqlite.Connection) -> None:
 
 
 _MIGRATIONS[5] = _migrate_v5_v6
+
+_V7_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v7 (
+    id                          TEXT PRIMARY KEY,
+    chat_id                     INTEGER NOT NULL,
+    message_id                  INTEGER,
+    url                         TEXT NOT NULL,
+    content_type                TEXT NOT NULL,
+    status                      TEXT NOT NULL DEFAULT 'pending',
+    attempt                     INTEGER NOT NULL DEFAULT 1,
+    error_msg                   TEXT,
+    drive_url                   TEXT,
+    title                       TEXT,
+    transcript                  TEXT,
+    ai_category                 TEXT,
+    ai_topic                    TEXT,
+    ai_objective                TEXT,
+    ai_action_points            TEXT,
+    ai_tools                    TEXT,
+    ai_market_data              TEXT,
+    prd_auto_status             TEXT,
+    prd_auto_drive_file_id      TEXT,
+    prd_auto_drive_url          TEXT,
+    prd_auto_json               TEXT,
+    prd_intent_status           TEXT,
+    prd_intent_drive_file_id    TEXT,
+    prd_intent_drive_url        TEXT,
+    prd_intent_json             TEXT,
+    prd_intent_text             TEXT,
+    prd_intent_completed_at     TEXT,
+    sheets_row_id               TEXT,
+    template                    TEXT,
+    template_analysis           TEXT,
+    key_phrases                 TEXT,
+    validation_warning_sent     INTEGER DEFAULT 0,
+    template_detection_method   TEXT,
+    processing_time_ms          INTEGER,
+    promise_gap                 TEXT,
+    bot_message_id              INTEGER,
+    freestyle_prompt            TEXT,
+    created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at                TIMESTAMP,
+    CHECK(content_type IN ('short', 'long', 'article', 'repo')),
+    CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
+    CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
+    CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
+)"""
+
+_V7_COLS = [
+    "id", "chat_id", "message_id", "url", "content_type", "status", "attempt",
+    "error_msg", "drive_url", "title", "transcript", "ai_category", "ai_topic",
+    "ai_objective", "ai_action_points", "ai_tools", "ai_market_data",
+    "prd_auto_status", "prd_auto_drive_file_id", "prd_auto_drive_url", "prd_auto_json",
+    "prd_intent_status", "prd_intent_drive_file_id", "prd_intent_drive_url",
+    "prd_intent_json", "prd_intent_text", "prd_intent_completed_at", "sheets_row_id",
+    "template", "template_analysis", "key_phrases", "validation_warning_sent",
+    "template_detection_method", "processing_time_ms", "promise_gap", "bot_message_id",
+    "freestyle_prompt", "created_at", "updated_at", "completed_at",
+]
+
+
+async def _migrate_v6_v7(conn: aiosqlite.Connection) -> None:
+    """Expand content_type CHECK to include 'repo'."""
+    await conn.execute(_V7_CREATE)
+    cur = await conn.execute("PRAGMA table_info(jobs)")
+    rows = await cur.fetchall()
+    existing = {row[1] for row in rows}
+    copy_cols = [c for c in _V7_COLS if c in existing]
+    if copy_cols:
+        col_str = ", ".join(copy_cols)
+        await conn.execute(
+            f"INSERT OR IGNORE INTO jobs_v7 ({col_str}) SELECT {col_str} FROM jobs"
+        )
+    await conn.execute("DROP TABLE jobs")
+    await conn.execute("ALTER TABLE jobs_v7 RENAME TO jobs")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id)")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url)")
+
+
+_MIGRATIONS.append(_migrate_v6_v7)
 
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
