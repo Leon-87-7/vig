@@ -1,4 +1,5 @@
 """Repo pipeline processor — full implementation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +16,7 @@ from src.services.github import fetch_repo_bundle
 from src.services.sheets import append_repo_row, update_repo_row
 from src.telegram.sender import send_document, send_inline_keyboard, send_message
 from src.utils.logger import get_logger
+from src.utils.markdown import _humanize_age
 
 log = get_logger(__name__)
 
@@ -54,7 +56,7 @@ def _format_bundle_message(owner: str, repo: str, bundle: dict) -> str:
 
     return (
         f"📦 {owner}/{repo}\n"
-        f"⭐ {stars:,} | 🔀 {forks:,} | 💻 {language} | 📅 {days} days ago\n"
+        f"⭐ {stars:,} | 🔀 {forks:,} | 💻 {language} | 📅 {_humanize_age(days)}\n"
         "\n"
         f"📄 README: {readme_bytes} bytes ({raw_kb:.1f} KB raw)\n"
         f"🗂  Tree: {tree_count} files\n"
@@ -96,7 +98,7 @@ REPO_ANALYSIS_SCHEMA = {
                         "type": "object",
                         "properties": {
                             "concept": {"type": "string"},
-                            "file_pointer": {"type": ["string", "null"]},
+                            "file_pointer": {"type": "string", "nullable": True},
                             "why": {"type": "string"},
                         },
                         "required": ["concept", "file_pointer", "why"],
@@ -157,14 +159,18 @@ def _build_repo_prompt(
         readme_block = f"README (preprocessed):\n{readme[:10_000]}"
 
     if freestyle_prompt:
-        focus_block = f"User instruction: {freestyle_prompt}\nAnswer using the repository context above."
+        focus_block = (
+            f"User instruction: {freestyle_prompt}\nAnswer using the repository context above."
+        )
     else:
         focus_block = (
             "Extract a structured analysis matching the JSON schema. "
             "Be specific about developer use-cases and educational concepts."
         )
 
-    return "\n\n".join([system_frame, meta_block, tree_block, manifest_block, readme_block, focus_block])
+    return "\n\n".join(
+        [system_frame, meta_block, tree_block, manifest_block, readme_block, focus_block]
+    )
 
 
 def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict) -> str:
@@ -181,20 +187,22 @@ def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict)
     hooks = analysis.get("for_education", {}).get("curriculum_hooks") or []
     edu_line = (concepts[0] if concepts else "") + (f" • {hooks[0]['concept']}…" if hooks else "")
 
-    return "\n".join([
-        f"📦 {owner}/{repo}",
-        tagline,
-        "",
-        f"⭐ {stars:,} | 🔀 {forks:,} | 💻 {language} | 📅 {days} days ago",
-        "",
-        "🛠 For developers",
-        f"  {first_idea}",
-        "",
-        "🎓 For teaching",
-        f"  {edu_line}",
-        "",
-        f"🔗 {repo_url}",
-    ])
+    return "\n".join(
+        [
+            f"📦 {owner}/{repo}",
+            tagline,
+            "",
+            f"⭐ {stars:,} | 🔀 {forks:,} | 💻 {language} | 📅 {_humanize_age(days)}",
+            "",
+            "🛠 For developers",
+            f"  {first_idea}",
+            "",
+            "🎓 For teaching",
+            f"  {edu_line}",
+            "",
+            f"🔗 {repo_url}",
+        ]
+    )
 
 
 def _sanitize_filename(owner: str, repo: str, *, job_id: str = "") -> str:
@@ -219,9 +227,12 @@ def render_repo_markdown(analysis: dict, bundle: dict) -> str:
     for_edu = analysis.get("for_education") or {}
 
     lines = [
-        f"# {owner}/{repo}", "",
-        f"> {tagline}", "",
-        f"⭐ {stars:,}  🔀 {forks:,}  💻 {language}  📅 {days} days ago", "",
+        f"# {owner}/{repo}",
+        "",
+        f"> {tagline}",
+        "",
+        f"⭐ {stars:,}  🔀 {forks:,}  💻 {language}  📅 {_humanize_age(days)}",
+        "",
     ]
     if meta.get("archived"):
         lines += ["## ⚠️ Archived — no longer maintained", ""]
@@ -232,14 +243,23 @@ def render_repo_markdown(analysis: dict, bundle: dict) -> str:
     lines += [f"- {t}" for t in tech_stack] or ["_(none)_"]
     lines += ["", "## 🛠 For Developers", "", "### Project Ideas", ""]
     lines += [f"- {i}" for i in (for_dev.get("project_ideas") or [])] or ["_(none)_"]
-    lines += ["", "### When to Use", "", for_dev.get("when_to_use", ""), "",
-              "### Avoid When", "", for_dev.get("avoid_when", ""), ""]
+    lines += [
+        "",
+        "### When to Use",
+        "",
+        for_dev.get("when_to_use", ""),
+        "",
+        "### Avoid When",
+        "",
+        for_dev.get("avoid_when", ""),
+        "",
+    ]
     lines += ["## 🎓 For Education", "", "### Concepts Taught", ""]
     lines += [f"- {c}" for c in (for_edu.get("concepts_taught") or [])] or ["_(none)_"]
     lines += ["", "### Prerequisites", ""]
     lines += [f"- {p}" for p in (for_edu.get("prerequisites") or [])] or ["_(none)_"]
     lines += ["", "### Curriculum Hooks", ""]
-    for hook in (for_edu.get("curriculum_hooks") or []):
+    for hook in for_edu.get("curriculum_hooks") or []:
         fp = hook.get("file_pointer")
         pointer = f" — `{fp}`" if fp else ""
         lines.append(f"- **{hook.get('concept', '')}**{pointer}")
@@ -295,6 +315,7 @@ async def run(job: dict) -> None:
     chat_id = job["chat_id"]
     url = job["url"]
     freestyle_prompt = job.get("freestyle_prompt")
+    tag = f"job_{job_id[-4:]}:"
 
     await database.update_job_status(job_id, "processing")
     owner, repo = _parse_owner_repo(url)
@@ -304,7 +325,7 @@ async def run(job: dict) -> None:
     except Exception as exc:
         log.warning("repo_github_error", job_id=job_id, error=str(exc)[:120])
         await database.update_job_status(job_id, "error", error_msg=str(exc)[:200])
-        await send_message(chat_id, f"❌ {_classify_github_error(exc)}")
+        await send_message(chat_id, f"{tag}\n❌ {_classify_github_error(exc)}")
         return
 
     flags = {"no_readme": bundle.get("no_readme", False)}
@@ -315,7 +336,7 @@ async def run(job: dict) -> None:
     except GeminiUnavailableError as exc:
         log.error("repo_gemini_failed", job_id=job_id)
         await database.update_job_status(job_id, "error", error_msg=str(exc)[:200])
-        await send_message(chat_id, "❌ Gemini unavailable, try /force later.")
+        await send_message(chat_id, f"{tag}\n❌ Gemini unavailable, try /force later.")
         return
 
     try:
@@ -328,12 +349,15 @@ async def run(job: dict) -> None:
             analysis = {}
 
     await database.update_job_status(
-        job_id, "done",
+        job_id,
+        "done",
         template_analysis=_json.dumps(analysis),
         title=f"{owner}/{repo}",
         ai_topic=analysis.get("tagline", ""),
         ai_objective=(analysis.get("for_developers") or {}).get("when_to_use", ""),
-        ai_action_points=_json.dumps((analysis.get("for_developers") or {}).get("project_ideas", [])),
+        ai_action_points=_json.dumps(
+            (analysis.get("for_developers") or {}).get("project_ideas", [])
+        ),
         ai_tools=_json.dumps(analysis.get("tech_stack", [])),
     )
 
@@ -354,12 +378,17 @@ async def run(job: dict) -> None:
 
     # Summary + Freestyle button
     prefix = "\n".join(warning_lines) + "\n\n" if warning_lines else ""
-    summary = prefix + _format_summary_message(owner, repo, analysis, bundle)
+    summary = f"{tag}\n{prefix}" + _format_summary_message(owner, repo, analysis, bundle)
     freestyle_btn = [[{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}]]
     await send_inline_keyboard(chat_id, summary, freestyle_btn)
 
     # Sheets — fire-and-forget
-    current_job = {"id": job_id, "url": url, "created_at": job.get("created_at", ""), "status": "done"}
+    current_job = {
+        "id": job_id,
+        "url": url,
+        "created_at": job.get("created_at", ""),
+        "status": "done",
+    }
     sheets_row_id = job.get("sheets_row_id")
     if sheets_row_id:
         asyncio.create_task(_sheets_update_safe(int(sheets_row_id), current_job, analysis, bundle))
@@ -367,8 +396,12 @@ async def run(job: dict) -> None:
         asyncio.create_task(_sheets_append_safe(job_id, current_job, analysis, bundle))
 
     # Brain ingest — fire-and-forget
-    asyncio.create_task(_brain_ingest_safe(
-        _normalize_repo_url(url), topic=analysis.get("tagline", ""), source_job_id=job_id,
-    ))
+    asyncio.create_task(
+        _brain_ingest_safe(
+            _normalize_repo_url(url),
+            topic=analysis.get("tagline", ""),
+            source_job_id=job_id,
+        )
+    )
 
     log.info("repo_pipeline_done", job_id=job_id, repo=f"{owner}/{repo}")

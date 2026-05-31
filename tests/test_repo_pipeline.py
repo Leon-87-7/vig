@@ -93,6 +93,27 @@ def test_bundle_message_no_manifests_shows_none() -> None:
 
 
 # ---------------------------------------------------------------------------
+# REPO_ANALYSIS_SCHEMA — google-genai SDK validity
+# ---------------------------------------------------------------------------
+
+def test_repo_schema_accepted_by_genai_sdk() -> None:
+    """REPO_ANALYSIS_SCHEMA must build a valid google-genai Schema.
+
+    Regression guard: Gemini structured output uses OpenAPI 3.0 semantics, where
+    ``type`` is a single value and nullability is a separate ``nullable`` flag.
+    A JSON-Schema union like ``{"type": ["string", "null"]}`` makes the SDK raise
+    ``1 validation error for Schema`` at request time (caught only in production).
+    Constructing the config here fails the test instead — no API call needed.
+    """
+    from google.genai import types
+
+    types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=REPO_ANALYSIS_SCHEMA,
+    )
+
+
+# ---------------------------------------------------------------------------
 # run() integration — mocked DB, sender, fetch_repo_bundle
 # ---------------------------------------------------------------------------
 
