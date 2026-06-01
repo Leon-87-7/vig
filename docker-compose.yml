@@ -55,7 +55,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=TTTask_bot
+        - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=photo2urlbot
     container_name: vig-web
     environment:
       - API_INTERNAL_URL=http://api:8000
