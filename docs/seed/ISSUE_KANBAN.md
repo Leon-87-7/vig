@@ -65,6 +65,7 @@
 | [#73](https://github.com/Leon-87-7/vig/issues/73) | Repo pipeline #8: Freestyle re-run end-to-end (same job_id, cache hit, Sheets in-place update)            | Repo Pipeline | Merged; PR #80; closed on GH |
 | [#81](https://github.com/Leon-87-7/vig/issues/81) | bug(database): add chat_id to ignored_domains — per-chat tenancy (drift fix)                              | DB / Tenancy  | Committed to main (45edd0d); closed on GH |
 | [#83](https://github.com/Leon-87-7/vig/issues/83) | web(S0): API package split + FK enforcement                                                                | Web / Infra   | Closed on GH |
+| [#84](https://github.com/Leon-87-7/vig/issues/84) | web(S1): Auth spine — Telegram Login Widget → Redis session → guarded Next.js shell                       | Web / Auth    | Closed on GH; dev branch; 18 tests green; end-to-end login verified on app.leondev.xyz |
 
 ---
 
@@ -73,9 +74,6 @@
 |                                                   # | Title                                                                                                       | Area          | Depends On  |
 | --------------------------------------------------: | ----------------------------------------------------------------------------------------------------------- | ------------- | ----------- |
 | [#66](https://github.com/Leon-87-7/vig/issues/66)  | Repo pipeline #1: URL routing + stub processor (tracer bullet)                                              | Repo Pipeline | —           |
-| [#85](https://github.com/Leon-87-7/vig/issues/85)  | web(S2): Feed — stats + fuse.js search + filters + polling                                                  | Web / Feed    | #84         |
-| [#86](https://github.com/Leon-87-7/vig/issues/86)  | web(S3): Job detail + per-field copy                                                                        | Web / Jobs    | #84         |
-| [#87](https://github.com/Leon-87-7/vig/issues/87)  | web(S4): Controls Tags tab                                                                                  | Web / Controls | #84        |
 | [#88](https://github.com/Leon-87-7/vig/issues/88)  | web(S5): Job annotation + tagging (Milkdown)                                                                | Web / Jobs    | #86, #87    |
 | [#89](https://github.com/Leon-87-7/vig/issues/89)  | web(S6): Spaces CRUD + URLs tab                                                                             | Web / Spaces  | #84, #85    |
 | [#90](https://github.com/Leon-87-7/vig/issues/90)  | web(S9): User templates + -name branch                                                                      | Web / Templates | #83, #84  |
@@ -99,14 +97,17 @@ Ordered by unblocked-first, then dependency chain.
 | [#78](https://github.com/Leon-87-7/vig/issues/78) | refactor(telegram): extract photo.py — batch state machine + handle_photo_message() + PHOTO_COMMANDS  | Refactor / Telegram | #75           |
 | [#79](https://github.com/Leon-87-7/vig/issues/79) | refactor(telegram): finalize sender.* seam in webhook + line-count/glossary verification (ADR-0015)  | Refactor / Telegram | #76, #77, #78 |
 | [#82](https://github.com/Leon-87-7/vig/issues/82) | bug(test_long_video): under-mocked send_message → coroutine reaches editMessageText JSON encode (test-only) | Test / Long Video | — |
+| [#85](https://github.com/Leon-87-7/vig/issues/85) | web(S2): Feed — hero stats + fuse.js search + filters + Scope-A polling                                     | Web / Feed        | — |
+| [#86](https://github.com/Leon-87-7/vig/issues/86) | web(S3): Job detail — full enrichment view + per-field copy buttons                                         | Web / Jobs        | — |
+| [#87](https://github.com/Leon-87-7/vig/issues/87) | web(S4): Controls Tags tab — tag CRUD with name + meaning + color                                           | Web / Controls    | — |
 
 ---
 
 ## Ready for Human
 
-|                                                  # | Title                                                                          | Area       | Notes                                    |
-| -------------------------------------------------: | ------------------------------------------------------------------------------ | ---------- | ---------------------------------------- |
-| [#84](https://github.com/Leon-87-7/vig/issues/84) | web(S1): Auth spine — Login Widget → Redis session → shell [HITL]              | Web / Auth | Needs BotFather domain reg + real login  |
+| # | Title | Area | Notes |
+| -: | ----- | ---- | ----- |
+| — | (empty) | | |
 
 ---
 
