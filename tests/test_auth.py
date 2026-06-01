@@ -8,15 +8,14 @@ Covers the two PRD seams for S1 (issue #84):
 from __future__ import annotations
 
 import hashlib
+from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
 import hmac
 import json
 import time
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
 from src.auth.hmac_verify import verify_telegram_auth
 
 
@@ -170,8 +169,6 @@ def auth_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     test_app.add_middleware(SessionMiddleware)
     test_app.include_router(auth_router)
 
-    from fastapi import Request
-
     @test_app.get("/api/probe")
     async def probe(request: Request) -> dict:
         return {"user": request.state.user}
@@ -207,9 +204,8 @@ class TestSessionMiddleware:
         fr: FakeRedis = session_module._redis  # type: ignore[assignment]
         fr._store["session:fixed-session-id"] = json.dumps(user)
 
-        auth_client.cookies.set("vig_session", "fixed-session-id")
-        resp = auth_client.get("/api/probe")
-        assert resp.status_code == 200
+        resp = auth_client.get("/api/probe", cookies={"vig_session": "fixed-session-id"})
+        assert resp.status_code == 200, f"Unexpected: {resp.text}"
         assert resp.json()["user"]["id"] == 7
 
     def test_health_passes_without_cookie(self, auth_client: TestClient) -> None:

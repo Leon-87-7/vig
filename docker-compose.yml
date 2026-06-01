@@ -50,6 +50,22 @@ services:
     networks:
       - vig-network
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: vig-web
+    environment:
+      - API_INTERNAL_URL=http://api:8000
+      - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=TTTask_bot
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - vig-network
+
   redis:
     image: redis:7-alpine
     container_name: vig-redis
