@@ -62,6 +62,7 @@ async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
         key=COOKIE_NAME,
         value=session_id,
         httponly=True,
+        secure=settings.SESSION_COOKIE_SECURE,
         samesite="lax",
         max_age=_COOKIE_MAX_AGE,
         path="/",
@@ -75,7 +76,7 @@ async def logout(request: Request, response: Response) -> dict:
     session_id = request.cookies.get(COOKIE_NAME)
     if session_id:
         await session_store.revoke(session_id)
-    response.delete_cookie(COOKIE_NAME, path="/")
+    response.delete_cookie(COOKIE_NAME, path="/", secure=settings.SESSION_COOKIE_SECURE)
     return {"ok": True}
 
 
