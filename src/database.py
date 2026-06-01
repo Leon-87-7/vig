@@ -137,6 +137,17 @@ CREATE TABLE IF NOT EXISTS links (
 );
 CREATE INDEX IF NOT EXISTS idx_links_url ON links(url);
 CREATE INDEX IF NOT EXISTS idx_links_updated_at ON links(updated_at);
+
+-- Tag vocabulary for job tagging (issue #87 / S4).
+CREATE TABLE IF NOT EXISTS tags (
+    id         TEXT PRIMARY KEY,
+    chat_id    INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    meaning    TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '#6366f1',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chat_id, name)
+);
 """
 
 
@@ -398,6 +409,19 @@ _MIGRATIONS.append([
         photo_url   TEXT,
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+])
+
+# v9 → v10: tags table (issue #87 / S4)
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS tags (
+        id         TEXT PRIMARY KEY,
+        chat_id    INTEGER NOT NULL,
+        name       TEXT NOT NULL,
+        meaning    TEXT NOT NULL DEFAULT '',
+        color      TEXT NOT NULL DEFAULT '#6366f1',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(chat_id, name)
     )""",
 ])
 
@@ -796,3 +820,47 @@ async def upsert_user(
         )
         await conn.commit()
     log.info("user_upserted", tg_id=tg_id)
+
+
+# ---------------------------------------------------------------------------
+# Tags (web dashboard — issue #87 / S4)
+# ---------------------------------------------------------------------------
+
+
+async def list_tags(chat_id: int) -> list[dict]:
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT id, name, meaning, color, created_at FROM tags WHERE chat_id = ? ORDER BY name",
+            (chat_id,),
+        )
+        return [dict(row) for row in await cur.fetchall()]
+
+
+async def create_tag(*, chat_id: int, name: str, meaning: str, color: str) -> dict:
+    tag_id = generate_id()
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT INTO tags (id, chat_id, name, meaning, color) VALUES (?, ?, ?, ?, ?)",
+            (tag_id, chat_id, name, meaning, color),
+        )
+        await conn.commit()
+    return {"id": tag_id, "name": name, "meaning": meaning, "color": color}
+
+
+async def update_tag(*, chat_id: int, tag_id: str, name: str, meaning: str, color: str) -> bool:
+    async with connection() as conn:
+        cur = await conn.execute(
+            "UPDATE tags SET name = ?, meaning = ?, color = ? WHERE id = ? AND chat_id = ?",
+            (name, meaning, color, tag_id, chat_id),
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def delete_tag(*, chat_id: int, tag_id: str) -> bool:
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM tags WHERE id = ? AND chat_id = ?", (tag_id, chat_id)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
