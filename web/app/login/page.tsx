@@ -17,7 +17,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    (window as Record<string, unknown>).onTelegramAuth = async (
+    (window as unknown as Record<string, unknown>).onTelegramAuth = async (
       user: TelegramUser
     ) => {
       const res = await fetch("/api/auth/telegram", {
@@ -46,7 +46,7 @@ export default function LoginPage() {
     container.appendChild(script);
 
     return () => {
-      delete (window as Record<string, unknown>).onTelegramAuth;
+      delete (window as unknown as Record<string, unknown>).onTelegramAuth;
     };
   }, [router]);
 
