@@ -1068,7 +1068,7 @@ async def webhook(
         if len(parts) < 2:
             await send_message(chat_id, f"❌ Usage: `-{tmpl_name} <url>`")
             return {"ok": True}
-        tmpl_row = await database.get_user_template_by_name(tmpl_name)
+        tmpl_row = await database.get_user_template_by_name(chat_id, tmpl_name)
         if tmpl_row is None:
             await send_message(
                 chat_id,

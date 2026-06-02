@@ -54,12 +54,10 @@ def _builtin_to_dict(name: str) -> dict:
 
 @templates_router.get("")
 async def list_templates(request: Request) -> list[dict]:
-    """Return all templates: built-ins first (is_builtin=True), then user templates."""
-    # Auth guard — middleware ensures request.state.user is set
-    _ = request.state.user
-
+    """Return all templates: built-ins first (is_builtin=True), then caller's user templates."""
+    chat_id: int = request.state.user["id"]
     builtins = [_builtin_to_dict(name) for name in PROMPT_TEMPLATES]
-    user_templates = await database.list_user_templates()
+    user_templates = await database.list_user_templates(chat_id)
     for t in user_templates:
         t["is_builtin"] = False
     return builtins + user_templates
@@ -68,13 +66,13 @@ async def list_templates(request: Request) -> list[dict]:
 @templates_router.post("", status_code=201)
 async def create_template(body: TemplateIn, request: Request) -> dict:
     """Create a user-defined template. Returns 409 on name collision."""
-    _ = request.state.user
-
+    chat_id: int = request.state.user["id"]
     if body.name in PROMPT_TEMPLATES:
         raise HTTPException(status_code=409, detail="Name collides with a built-in template")
 
     try:
         result = await database.create_user_template(
+            chat_id=chat_id,
             name=body.name,
             description=body.description,
             extra_instructions=body.extra_instructions,
@@ -91,13 +89,13 @@ async def create_template(body: TemplateIn, request: Request) -> dict:
 @templates_router.put("/{name}")
 async def update_template(name: str, body: TemplateUpdateIn, request: Request) -> dict:
     """Update a user-defined template. Returns 403 for built-ins, 404 if not found."""
-    _ = request.state.user
-
+    chat_id: int = request.state.user["id"]
     name_lower = name.lower()
     if name_lower in PROMPT_TEMPLATES:
         raise HTTPException(status_code=403, detail="Cannot modify a built-in template")
 
     ok = await database.update_user_template(
+        chat_id=chat_id,
         name=name_lower,
         description=body.description,
         extra_instructions=body.extra_instructions,
@@ -116,12 +114,11 @@ async def update_template(name: str, body: TemplateUpdateIn, request: Request) -
 @templates_router.delete("/{name}", status_code=204)
 async def delete_template(name: str, request: Request) -> None:
     """Delete a user-defined template. Returns 403 for built-ins, 404 if not found."""
-    _ = request.state.user
-
+    chat_id: int = request.state.user["id"]
     name_lower = name.lower()
     if name_lower in PROMPT_TEMPLATES:
         raise HTTPException(status_code=403, detail="Cannot delete a built-in template")
 
-    ok = await database.delete_user_template(name_lower)
+    ok = await database.delete_user_template(chat_id, name_lower)
     if not ok:
         raise HTTPException(status_code=404, detail="Template not found")
