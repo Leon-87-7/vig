@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from src import database
+from src.config import settings
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -33,6 +34,10 @@ class BlobIn(BaseModel):
 class BlobContentIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     content: str
+
+
+class ExportIn(BaseModel):
+    format: str = Field(default="gdoc", pattern=r"^gdoc$")
 
 
 # ---------------------------------------------------------------------------
@@ -220,3 +225,72 @@ async def reorder_blob(
     if not ok:
         raise HTTPException(status_code=404, detail="Blob not found")
     return {"blob_id": blob_id, "sort_order": body.sort_order}
+
+
+# ---------------------------------------------------------------------------
+# Export (issue #95 / S8) — server handles gdoc path only
+# ---------------------------------------------------------------------------
+
+
+@spaces_router.get("/{space_id}/export/markdown")
+async def get_export_markdown(space_id: str, request: Request) -> dict:
+    """Return the pre-composed export markdown so the client can download it."""
+    from src.services.space_export import compose_space_export
+
+    chat_id: int = request.state.user["id"]
+    space = await _get_owned_space(space_id, chat_id)
+    blobs = await database.list_context_blobs(space_id)
+    space_urls = await database.list_space_urls(space_id, chat_id)
+    all_tags = await database.list_tags(chat_id)
+
+    jobs: list[dict] = []
+    for item in space_urls:
+        job = await database.get_job(item["id"])
+        if job is None:
+            continue
+        annotation = await database.get_job_annotation(item["id"])
+        job_tags = await database.list_job_tags(item["id"])
+        jobs.append({**job, "notes": (annotation or {}).get("notes", ""), "tags": job_tags})
+
+    markdown = compose_space_export(space=space, blobs=blobs, jobs=jobs, tags=all_tags)
+    return {"markdown": markdown}
+
+
+@spaces_router.post("/{space_id}/export")
+async def export_space(space_id: str, body: ExportIn, request: Request) -> dict:
+    """Build a full space export and push it to Google Drive as a real Doc.
+
+    md/txt/pdf are client-side; this endpoint handles the gdoc path only.
+    Returns {"url": <webViewLink>} or {"error": "drive_not_configured"}.
+    """
+    from src.services.space_export import compose_space_export
+    from src.services.drive import export_to_gdoc
+
+    chat_id: int = request.state.user["id"]
+    space = await _get_owned_space(space_id, chat_id)
+
+    if not settings.GOOGLE_DRIVE_FOLDER_EXPORTS:
+        return {"error": "drive_not_configured"}
+
+    blobs = await database.list_context_blobs(space_id)
+    space_urls = await database.list_space_urls(space_id, chat_id)
+    all_tags = await database.list_tags(chat_id)
+
+    # Enrich each pinned job with its notes and applied tags.
+    jobs: list[dict] = []
+    for item in space_urls:
+        job = await database.get_job(item["id"])
+        if job is None:
+            continue
+        annotation = await database.get_job_annotation(item["id"])
+        job_tags = await database.list_job_tags(item["id"])
+        jobs.append({**job, "notes": (annotation or {}).get("notes", ""), "tags": job_tags})
+
+    markdown = compose_space_export(space=space, blobs=blobs, jobs=jobs, tags=all_tags)
+    doc_name = f"{space['name']} — export"
+    url = await export_to_gdoc(
+        markdown=markdown,
+        name=doc_name,
+        folder_id=settings.GOOGLE_DRIVE_FOLDER_EXPORTS,
+    )
+    return {"url": url}

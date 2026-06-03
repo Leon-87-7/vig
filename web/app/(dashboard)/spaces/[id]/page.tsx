@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { JobSummary } from "@/components/job-card";
 import MarkdownEditor from "@/components/MarkdownEditor";
+import ExportModal from "@/components/ExportModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,6 +101,9 @@ export default function SpaceDetailPage({
   const [blobsLoading, setBlobsLoading] = useState(false);
   const [addingBlob, setAddingBlob] = useState(false);
   const [newBlobName, setNewBlobName] = useState("");
+
+  // Export modal
+  const [showExport, setShowExport] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Fetch space
@@ -406,6 +410,12 @@ export default function SpaceDetailPage({
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowExport(true)}
+              className="rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400 hover:text-white transition-colors"
+            >
+              Export
+            </button>
+            <button
               onClick={() => {
                 setEditName(space.name);
                 setEditColor(space.color);
@@ -572,6 +582,15 @@ export default function SpaceDetailPage({
             </button>
           </div>
         </section>
+      )}
+
+      {/* Export modal */}
+      {showExport && (
+        <ExportModal
+          spaceId={spaceId}
+          spaceName={space.name}
+          onClose={() => setShowExport(false)}
+        />
       )}
 
       {/* Context tab */}
