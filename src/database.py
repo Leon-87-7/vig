@@ -199,6 +199,18 @@ CREATE TABLE IF NOT EXISTS space_urls (
     added_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (space_id, job_id)
 );
+
+-- Per-space editorial context documents (issue #93 / S7).
+CREATE TABLE IF NOT EXISTS context_blobs (
+    id         TEXT PRIMARY KEY,
+    space_id   TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    content    TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_context_blobs_space_id ON context_blobs(space_id);
 """
 
 
@@ -527,6 +539,20 @@ _MIGRATIONS.append([
         added_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (space_id, job_id)
     )""",
+])
+
+# v13 → v14: context_blobs table (issue #93 / S7)
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS context_blobs (
+        id         TEXT PRIMARY KEY,
+        space_id   TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
+        content    TEXT NOT NULL DEFAULT '',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_context_blobs_space_id ON context_blobs(space_id)",
 ])
 
 
@@ -1248,3 +1274,85 @@ async def list_space_urls(space_id: str, chat_id: int) -> list[dict]:
             (chat_id, space_id),
         )
         return [dict(row) for row in await cur.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Context blobs (issue #93 / S7)
+# ---------------------------------------------------------------------------
+
+
+async def create_context_blob(*, space_id: str, name: str, content: str = "") -> dict:
+    """INSERT a context blob; auto-assigns sort_order = max+1. Returns the row."""
+    blob_id = generate_id()
+    async with connection() as conn:
+        await conn.execute(
+            """INSERT INTO context_blobs (id, space_id, name, content, sort_order)
+               VALUES (?, ?, ?, ?, COALESCE(
+                   (SELECT MAX(sort_order) FROM context_blobs WHERE space_id = ?), 0
+               ) + 1)""",
+            (blob_id, space_id, name, content, space_id),
+        )
+        await conn.commit()
+        cur = await conn.execute(
+            "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
+            "FROM context_blobs WHERE id = ?",
+            (blob_id,),
+        )
+        row = await cur.fetchone()
+        return dict(row)
+
+
+async def list_context_blobs(space_id: str) -> list[dict]:
+    """Return all context blobs for a space ordered by sort_order."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
+            "FROM context_blobs WHERE space_id = ? ORDER BY sort_order ASC",
+            (space_id,),
+        )
+        return [dict(row) for row in await cur.fetchall()]
+
+
+async def get_context_blob(blob_id: str) -> dict | None:
+    """Return a single context blob by PK, or None."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
+            "FROM context_blobs WHERE id = ?",
+            (blob_id,),
+        )
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def update_context_blob(*, blob_id: str, name: str, content: str) -> bool:
+    """UPDATE name and content; sets updated_at. Returns True if the row existed."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "UPDATE context_blobs SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (name, content, blob_id),
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def delete_context_blob(blob_id: str) -> bool:
+    """DELETE a context blob. Returns True if the row existed."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "DELETE FROM context_blobs WHERE id = ?", (blob_id,)
+        )
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def reorder_context_blob(*, blob_id: str, new_sort_order: int) -> bool:
+    """UPDATE sort_order for a blob. Returns True if the row existed."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "UPDATE context_blobs SET sort_order = ? WHERE id = ?",
+            (new_sort_order, blob_id),
+        )
+        await conn.commit()
+        return cur.rowcount > 0
