@@ -101,6 +101,20 @@ established by earlier ones.
 
 ---
 
+## PR 8 — Web S7/S8: Space context blobs + Export composer
+
+**Branch:** `pr/spaces-s7-s8`
+**Depends on:** PR 6
+
+| Hash | Message |
+|---|---|
+| `72768e7` | docs: add dev→main merge plan with PR order and dependencies |
+| `f910a66` | feat(web): S7 — space context blobs + Context tab (#93) |
+| `66ded46` | feat(web): S8 — space export composer + gdoc + export modal (#95) |
+| `3988e2e` | chore(kanban): sync board — #89/#93/#95 → Done |
+
+---
+
 ## Merge order summary
 
 ```
@@ -111,9 +125,10 @@ main
            ├── PR 4 (templates)
            ├── PR 5 (S11 — brain search)
            └── PR 6 (S5/S6 — annotations + spaces)
+                └── PR 8 (S7/S8 — context blobs + export)
 
 PR 7 (ADR-0020) — independent, merge whenever ready
 ```
 
 PRs 3, 4, 5, 6 can be opened in parallel after PR 2 merges; they are independent
-of each other and only share the PR 2 base.
+of each other and only share the PR 2 base. PR 8 depends on PR 6.
