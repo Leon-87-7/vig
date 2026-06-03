@@ -130,7 +130,10 @@ def _extract_json(raw: str) -> dict:
         return json.loads(text)
     except json.JSONDecodeError:
         from json_repair import repair_json
-        return json.loads(repair_json(text))
+        try:
+            return json.loads(repair_json(text))
+        except json.JSONDecodeError as exc:
+            raise EnrichmentUnavailableError(f"Gemini returned unparseable JSON: {exc}") from exc
 
 
 def _parse_enrichment(data: dict) -> Enrichment:
