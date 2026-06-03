@@ -349,7 +349,7 @@ function DomainTab({
     setRemoveError(undefined);
     try {
       const res = await fetch(`${apiPath}/${encodeURIComponent(domain)}`, { method: 'DELETE' });
-      if (res.ok || res.status === 204) {
+      if (res.ok) {
         setDomains((prev) => prev.filter((d) => d !== domain));
       } else {
         const data = await res.json().catch(() => ({}));
@@ -366,8 +366,9 @@ function DomainTab({
         <h3 className="mb-3 text-sm font-semibold text-gray-200">Add domain</h3>
         <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Domain or URL</label>
+            <label htmlFor="domain-input" className="text-xs text-gray-400">Domain or URL</label>
             <input
+              id="domain-input"
               type="text"
               required
               value={input}
