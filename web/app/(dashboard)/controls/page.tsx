@@ -302,6 +302,7 @@ function DomainTab({
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | undefined>();
+  const [removeError, setRemoveError] = useState<string | undefined>();
 
   useEffect(() => {
     fetch(apiPath)
@@ -345,12 +346,17 @@ function DomainTab({
   };
 
   const handleRemove = async (domain: string) => {
-    const res = await fetch(`${apiPath}/${encodeURIComponent(domain)}`, { method: 'DELETE' });
-    if (res.ok || res.status === 204) {
-      setDomains((prev) => prev.filter((d) => d !== domain));
-    } else {
-      const data = await res.json().catch(() => ({}));
-      alert((data as { detail?: string }).detail ?? 'Remove failed');
+    setRemoveError(undefined);
+    try {
+      const res = await fetch(`${apiPath}/${encodeURIComponent(domain)}`, { method: 'DELETE' });
+      if (res.ok || res.status === 204) {
+        setDomains((prev) => prev.filter((d) => d !== domain));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setRemoveError((data as { detail?: string }).detail ?? 'Remove failed');
+      }
+    } catch (err: unknown) {
+      setRemoveError(err instanceof Error ? err.message : 'Remove failed');
     }
   };
 
@@ -385,6 +391,7 @@ function DomainTab({
 
       {loading && <p className="text-sm text-gray-400">Loading {label.toLowerCase()}…</p>}
       {fetchError && <p className="text-sm text-red-400">{fetchError}</p>}
+      {removeError && <p className="text-sm text-red-400">{removeError}</p>}
       {!loading && !fetchError && domains.length === 0 && (
         <p className="text-sm text-gray-500">No {label.toLowerCase()} yet. Add one above.</p>
       )}
