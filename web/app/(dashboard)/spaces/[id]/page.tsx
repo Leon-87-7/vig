@@ -175,7 +175,12 @@ export default function SpaceDetailPage({
   // ---------------------------------------------------------------------------
 
   const handleRemoveUrl = async (jobId: string) => {
-    await fetch(`/api/spaces/${spaceId}/urls/${jobId}`, { method: "DELETE" });
+    const res = await fetch(`/api/spaces/${spaceId}/urls/${jobId}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 204) {
+      const data = await res.json().catch(() => ({}));
+      alert((data as { detail?: string }).detail ?? "Failed to remove URL");
+      return;
+    }
     await fetchUrls();
   };
 
