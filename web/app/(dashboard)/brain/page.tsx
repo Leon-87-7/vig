@@ -155,6 +155,7 @@ export default function BrainPage() {
           onKeyDown={handleKeyDown}
           disabled={loading}
           placeholder="e.g. machine learning, startup advice…"
+          aria-label="Semantic search query"
           className="flex-1 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-gray-100 placeholder-gray-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
         />
         <button
