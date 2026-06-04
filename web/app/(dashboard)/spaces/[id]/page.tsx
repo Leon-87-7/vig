@@ -88,7 +88,7 @@ export default function SpaceDetailPage({
 
   const fetchSpace = useCallback(async (signal?: AbortSignal) => {
     try {
-      const res = await fetch(, { signal });
+      const res = await fetch(`/api/spaces/${spaceId}`, { signal });
       if (res.status === 404) { setFetchState("not_found"); return; }
       if (res.status === 403 || res.status === 401) { setFetchState("forbidden"); return; }
       if (!res.ok) { setFetchState("error"); return; }
