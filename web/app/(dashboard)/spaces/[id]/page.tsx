@@ -210,17 +210,27 @@ export default function SpaceDetailPage({
   // Add job
   // ---------------------------------------------------------------------------
 
+  const [addJobError, setAddJobError] = useState<string | null>(null);
+
   const handleAddJob = async () => {
     if (!selectedJobId) return;
     setAddingJob(true);
+    setAddJobError(null);
     try {
-      await fetch(`/api/spaces/${spaceId}/urls`, {
+      const res = await fetch(`/api/spaces/${spaceId}/urls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: selectedJobId }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setAddJobError((data as { detail?: string }).detail ?? "Failed to add job");
+        return;
+      }
       setSelectedJobId("");
       await fetchUrls();
+    } catch (err) {
+      setAddJobError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setAddingJob(false);
     }
