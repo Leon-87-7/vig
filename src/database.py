@@ -459,6 +459,20 @@ _MIGRATIONS.append([
     )""",
 ])
 
+# v11 → v12: job annotations + job-tag link table (issue #88 / S5)
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS job_annotations (
+        job_id     TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+        notes      TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+    """CREATE TABLE IF NOT EXISTS job_tags (
+        job_id  TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        tag_id  TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        PRIMARY KEY (job_id, tag_id)
+    )""",
+])
+
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
     cur = await conn.execute("PRAGMA user_version")
@@ -1003,3 +1017,78 @@ async def delete_user_template(chat_id: int, name: str) -> bool:
         )
         await conn.commit()
         return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Job annotations (issue #88 / S5)
+# ---------------------------------------------------------------------------
+
+
+async def get_job_annotation(job_id: str) -> dict | None:
+    """Return the annotation row for *job_id*, or None if absent."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            "SELECT notes, updated_at FROM job_annotations WHERE job_id = ?",
+            (job_id,),
+        )
+        row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def upsert_job_annotation(job_id: str, notes: str) -> dict:
+    """Insert or replace the annotation for *job_id*. Returns the saved row."""
+    async with connection() as conn:
+        await conn.execute(
+            """INSERT INTO job_annotations (job_id, notes, updated_at)
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(job_id) DO UPDATE SET
+                   notes      = excluded.notes,
+                   updated_at = excluded.updated_at""",
+            (job_id, notes),
+        )
+        await conn.commit()
+        cur = await conn.execute(
+            "SELECT notes, updated_at FROM job_annotations WHERE job_id = ?",
+            (job_id,),
+        )
+        row = await cur.fetchone()
+    return dict(row)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Job-tag links (issue #88 / S5)
+# ---------------------------------------------------------------------------
+
+
+async def list_job_tags(job_id: str) -> list[dict]:
+    """Return tag summaries for all tags attached to *job_id*."""
+    async with connection() as conn:
+        cur = await conn.execute(
+            """SELECT t.id, t.name, t.color, t.meaning
+               FROM tags t
+               JOIN job_tags jt ON jt.tag_id = t.id
+               WHERE jt.job_id = ?""",
+            (job_id,),
+        )
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def attach_job_tag(job_id: str, tag_id: str) -> None:
+    """Attach *tag_id* to *job_id* (idempotent)."""
+    async with connection() as conn:
+        await conn.execute(
+            "INSERT OR IGNORE INTO job_tags (job_id, tag_id) VALUES (?, ?)",
+            (job_id, tag_id),
+        )
+        await conn.commit()
+
+
+async def detach_job_tag(job_id: str, tag_id: str) -> None:
+    """Remove the link between *job_id* and *tag_id*."""
+    async with connection() as conn:
+        await conn.execute(
+            "DELETE FROM job_tags WHERE job_id = ? AND tag_id = ?",
+            (job_id, tag_id),
+        )
+        await conn.commit()
