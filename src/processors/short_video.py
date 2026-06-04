@@ -197,7 +197,8 @@ async def run(job: dict) -> None:
     try:
         transcript_resp = await transcript_svc.fetch_transcript(url)
         if "error" in transcript_resp:
-            err_msg = transcript_resp["error"].get("message", "unknown")
+            err_val = transcript_resp["error"]
+            err_msg = err_val.get("message", "unknown") if isinstance(err_val, dict) else str(err_val)
             await send_message(chat_id, f"{tag}\n⚠️ Transcript service error: {err_msg}")
         elif transcript_resp.get("fallback") == "audio":
             audio_b64 = transcript_resp.get("audio_b64", "")
@@ -249,8 +250,11 @@ async def run(job: dict) -> None:
                 )
 
     if template and template_analysis:
-        section = enrichment_proc._format_template_analysis(template, template_analysis)
-        await send_message(chat_id, f"{tag}{section}")
+        try:
+            section = enrichment_proc._format_template_analysis(template, template_analysis)
+            await send_message(chat_id, f"{tag}{section}")
+        except Exception as exc:
+            log.warning("template_analysis_send_failed", error=str(exc))
         await database.update_job_status(
             job_id, "done",
             template_analysis=json.dumps(template_analysis),
@@ -265,8 +269,11 @@ async def run(job: dict) -> None:
             )
         except Exception as exc:
             log.warning("transcript_drive_upload_failed", error=str(exc))
-        await send_document(
-            chat_id,
-            transcript_md.encode("utf-8"),
-            f"{job_id}_transcript.md",
-        )
+        try:
+            await send_document(
+                chat_id,
+                transcript_md.encode("utf-8"),
+                f"{job_id}_transcript.md",
+            )
+        except Exception as exc:
+            log.warning("transcript_send_document_failed", error=str(exc))

@@ -103,6 +103,8 @@ Ordered by unblocked-first, then dependency chain.
 | [#78](https://github.com/Leon-87-7/vig/issues/78) | refactor(telegram): extract photo.py — batch state machine + handle_photo_message() + PHOTO_COMMANDS        | Refactor / Telegram | #75           |
 | [#79](https://github.com/Leon-87-7/vig/issues/79) | refactor(telegram): finalize sender.\* seam in webhook + line-count/glossary verification (ADR-0015)        | Refactor / Telegram | #76, #77, #78 |
 | [#82](https://github.com/Leon-87-7/vig/issues/82) | bug(test_long_video): under-mocked send_message → coroutine reaches editMessageText JSON encode (test-only) | Test / Long Video   | —             |
+| [#93](https://github.com/Leon-87-7/vig/issues/93) | web(S7): Space context blobs — Context tab (Milkdown, ordered)                                              | Web / Spaces        | #89, #88      |
+| [#95](https://github.com/Leon-87-7/vig/issues/95) | web(S8): Space export — composer + gdoc + md/txt/pdf modal                                                  | Web / Spaces        | #89, #93, #87, #88 |
 
 ---
 

@@ -616,13 +616,14 @@ async def get_ignored_domains(chat_id: int) -> set[str]:
         return {row[0] for row in await cur.fetchall()}
 
 
-async def add_ignored_domain(chat_id: int, domain: str) -> None:
+async def add_ignored_domain(chat_id: int, domain: str) -> bool:
     async with connection() as conn:
-        await conn.execute(
+        cur = await conn.execute(
             "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
             (chat_id, domain),
         )
         await conn.commit()
+        return cur.rowcount > 0
 
 
 async def remove_ignored_domain(chat_id: int, domain: str) -> bool:
@@ -635,14 +636,15 @@ async def remove_ignored_domain(chat_id: int, domain: str) -> bool:
         return cur.rowcount > 0
 
 
-async def add_allowed_domain(chat_id: int, domain: str) -> None:
-    """Insert (chat_id, domain) into allowed_domains. Idempotent on duplicate."""
+async def add_allowed_domain(chat_id: int, domain: str) -> bool:
+    """Insert (chat_id, domain) into allowed_domains. Returns True if inserted, False if already present."""
     async with connection() as conn:
-        await conn.execute(
+        cur = await conn.execute(
             "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
             (chat_id, domain),
         )
         await conn.commit()
+        return cur.rowcount > 0
 
 
 async def list_allowed_domains(chat_id: int) -> set[str]:
