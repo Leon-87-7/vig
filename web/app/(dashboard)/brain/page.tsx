@@ -164,7 +164,7 @@ export default function BrainPage() {
         >
           {loading ? (
             <span className="flex items-center gap-2">
-              <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span aria-hidden="true" className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Searching…
             </span>
           ) : (
