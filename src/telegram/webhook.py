@@ -1097,12 +1097,11 @@ async def webhook(
             message_id=message_id,
             template="freestyle" if extra_instructions else None,
         )
-        async with database.connection() as conn:
-            await conn.execute(
-                "UPDATE jobs SET freestyle_prompt=?, template_detection_method=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (extra_instructions or None, f"user_template:{tmpl_name}", job_id),
-            )
-            await conn.commit()
+        await database.set_job_template_prompt(
+            job_id,
+            freestyle_prompt=extra_instructions or None,
+            template_detection_method=f"user_template:{tmpl_name}",
+        )
         task_type = (
             "repo" if pipeline == "repo"
             else "article" if pipeline == "article"

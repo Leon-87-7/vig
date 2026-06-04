@@ -662,6 +662,21 @@ async def set_prd_slot_status(job_id: str, slot: Literal["auto", "intent"], stat
     log.info("prd_slot_status_set", job_id=job_id, slot=slot, status=status)
 
 
+async def set_job_template_prompt(
+    job_id: str,
+    *,
+    freestyle_prompt: str | None,
+    template_detection_method: str,
+) -> None:
+    """Write freestyle_prompt and template_detection_method on a job row."""
+    async with connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET freestyle_prompt=?, template_detection_method=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (freestyle_prompt, template_detection_method, job_id),
+        )
+        await conn.commit()
+
+
 _REAPABLE_STATUSES = ("processing", "enriching")
 
 
