@@ -248,8 +248,11 @@ async def run(job: dict) -> None:
                 )
 
     if template and template_analysis:
-        section = enrichment_proc._format_template_analysis(template, template_analysis)
-        await send_message(chat_id, f"{tag}{section}")
+        try:
+            section = enrichment_proc._format_template_analysis(template, template_analysis)
+            await send_message(chat_id, f"{tag}{section}")
+        except Exception as exc:
+            log.warning("template_analysis_send_failed", error=str(exc))
         await database.update_job_status(
             job_id, "done",
             template_analysis=json.dumps(template_analysis),
