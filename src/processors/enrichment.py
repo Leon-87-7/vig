@@ -129,12 +129,17 @@ def _extract_json(raw: str) -> dict:
     m = re.search(r"\{[\s\S]*\}", clean)
     text = m.group(0) if m else clean
     try:
-        return json.loads(text)
+        parsed = json.loads(text)
     except json.JSONDecodeError:
         try:
-            return json.loads(repair_json(text))
+            parsed = json.loads(repair_json(text))
         except json.JSONDecodeError as exc:
             raise EnrichmentUnavailableError(f"Gemini returned unparseable JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise EnrichmentUnavailableError(
+            f"Gemini returned non-object JSON: {type(parsed).__name__}"
+        )
+    return parsed
 
 
 def _parse_enrichment(data: dict) -> Enrichment:

@@ -57,9 +57,22 @@ def test_extract_json_repairs_malformed() -> None:
 
 
 def test_extract_json_unparseable_raises() -> None:
-    # Completely blank response — repair_json returns "" or "null", json.loads raises
-    with pytest.raises(EnrichmentUnavailableError, match="unparseable JSON"):
+    # Blank response — repair_json cannot produce a dict; raises
+    with pytest.raises(EnrichmentUnavailableError, match="unparseable JSON|non-object JSON"):
         _extract_json("")
+
+
+def test_extract_json_non_dict_raises() -> None:
+    # repair_json fixes an incomplete array to a valid list — not a dict
+    with pytest.raises(EnrichmentUnavailableError, match="non-object JSON"):
+        _extract_json("[1, 2, 3")
+
+
+def test_extract_json_null_literal_raises() -> None:
+    # Valid JSON "null" parses to None — not a dict
+    with pytest.raises(EnrichmentUnavailableError, match="non-object JSON"):
+        _extract_json("null")
+
 
 
 # ---------------------------------------------------------------------------
