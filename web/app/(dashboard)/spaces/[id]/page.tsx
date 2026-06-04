@@ -274,11 +274,12 @@ export default function SpaceDetailPage({
     const name = newBlobName.trim() || "New context";
     setAddingBlob(true);
     try {
-      await fetch(`/api/spaces/${spaceId}/blobs`, {
+      const res = await fetch(`/api/spaces/${spaceId}/blobs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
+      if (!res.ok) { console.error("Failed to add blob", res.status); return; }
       setNewBlobName("");
       await fetchBlobs();
     } finally {
@@ -287,15 +288,17 @@ export default function SpaceDetailPage({
   };
 
   const handleBlobSave = async (blobId: string, name: string, content: string) => {
-    await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, {
+    const res = await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, content }),
     });
+    if (!res.ok) console.error("Failed to save blob", res.status);
   };
 
   const handleDeleteBlob = async (blobId: string) => {
-    await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, { method: "DELETE" });
+    const res = await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, { method: "DELETE" });
+    if (!res.ok) { console.error("Failed to delete blob", res.status); return; }
     await fetchBlobs();
   };
 
@@ -631,7 +634,14 @@ export default function SpaceDetailPage({
                     </div>
                     <input
                       type="text"
-                      defaultValue={blob.name}
+                      value={blob.name}
+                      onChange={(e) => {
+                        setBlobs((prev) =>
+                          prev.map((b) =>
+                            b.id === blob.id ? { ...b, name: e.target.value } : b
+                          )
+                        );
+                      }}
                       onBlur={(e) =>
                         handleBlobSave(blob.id, e.target.value, blob.content)
                       }
