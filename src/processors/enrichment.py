@@ -7,6 +7,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from json_repair import repair_json
+
 from src import database
 from src.brain import EMBEDDING_DIM
 from src.config import settings
@@ -129,7 +131,6 @@ def _extract_json(raw: str) -> dict:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        from json_repair import repair_json
         try:
             return json.loads(repair_json(text))
         except json.JSONDecodeError as exc:
