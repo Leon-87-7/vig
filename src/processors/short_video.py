@@ -213,6 +213,8 @@ async def run(job: dict) -> None:
                     transcript_text = await enrichment_proc.transcribe_audio(
                         audio_b64, mime_audio, title
                     )
+            else:
+                wordless = True
         else:
             raw_text = transcript_resp.get("text", "")
             if raw_text:

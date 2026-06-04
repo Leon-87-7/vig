@@ -71,6 +71,8 @@
 | [#86](https://github.com/Leon-87-7/vig/issues/86) | web(S3): Job detail — full enrichment view + per-field copy buttons                                     | Web / Jobs              | —                                                                                         |
 | [#87](https://github.com/Leon-87-7/vig/issues/87) | web(S4): Controls Tags tab — tag CRUD with name + meaning + color                                       | Web / Controls          | —                                                                                         |
 | [#89](https://github.com/Leon-87-7/vig/issues/89) | web(S6): Spaces — CRUD + URLs tab                                                                       | Web / Spaces            | Merged to dev; commits 1bd879b + 894c43c; closed on GH                                     |
+| [#93](https://github.com/Leon-87-7/vig/issues/93) | web(S7): Space context blobs — Context tab (Milkdown, ordered)                                          | Web / Spaces            | Committed to dev; closed on GH                                                              |
+| [#95](https://github.com/Leon-87-7/vig/issues/95) | web(S8): Space export — composer + gdoc + md/txt/pdf modal                                              | Web / Spaces            | Committed to dev; closed on GH                                                              |
 | [#101](https://github.com/Leon-87-7/vig/issues/101) | feat(enrichment): transcribe_audio + enrich_audio returns transcript text (ADR-0020 foundation)       | Short Video / Enrichment | Committed (dbdcd40); closed on GH; 57 tests green                                          |
 | [#102](https://github.com/Leon-87-7/vig/issues/102) | feat(short-pipeline): guaranteed transcript acquisition on every short job (ADR-0020)                | Short Video             | Committed (dbdcd40); closed on GH; 57 tests green                                          |
 | [#103](https://github.com/Leon-87-7/vig/issues/103) | feat(short-pipeline): transcript Drive upload + Telegram document delivery tail (ADR-0020)           | Short Video             | Committed (dbdcd40); closed on GH; 57 tests green                                          |
@@ -210,8 +212,8 @@ Critical path: #83 → #84 → {#85, #86, #87} → #88/#89 → #93 → #95
 └── #84 S1 — Auth spine [HITL] ✓
     ├── #85 S2 — Feed ✓
     │   └── #89 S6 — Spaces CRUD + URLs tab ✓ ◄── also #84
-    │       └── #93 S7 — Context blobs ◄── also #88
-    │           └── #95 S8 — Space export ◄── also #87, #88
+    │       └── #93 S7 — Context blobs ✓ ◄── also #88
+    │           └── #95 S8 — Space export ✓ ◄── also #87, #88
     ├── #86 S3 — Job detail ✓
     │   └── #88 S5 — Job annotation ◄── also #87
     ├── #87 S4 — Controls Tags tab ✓

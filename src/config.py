@@ -51,6 +51,8 @@ class Settings(BaseSettings):
 
     # Slice #5 — Second Brain
     GOOGLE_DRIVE_FOLDER_BRAIN: str = ""
+    # Space exports (issue #95 / S8)
+    GOOGLE_DRIVE_FOLDER_EXPORTS: str = ""
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
     BRAIN_REFRESH_BATCH: int = 50
     BRAIN_MIN_SCORE: float = 0.5

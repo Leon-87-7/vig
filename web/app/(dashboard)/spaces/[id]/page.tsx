@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { JobSummary } from "@/components/job-card";
+import MarkdownEditor from "@/components/MarkdownEditor";
+import ExportModal from "@/components/ExportModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,7 +30,18 @@ interface SpaceUrl {
   added_at: string;
 }
 
+interface ContextBlob {
+  id: string;
+  space_id: string;
+  name: string;
+  content: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 type FetchState = "loading" | "ok" | "not_found" | "forbidden" | "error";
+type ActiveTab = "urls" | "context";
 
 // ---------------------------------------------------------------------------
 // Badge (reuse job-card style)
@@ -65,6 +78,7 @@ export default function SpaceDetailPage({
 
   const [space, setSpace] = useState<SpaceDetail | null>(null);
   const [fetchState, setFetchState] = useState<FetchState>("loading");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("urls");
 
   // Edit form
   const [editing, setEditing] = useState(false);
@@ -81,6 +95,15 @@ export default function SpaceDetailPage({
   const [allJobs, setAllJobs] = useState<JobSummary[]>([]);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [addingJob, setAddingJob] = useState(false);
+
+  // Context tab
+  const [blobs, setBlobs] = useState<ContextBlob[]>([]);
+  const [blobsLoading, setBlobsLoading] = useState(false);
+  const [addingBlob, setAddingBlob] = useState(false);
+  const [newBlobName, setNewBlobName] = useState("");
+
+  // Export modal
+  const [showExport, setShowExport] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Fetch space
@@ -137,6 +160,22 @@ export default function SpaceDetailPage({
     }
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Fetch context blobs
+  // ---------------------------------------------------------------------------
+
+  const fetchBlobs = useCallback(async () => {
+    setBlobsLoading(true);
+    try {
+      const res = await fetch(`/api/spaces/${spaceId}/blobs`);
+      if (!res.ok) return;
+      const data: ContextBlob[] = await res.json();
+      setBlobs(data);
+    } finally {
+      setBlobsLoading(false);
+    }
+  }, [spaceId]);
+
   useEffect(() => {
     fetchSpace();
   }, [fetchSpace]);
@@ -145,8 +184,9 @@ export default function SpaceDetailPage({
     if (fetchState === "ok") {
       fetchUrls();
       fetchAllJobs();
+      fetchBlobs();
     }
-  }, [fetchState, fetchUrls, fetchAllJobs]);
+  }, [fetchState, fetchUrls, fetchAllJobs, fetchBlobs]);
 
   // ---------------------------------------------------------------------------
   // Edit save
@@ -224,6 +264,59 @@ export default function SpaceDetailPage({
     ]);
 
     await fetchUrls();
+  };
+
+  // ---------------------------------------------------------------------------
+  // Blob handlers
+  // ---------------------------------------------------------------------------
+
+  const handleAddBlob = async () => {
+    const name = newBlobName.trim() || "New context";
+    setAddingBlob(true);
+    try {
+      await fetch(`/api/spaces/${spaceId}/blobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      setNewBlobName("");
+      await fetchBlobs();
+    } finally {
+      setAddingBlob(false);
+    }
+  };
+
+  const handleBlobSave = async (blobId: string, name: string, content: string) => {
+    await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, content }),
+    });
+  };
+
+  const handleDeleteBlob = async (blobId: string) => {
+    await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, { method: "DELETE" });
+    await fetchBlobs();
+  };
+
+  const handleMoveBlob = async (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= blobs.length) return;
+    const a = blobs[index];
+    const b = blobs[targetIndex];
+    await Promise.all([
+      fetch(`/api/spaces/${spaceId}/blobs/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: b.sort_order }),
+      }),
+      fetch(`/api/spaces/${spaceId}/blobs/${b.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: a.sort_order }),
+      }),
+    ]);
+    await fetchBlobs();
   };
 
   // ---------------------------------------------------------------------------
@@ -317,6 +410,12 @@ export default function SpaceDetailPage({
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowExport(true)}
+              className="rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400 hover:text-white transition-colors"
+            >
+              Export
+            </button>
+            <button
               onClick={() => {
                 setEditName(space.name);
                 setEditColor(space.color);
@@ -384,98 +483,197 @@ export default function SpaceDetailPage({
         </form>
       )}
 
-      {/* URLs tab */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
-          URLs
-        </h2>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-gray-700">
+        {(["urls", "context"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab
+                ? "border-b-2 border-indigo-500 text-white"
+                : "text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            {tab === "urls" ? "URLs" : "Context"}
+          </button>
+        ))}
+      </div>
 
-        {urlsLoading ? (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
-            Loading…
-          </div>
-        ) : spaceUrls.length === 0 ? (
-          <p className="text-sm text-gray-500">No jobs added yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {spaceUrls.map((item, idx) => {
-              const display = item.title?.trim() || item.url;
-              const ctColor =
-                CONTENT_TYPE_COLORS[item.content_type] ??
-                "bg-gray-700 text-gray-300";
-              return (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-3"
-                >
-                  {/* Reorder buttons */}
-                  <div className="flex flex-col gap-0.5">
-                    <button
-                      onClick={() => handleMove(idx, "up")}
-                      disabled={idx === 0}
-                      className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
-                      aria-label="Move up"
+      {/* URLs tab */}
+      {activeTab === "urls" && (
+        <section className="space-y-4">
+          {urlsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+              Loading…
+            </div>
+          ) : spaceUrls.length === 0 ? (
+            <p className="text-sm text-gray-500">No jobs added yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {spaceUrls.map((item, idx) => {
+                const display = item.title?.trim() || item.url;
+                const ctColor =
+                  CONTENT_TYPE_COLORS[item.content_type] ??
+                  "bg-gray-700 text-gray-300";
+                return (
+                  <li
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-lg bg-gray-800 px-4 py-3"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => handleMove(idx, "up")}
+                        disabled={idx === 0}
+                        className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                        aria-label="Move up"
+                      >
+                        &#9650;
+                      </button>
+                      <button
+                        onClick={() => handleMove(idx, "down")}
+                        disabled={idx === spaceUrls.length - 1}
+                        className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                        aria-label="Move down"
+                      >
+                        &#9660;
+                      </button>
+                    </div>
+                    <Link
+                      href={`/jobs/${item.id}`}
+                      className="flex-1 min-w-0 text-sm text-gray-100 hover:text-white truncate"
+                      title={display}
                     >
-                      &#9650;
+                      {display}
+                    </Link>
+                    <Badge label={item.content_type} colorClass={ctColor} />
+                    <button
+                      onClick={() => handleRemoveUrl(item.id)}
+                      className="ml-1 rounded border border-red-700 px-2 py-0.5 text-xs text-red-400 hover:border-red-500 hover:text-red-300 transition-colors"
+                    >
+                      Remove
                     </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            <select
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+              className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="">Select a job to add…</option>
+              {availableJobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.title?.trim() || j.url} ({j.content_type})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleAddJob}
+              disabled={!selectedJobId || addingJob}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+            >
+              {addingJob ? "Adding…" : "Add"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Export modal */}
+      {showExport && (
+        <ExportModal
+          spaceId={spaceId}
+          spaceName={space.name}
+          onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {/* Context tab */}
+      {activeTab === "context" && (
+        <section className="space-y-4">
+          {blobsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+              Loading…
+            </div>
+          ) : blobs.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No context documents yet. Add one to frame how sources should be read.
+            </p>
+          ) : (
+            <div className="space-y-6">
+              {blobs.map((blob, idx) => (
+                <div key={blob.id} className="space-y-2">
+                  {/* Blob header row */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={() => handleMoveBlob(idx, "up")}
+                        disabled={idx === 0}
+                        className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                        aria-label="Move up"
+                      >
+                        &#9650;
+                      </button>
+                      <button
+                        onClick={() => handleMoveBlob(idx, "down")}
+                        disabled={idx === blobs.length - 1}
+                        className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                        aria-label="Move down"
+                      >
+                        &#9660;
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      defaultValue={blob.name}
+                      onBlur={(e) =>
+                        handleBlobSave(blob.id, e.target.value, blob.content)
+                      }
+                      className="flex-1 rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+                      placeholder="Context name"
+                    />
                     <button
-                      onClick={() => handleMove(idx, "down")}
-                      disabled={idx === spaceUrls.length - 1}
-                      className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
-                      aria-label="Move down"
+                      onClick={() => handleDeleteBlob(blob.id)}
+                      className="rounded border border-red-700 px-2 py-0.5 text-xs text-red-400 hover:border-red-500 hover:text-red-300 transition-colors"
                     >
-                      &#9660;
+                      Remove
                     </button>
                   </div>
+                  {/* WYSIWYG editor — no raw markdown shown */}
+                  <MarkdownEditor
+                    initialMarkdown={blob.content}
+                    onSave={(md) => handleBlobSave(blob.id, blob.name, md)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
-                  {/* Job info */}
-                  <Link
-                    href={`/jobs/${item.id}`}
-                    className="flex-1 min-w-0 text-sm text-gray-100 hover:text-white truncate"
-                    title={display}
-                  >
-                    {display}
-                  </Link>
-
-                  <Badge label={item.content_type} colorClass={ctColor} />
-
-                  {/* Remove button */}
-                  <button
-                    onClick={() => handleRemoveUrl(item.id)}
-                    className="ml-1 rounded border border-red-700 px-2 py-0.5 text-xs text-red-400 hover:border-red-500 hover:text-red-300 transition-colors"
-                  >
-                    Remove
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {/* Add job section */}
-        <div className="flex items-center gap-3 pt-2">
-          <select
-            value={selectedJobId}
-            onChange={(e) => setSelectedJobId(e.target.value)}
-            className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
-          >
-            <option value="">Select a job to add…</option>
-            {availableJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.title?.trim() || j.url} ({j.content_type})
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleAddJob}
-            disabled={!selectedJobId || addingJob}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
-          >
-            {addingJob ? "Adding…" : "Add"}
-          </button>
-        </div>
-      </section>
+          {/* Add context document */}
+          <div className="flex items-center gap-3 pt-2">
+            <input
+              type="text"
+              value={newBlobName}
+              onChange={(e) => setNewBlobName(e.target.value)}
+              placeholder="Context document name…"
+              className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+            />
+            <button
+              onClick={handleAddBlob}
+              disabled={addingBlob}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+            >
+              {addingBlob ? "Adding…" : "Add context"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
