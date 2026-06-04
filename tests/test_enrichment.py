@@ -48,6 +48,32 @@ def test_extract_json_bare_object() -> None:
     assert result == {"category": "B", "topic": "bar"}
 
 
+def test_extract_json_repairs_malformed() -> None:
+    # Missing comma — typical LLM truncation; json_repair fixes it
+    raw = '{"category": "A" "topic": "foo"}'
+    result = _extract_json(raw)
+    assert result["category"] == "A"
+    assert result["topic"] == "foo"
+
+
+def test_extract_json_unparseable_raises() -> None:
+    # Blank response — repair_json cannot produce a dict; raises
+    with pytest.raises(EnrichmentUnavailableError, match="unparseable JSON|non-object JSON"):
+        _extract_json("")
+
+
+def test_extract_json_non_dict_raises() -> None:
+    # repair_json fixes an incomplete array to a valid list — not a dict
+    with pytest.raises(EnrichmentUnavailableError, match="non-object JSON"):
+        _extract_json("[1, 2, 3")
+
+
+def test_extract_json_null_literal_raises() -> None:
+    # Valid JSON "null" parses to None — not a dict
+    with pytest.raises(EnrichmentUnavailableError, match="non-object JSON"):
+        _extract_json("null")
+
+
 # ---------------------------------------------------------------------------
 # _parse_enrichment
 # ---------------------------------------------------------------------------
