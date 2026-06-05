@@ -101,6 +101,7 @@ export default function SpaceDetailPage({
   const [blobsLoading, setBlobsLoading] = useState(false);
   const [addingBlob, setAddingBlob] = useState(false);
   const [newBlobName, setNewBlobName] = useState("");
+  const [blobError, setBlobError] = useState<string | null>(null);
 
   // Export modal
   const [showExport, setShowExport] = useState(false);
@@ -279,7 +280,8 @@ export default function SpaceDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
-      if (!res.ok) { console.error("Failed to add blob", res.status); return; }
+      if (!res.ok) { setBlobError("Failed to add context document. Please try again."); return; }
+      setBlobError(null);
       setNewBlobName("");
       await fetchBlobs();
     } finally {
@@ -293,12 +295,14 @@ export default function SpaceDetailPage({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, content }),
     });
-    if (!res.ok) console.error("Failed to save blob", res.status);
+    if (!res.ok) setBlobError("Failed to save. Please try again.");
+    else setBlobError(null);
   };
 
   const handleDeleteBlob = async (blobId: string) => {
     const res = await fetch(`/api/spaces/${spaceId}/blobs/${blobId}`, { method: "DELETE" });
-    if (!res.ok) { console.error("Failed to delete blob", res.status); return; }
+    if (!res.ok) { setBlobError("Failed to remove context document. Please try again."); return; }
+    setBlobError(null);
     await fetchBlobs();
   };
 
@@ -663,6 +667,10 @@ export default function SpaceDetailPage({
                 </div>
               ))}
             </div>
+          )}
+
+          {blobError && (
+            <p className="text-sm text-red-400">{blobError}</p>
           )}
 
           {/* Add context document */}
