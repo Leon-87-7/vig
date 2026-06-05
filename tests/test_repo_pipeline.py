@@ -537,7 +537,7 @@ async def test_run_github_404_error_path(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr("src.processors.repo.database.update_job_status",
                         AsyncMock(side_effect=lambda jid, s, **kw: statuses.append(s)))
     monkeypatch.setattr("src.processors.repo.send_message",
-                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t) or {"message_id": 123}))
     monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
 
     job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
@@ -560,7 +560,7 @@ async def test_run_gemini_unavailable_error_path(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("src.processors.repo.database.update_job_status",
                         AsyncMock(side_effect=lambda jid, s, **kw: statuses.append(s)))
     monkeypatch.setattr("src.processors.repo.send_message",
-                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t) or {"message_id": 123}))
     monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
 
     job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
@@ -585,7 +585,7 @@ async def test_run_rate_limit_403_shows_rate_limit_message(monkeypatch: pytest.M
                         AsyncMock(side_effect=FakeHTTPError()))
     monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
     monkeypatch.setattr("src.processors.repo.send_message",
-                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t)))
+                        AsyncMock(side_effect=lambda c, t, **kw: user_messages.append(t) or {"message_id": 123}))
     monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
 
     job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
