@@ -98,7 +98,7 @@ async def test_article_run_cache_hit_does_not_call_jina(temp_db, monkeypatch) ->
 
     fetch_mock = AsyncMock()
     send_doc = AsyncMock()
-    send_msg = AsyncMock()
+    send_msg = AsyncMock(return_value={"message_id": 123})
     send_kb = AsyncMock()
     update_status = AsyncMock()
     gemini_mock = AsyncMock(return_value=_GEMINI_RESPONSE)
@@ -138,7 +138,7 @@ async def test_article_run_cache_miss_calls_jina_and_caches(temp_db, monkeypatch
     fetch_mock = AsyncMock(return_value=(title, body))
     insert_cache = AsyncMock()
     send_doc = AsyncMock()
-    send_msg = AsyncMock()
+    send_msg = AsyncMock(return_value={"message_id": 123})
     send_kb = AsyncMock()
     gemini_mock = AsyncMock(return_value=_GEMINI_RESPONSE)
 
@@ -263,7 +263,7 @@ async def test_article_run_freestyle_override_uses_prompt(temp_db, monkeypatch) 
     monkeypatch.setattr("src.processors.article.database.get_job", AsyncMock(return_value=job))
     monkeypatch.setattr("src.processors.article.database.insert_markdown_cache", AsyncMock())
     monkeypatch.setattr("src.processors.article.send_document", AsyncMock())
-    monkeypatch.setattr("src.processors.article.send_message", AsyncMock())
+    monkeypatch.setattr("src.processors.article.send_message", AsyncMock(return_value={"message_id": 123}))
     monkeypatch.setattr("src.processors.article.send_inline_keyboard", AsyncMock())
 
     from src.services import gemini_client as gc_module
