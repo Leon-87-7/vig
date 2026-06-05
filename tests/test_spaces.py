@@ -205,3 +205,92 @@ def test_list_space_urls_filters_foreign_jobs(spaces_client: TestClient) -> None
     ids = [item["id"] for item in resp.json()]
     assert own_job in ids
     assert foreign_job not in ids
+
+
+# ---------------------------------------------------------------------------
+# Context blobs (issue #93 / S7)
+# ---------------------------------------------------------------------------
+
+
+def test_context_blobs_crud(spaces_client: TestClient) -> None:
+    """Create, list, update, and delete context blobs via the API."""
+    space_id = _make_space(spaces_client, AS_A, "Blob Space")
+
+    # Create
+    r = spaces_client.post(
+        f"/api/spaces/{space_id}/blobs",
+        json={"name": "Frame", "content": "## Frame\nSome framing."},
+        cookies=AS_A,
+    )
+    assert r.status_code == 201, r.text
+    blob = r.json()
+    blob_id = blob["id"]
+    assert blob["name"] == "Frame"
+    assert blob["space_id"] == space_id
+
+    # List
+    listed = spaces_client.get(f"/api/spaces/{space_id}/blobs", cookies=AS_A)
+    assert listed.status_code == 200
+    assert any(b["id"] == blob_id for b in listed.json())
+
+    # Update
+    put = spaces_client.put(
+        f"/api/spaces/{space_id}/blobs/{blob_id}",
+        json={"name": "Updated", "content": "New content"},
+        cookies=AS_A,
+    )
+    assert put.status_code == 200
+    assert put.json()["name"] == "Updated"
+
+    # Delete
+    del_r = spaces_client.delete(
+        f"/api/spaces/{space_id}/blobs/{blob_id}", cookies=AS_A
+    )
+    assert del_r.status_code == 204
+    listed2 = spaces_client.get(f"/api/spaces/{space_id}/blobs", cookies=AS_A)
+    assert all(b["id"] != blob_id for b in listed2.json())
+
+
+def test_context_blobs_tenant_isolation(spaces_client: TestClient) -> None:
+    """User B must not read or modify blobs owned by user A."""
+    space_id = _make_space(spaces_client, AS_A, "A Context Space")
+
+    r = spaces_client.post(
+        f"/api/spaces/{space_id}/blobs",
+        json={"name": "Secret"},
+        cookies=AS_A,
+    )
+    blob_id = r.json()["id"]
+
+    # B cannot list blobs from A's space.
+    assert spaces_client.get(
+        f"/api/spaces/{space_id}/blobs", cookies=AS_B
+    ).status_code == 403
+
+    # B cannot update A's blob.
+    assert spaces_client.put(
+        f"/api/spaces/{space_id}/blobs/{blob_id}",
+        json={"name": "Hijack", "content": ""},
+        cookies=AS_B,
+    ).status_code == 403
+
+
+def test_delete_space_cascades_to_context_blobs(spaces_client: TestClient) -> None:
+    """Deleting a space must remove its context_blobs (FK CASCADE, proves #83)."""
+    from src import database
+
+    space_id = _make_space(spaces_client, AS_A, "Cascade Space")
+
+    blob = asyncio.run(
+        database.create_context_blob(
+            space_id=space_id, name="Will cascade", content="test"
+        )
+    )
+    blob_id = blob["id"]
+
+    assert asyncio.run(database.get_context_blob(blob_id)) is not None
+
+    del_r = spaces_client.delete(f"/api/spaces/{space_id}", cookies=AS_A)
+    assert del_r.status_code == 204
+
+    assert asyncio.run(database.get_context_blob(blob_id)) is None
