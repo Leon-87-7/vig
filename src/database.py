@@ -215,9 +215,9 @@ CREATE INDEX IF NOT EXISTS idx_context_blobs_space_id ON context_blobs(space_id)
 
 
 def generate_id() -> str:
-    """YYYYMMDD_HHMMSS_XXXX where XXXX is 4 hex chars (job IDs and link IDs)."""
+    """YYYYMMDD_HHMMSS_XXXXXXXX where XXXXXXXX is 8 hex chars (job IDs and link IDs)."""
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    suffix = secrets.token_hex(2).upper()
+    suffix = secrets.token_hex(4).upper()
     return f"{ts}_{suffix}"
 
 
@@ -1115,12 +1115,12 @@ async def upsert_job_annotation(job_id: str, notes: str) -> dict:
                    updated_at = excluded.updated_at""",
             (job_id, notes),
         )
-        await conn.commit()
         cur = await conn.execute(
             "SELECT job_id, notes, updated_at FROM job_annotations WHERE job_id = ?",
             (job_id,),
         )
         row = await cur.fetchone()
+        await conn.commit()
         return dict(row)  # type: ignore[arg-type]
 
 
@@ -1136,6 +1136,54 @@ async def list_job_tags(job_id: str) -> list[dict]:
             (job_id,),
         )
         return [dict(row) for row in await cur.fetchall()]
+
+
+async def batch_get_jobs(job_ids: list[str]) -> dict[str, dict]:
+    """Return {job_id: job_dict} for the given IDs. Missing IDs are omitted."""
+    if not job_ids:
+        return {}
+    placeholders = ",".join("?" * len(job_ids))
+    async with connection() as conn:
+        cur = await conn.execute(
+            f"SELECT * FROM jobs WHERE id IN ({placeholders})",
+            tuple(job_ids),
+        )
+        return {row["id"]: dict(row) for row in await cur.fetchall()}
+
+
+async def batch_get_job_annotations(job_ids: list[str]) -> dict[str, str]:
+    """Return {job_id: notes} for jobs that have saved annotations."""
+    if not job_ids:
+        return {}
+    placeholders = ",".join("?" * len(job_ids))
+    async with connection() as conn:
+        cur = await conn.execute(
+            f"SELECT job_id, notes FROM job_annotations WHERE job_id IN ({placeholders})",
+            tuple(job_ids),
+        )
+        return {row["job_id"]: row["notes"] for row in await cur.fetchall()}
+
+
+async def batch_list_job_tags(job_ids: list[str]) -> dict[str, list[dict]]:
+    """Return {job_id: [tag_dicts]} for all given job IDs (absent job = empty list)."""
+    if not job_ids:
+        return {}
+    placeholders = ",".join("?" * len(job_ids))
+    async with connection() as conn:
+        cur = await conn.execute(
+            f"""SELECT jt.job_id, t.id, t.name, t.color, t.meaning
+               FROM job_tags jt
+               JOIN tags t ON t.id = jt.tag_id
+               WHERE jt.job_id IN ({placeholders})
+               ORDER BY t.name""",
+            tuple(job_ids),
+        )
+        result: dict[str, list[dict]] = {jid: [] for jid in job_ids}
+        for row in await cur.fetchall():
+            row_dict = dict(row)
+            jid = row_dict.pop("job_id")
+            result[jid].append(row_dict)
+        return result
 
 
 async def attach_job_tag(job_id: str, tag_id: str) -> bool:

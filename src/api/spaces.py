@@ -1,6 +1,9 @@
 """HTTP endpoints for Spaces CRUD + URLs tab (S6) + Context blobs (S7)."""
 from __future__ import annotations
 
+import asyncio
+
+import aiosqlite
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -73,10 +76,8 @@ async def create_space(body: SpaceIn, request: Request) -> dict:
         return await database.create_space(
             chat_id=chat_id, name=body.name.strip(), color=body.color
         )
-    except Exception as exc:
-        if "UNIQUE constraint failed" in str(exc):
-            raise HTTPException(status_code=409, detail="Space name already exists")
-        raise
+    except aiosqlite.IntegrityError:
+        raise HTTPException(status_code=409, detail="Space name already exists")
 
 
 @spaces_router.get("/{space_id}")
@@ -95,7 +96,9 @@ async def update_space(space_id: str, body: SpaceIn, request: Request) -> dict:
     if not ok:
         raise HTTPException(status_code=404, detail="Space not found")
     space = await database.get_space(space_id)
-    return space  # type: ignore[return-value]
+    if space is None:
+        raise HTTPException(status_code=404, detail="Space not found")
+    return space
 
 
 @spaces_router.delete("/{space_id}", status_code=204)
@@ -200,7 +203,9 @@ async def update_blob(
     if not ok:
         raise HTTPException(status_code=404, detail="Blob not found")
     blob = await database.get_context_blob(blob_id)
-    return blob  # type: ignore[return-value]
+    if blob is None:
+        raise HTTPException(status_code=404, detail="Blob not found")
+    return blob
 
 
 @spaces_router.delete("/{space_id}/blobs/{blob_id}", status_code=204)
@@ -232,16 +237,20 @@ async def reorder_blob(
 
 
 async def _enrich_space_jobs(space_urls: list[dict]) -> list[dict]:
-    """Fetch annotation + tags for each pinned job. Skips deleted jobs."""
-    jobs: list[dict] = []
-    for item in space_urls:
-        job = await database.get_job(item["id"])
-        if job is None:
-            continue
-        annotation = await database.get_job_annotation(item["id"])
-        job_tags = await database.list_job_tags(item["id"])
-        jobs.append({**job, "notes": (annotation or {}).get("notes", ""), "tags": job_tags})
-    return jobs
+    """Fetch annotation + tags for all pinned jobs in 3 batched queries."""
+    if not space_urls:
+        return []
+    job_ids = [item["id"] for item in space_urls]
+    jobs_map, annotations_map, tags_map = await asyncio.gather(
+        database.batch_get_jobs(job_ids),
+        database.batch_get_job_annotations(job_ids),
+        database.batch_list_job_tags(job_ids),
+    )
+    return [
+        {**job, "notes": annotations_map.get(item["id"], ""), "tags": tags_map.get(item["id"], [])}
+        for item in space_urls
+        if (job := jobs_map.get(item["id"])) is not None
+    ]
 
 
 @spaces_router.get("/{space_id}/export/markdown")

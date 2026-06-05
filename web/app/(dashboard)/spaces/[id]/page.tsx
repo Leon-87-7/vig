@@ -251,6 +251,13 @@ export default function SpaceDetailPage({
     const a = spaceUrls[index];
     const b = spaceUrls[targetIndex];
 
+    // Optimistic swap so rapid clicks use the updated order.
+    setSpaceUrls((prev) => {
+      const next = [...prev];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+
     await Promise.all([
       fetch(`/api/spaces/${spaceId}/urls/${a.id}`, {
         method: "PATCH",
