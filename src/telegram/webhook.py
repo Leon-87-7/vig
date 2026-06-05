@@ -1090,16 +1090,23 @@ async def webhook(
             await _reply_cached_job(chat_id, cached)
             return {"ok": True}
         extra_instructions = (tmpl_row.get("extra_instructions") or "").strip()
+        if not extra_instructions:
+            await send_message(
+                chat_id,
+                f"❌ Template `-{tmpl_name}` has no instructions. "
+                f"Add instructions at /prompts before using it.",
+            )
+            return {"ok": True}
         job_id = await database.create_job(
             chat_id=chat_id,
             url=url,
             content_type=pipeline,
             message_id=message_id,
-            template="freestyle" if extra_instructions else None,
+            template=tmpl_name,
         )
         await database.set_job_template_prompt(
             job_id,
-            freestyle_prompt=extra_instructions or None,
+            freestyle_prompt=extra_instructions,
             template_detection_method=f"user_template:{tmpl_name}",
         )
         task_type = (
