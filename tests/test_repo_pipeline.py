@@ -18,7 +18,7 @@ _BUNDLE = {
     "metadata": {
         "stars": 12_345, "forks": 678, "language": "TypeScript",
         "pushed_at": "2026-01-01T00:00:00Z", "description": "AI tool",
-        "archived": False,
+        "archived": False, "topics": [],
     },
     "default_branch": "main",
     "readme": "x" * 200,
@@ -297,8 +297,7 @@ def test_prompt_manifest_cap_is_4000() -> None:
 
 def test_prompt_has_star_calibration() -> None:
     prompt = _build_repo_prompt(_BUNDLE)
-    assert "star" in prompt.lower()
-    assert "1k" in prompt or "1,000" in prompt or "1k+" in prompt
+    assert "Calibrate confidence to star count" in prompt
 
 
 def test_prompt_system_frame_has_field_guidance() -> None:
@@ -306,7 +305,17 @@ def test_prompt_system_frame_has_field_guidance() -> None:
     for field in ("tagline", "tech_stack", "project_ideas", "when_to_use",
                   "avoid_when", "concepts_taught", "prerequisites",
                   "curriculum_hooks"):
-        assert field in prompt, f"system_frame missing guidance for: {field}"
+        assert field in prompt, f"prompt missing guidance for: {field}"
+
+
+def test_prompt_constraints_block_present_in_freestyle() -> None:
+    prompt = _build_repo_prompt(_BUNDLE, freestyle_prompt="What is this?")
+    assert "STRICT RULES" in prompt
+
+
+def test_prompt_no_field_guidance_in_freestyle() -> None:
+    prompt = _build_repo_prompt(_BUNDLE, freestyle_prompt="Summarise for me.")
+    assert "Field guidance:" not in prompt
 
 
 # ---------------------------------------------------------------------------

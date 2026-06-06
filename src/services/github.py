@@ -29,7 +29,7 @@ _BUNDLE_TTL = 86_400 * 7  # 7 days
 _MANIFEST_NAMES = frozenset([
     "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
     "package.json", "pnpm-lock.yaml", "go.mod", "Cargo.toml",
-    "Gemfile", "composer.json", "build.gradle", "build.gradle.kts",
+    "Gemfile", "mix.exs", "composer.json", "build.gradle", "build.gradle.kts",
     "pom.xml", "Dockerfile",
 ])
 
@@ -129,7 +129,7 @@ def _fetch_bundle_meta_sync(owner: str, repo: str, token: str | None) -> dict | 
 async def fetch_repo_bundle(owner: str, repo: str, token: str | None) -> dict:
     """Assemble the full repo bundle with README, file tree, and manifests.
 
-    Cache key: github_repo_bundle:{owner}/{repo}, TTL 7 days.
+    Cache key: github_repo_bundle:v2:{owner}/{repo}, TTL 7 days.
     Raises FileNotFoundError on 404, requests.HTTPError on 403/5xx.
     """
     from src import queue

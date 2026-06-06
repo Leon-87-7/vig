@@ -6,6 +6,7 @@ import asyncio
 import json as _json
 import re as _re
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 from src import brain, database
@@ -26,9 +27,11 @@ _SOURCE_EXTS = {
     ".rb", ".swift", ".kt", ".cs", ".zig", ".ex", ".exs",
 }
 _CONFIG_NAMES = {
+    # Mirrors _MANIFEST_NAMES in github.py (lock files excluded — too noisy for tier-2 tree display).
     "Cargo.toml", "package.json", "pyproject.toml", "go.mod",
-    "requirements.txt", "setup.py", "pom.xml", "build.gradle",
-    "Gemfile", "mix.exs",
+    "requirements.txt", "setup.py", "setup.cfg", "pom.xml",
+    "build.gradle", "build.gradle.kts", "Gemfile", "mix.exs",
+    "composer.json", "Dockerfile",
 }
 
 
@@ -36,7 +39,7 @@ def _prioritize_tree(tree: list[str], limit: int = 300) -> list[str]:
     source, config, rest = [], [], []
     for path in tree:
         name = path.rsplit("/", 1)[-1]
-        if any(name.endswith(ext) for ext in _SOURCE_EXTS):
+        if PurePosixPath(name).suffix in _SOURCE_EXTS:
             source.append(path)
         elif name in _CONFIG_NAMES:
             config.append(path)
@@ -151,7 +154,10 @@ def _build_repo_prompt(
 
     system_frame = (
         "You are a technical analyst evaluating open-source repositories for "
-        "developer utility and educational value.\n"
+        "developer utility and educational value."
+    )
+
+    field_guidance_block = (
         "Field guidance:\n"
         "- tagline: one sentence capturing what makes this repo distinct from its "
         "alternatives — not a rephrasing of the GitHub description.\n"
@@ -224,9 +230,12 @@ def _build_repo_prompt(
             "(e.g. 'appears to', 'may be useful for')."
         )
 
-    return "\n\n".join(
-        [system_frame, meta_block, constraints_block, tree_block, manifest_block, readme_block, focus_block]
-    )
+    blocks = [system_frame, meta_block]
+    if not freestyle_prompt:
+        blocks.append(field_guidance_block)
+    blocks.append(constraints_block)
+    blocks += [tree_block, manifest_block, readme_block, focus_block]
+    return "\n\n".join(blocks)
 
 
 def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict) -> str:
