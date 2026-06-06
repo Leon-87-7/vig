@@ -6,6 +6,7 @@ import asyncio
 import json as _json
 import re as _re
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 from src import brain, database
@@ -19,6 +20,32 @@ from src.utils.logger import get_logger
 from src.utils.markdown import _humanize_age
 
 log = get_logger(__name__)
+
+
+_SOURCE_EXTS = {
+    ".rs", ".py", ".ts", ".js", ".go", ".java", ".c", ".cpp", ".h",
+    ".rb", ".swift", ".kt", ".cs", ".zig", ".ex", ".exs",
+}
+_CONFIG_NAMES = {
+    # Mirrors _MANIFEST_NAMES in github.py (lock files excluded — too noisy for tier-2 tree display).
+    "Cargo.toml", "package.json", "pyproject.toml", "go.mod",
+    "requirements.txt", "setup.py", "setup.cfg", "pom.xml",
+    "build.gradle", "build.gradle.kts", "Gemfile", "mix.exs",
+    "composer.json", "Dockerfile",
+}
+
+
+def _prioritize_tree(tree: list[str], limit: int = 300) -> list[str]:
+    source, config, rest = [], [], []
+    for path in tree:
+        name = path.rsplit("/", 1)[-1]
+        if PurePosixPath(name).suffix in _SOURCE_EXTS:
+            source.append(path)
+        elif name in _CONFIG_NAMES:
+            config.append(path)
+        else:
+            rest.append(path)
+    return (source + config + rest)[:limit]
 
 
 def _parse_owner_repo(url: str) -> tuple[str, str]:
@@ -127,24 +154,56 @@ def _build_repo_prompt(
 
     system_frame = (
         "You are a technical analyst evaluating open-source repositories for "
-        "developer utility and educational value. Be specific, concise, and opinionated."
+        "developer utility and educational value."
     )
 
+    field_guidance_block = (
+        "Field guidance:\n"
+        "- tagline: one sentence capturing what makes this repo distinct from its "
+        "alternatives — not a rephrasing of the GitHub description.\n"
+        "- tech_stack: languages, libraries, runtimes, and build tools directly "
+        "used in this repo.\n"
+        "- project_ideas: concrete mini-projects a developer could start this "
+        "weekend — name the artifact, not just the domain.\n"
+        "- when_to_use: the specific scenario where this is the right tool — name "
+        "the constraint or context that makes it the best choice.\n"
+        "- avoid_when: the specific scenario where a better alternative exists — "
+        "name the alternative.\n"
+        "- concepts_taught: CS or engineering concepts a student would learn by "
+        "reading this codebase.\n"
+        "- prerequisites: what a learner must already know to benefit from "
+        "studying this repo.\n"
+        "- curriculum_hooks[].why: why this specific file is the best teaching "
+        "example for this concept — not just what the concept is."
+    )
+
+    topics = meta.get("topics") or []
     meta_block = (
         f"Repository: {owner}/{repo}\n"
         f"Stars: {meta.get('stars', 0):,} | Forks: {meta.get('forks', 0):,} | "
         f"Language: {meta.get('language') or 'Unknown'}\n"
         f"Description: {meta.get('description') or '(none)'}\n"
     )
+    if topics:
+        meta_block += f"Topics: {', '.join(topics)}\n"
     if meta.get("archived"):
         meta_block += "⚠️ This repository is ARCHIVED.\n"
 
-    tree_sample = tree[:200]
+    constraints_block = (
+        "STRICT RULES:\n"
+        "- tech_stack: only include technologies directly evidenced by files, "
+        "imports, or manifests in THIS repo. Do not infer from config files that "
+        "reference external systems.\n"
+        "- file_pointer: must be an exact path from the provided file tree. "
+        "Never invent a path."
+    )
+
+    tree_sample = _prioritize_tree(tree, 300)
     tree_block = "File tree:\n" + "\n".join(f"  {p}" for p in tree_sample)
 
     if manifests:
         manifest_block = "Package manifests:\n" + "\n\n".join(
-            f"--- {p} ---\n{c[:2_000]}" for p, c in manifests.items()
+            f"--- {p} ---\n{c[:4_000]}" for p, c in manifests.items()
         )
     else:
         manifest_block = "Package manifests: (none detected)"
@@ -156,7 +215,7 @@ def _build_repo_prompt(
             "Flag in the tagline that no README was found."
         )
     else:
-        readme_block = f"README (preprocessed):\n{readme[:10_000]}"
+        readme_block = f"README:\n{readme}"
 
     if freestyle_prompt:
         focus_block = (
@@ -165,12 +224,18 @@ def _build_repo_prompt(
     else:
         focus_block = (
             "Extract a structured analysis matching the JSON schema. "
-            "Be specific about developer use-cases and educational concepts."
+            "Be specific about developer use-cases and educational concepts.\n"
+            "Calibrate confidence to star count: for repos with 1k+ stars make "
+            "direct claims; for repos under 100 stars use hedged language "
+            "(e.g. 'appears to', 'may be useful for')."
         )
 
-    return "\n\n".join(
-        [system_frame, meta_block, tree_block, manifest_block, readme_block, focus_block]
-    )
+    blocks = [system_frame, meta_block]
+    if not freestyle_prompt:
+        blocks.append(field_guidance_block)
+    blocks.append(constraints_block)
+    blocks += [tree_block, manifest_block, readme_block, focus_block]
+    return "\n\n".join(blocks)
 
 
 def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict) -> str:
