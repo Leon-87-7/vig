@@ -10,7 +10,7 @@ import pytest
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
 os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "test-secret")
 
-from src.processors.repo import _format_bundle_message, _days_ago, _parse_owner_repo, REPO_ANALYSIS_SCHEMA, _build_repo_prompt
+from src.processors.repo import _format_bundle_message, _days_ago, _parse_owner_repo, REPO_ANALYSIS_SCHEMA, _build_repo_prompt, _prioritize_tree
 
 _BUNDLE = {
     "owner": "anthropics",
@@ -191,6 +191,43 @@ def test_build_repo_prompt_no_readme_flag_adjusts_instructions() -> None:
     prompt = _build_repo_prompt(bundle, flags={"no_readme": True})
     lower = prompt.lower()
     assert "no readme" in lower or "tree" in lower or "manifest" in lower
+
+
+# ---------------------------------------------------------------------------
+# Task 2 — _prioritize_tree (#118)
+# ---------------------------------------------------------------------------
+
+def test_prioritize_tree_source_files_first() -> None:
+    tree = ["README.md", "Makefile", "src/main.rs", "src/lib.rs", "LICENSE"]
+    result = _prioritize_tree(tree, limit=10)
+    rs_indices = [result.index(p) for p in result if p.endswith(".rs")]
+    other_indices = [result.index(p) for p in result if not p.endswith(".rs")]
+    assert max(rs_indices) < min(other_indices)
+
+
+def test_prioritize_tree_manifest_files_second() -> None:
+    tree = ["LICENSE", "README.md", "Cargo.toml", "src/main.rs"]
+    result = _prioritize_tree(tree, limit=10)
+    cargo_idx = result.index("Cargo.toml")
+    main_idx = result.index("src/main.rs")
+    readme_idx = result.index("README.md")
+    assert main_idx < cargo_idx < readme_idx
+
+
+def test_prioritize_tree_respects_limit() -> None:
+    tree = [f"file_{i}.rs" for i in range(500)]
+    result = _prioritize_tree(tree, limit=300)
+    assert len(result) == 300
+
+
+def test_prioritize_tree_empty_tree() -> None:
+    assert _prioritize_tree([], limit=300) == []
+
+
+def test_prioritize_tree_all_source_no_cut() -> None:
+    tree = ["a.rs", "b.py", "c.ts"]
+    result = _prioritize_tree(tree, limit=300)
+    assert set(result) == {"a.rs", "b.py", "c.ts"}
 
 
 # ---------------------------------------------------------------------------

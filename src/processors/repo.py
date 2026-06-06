@@ -21,6 +21,30 @@ from src.utils.markdown import _humanize_age
 log = get_logger(__name__)
 
 
+_SOURCE_EXTS = {
+    ".rs", ".py", ".ts", ".js", ".go", ".java", ".c", ".cpp", ".h",
+    ".rb", ".swift", ".kt", ".cs", ".zig", ".ex", ".exs",
+}
+_CONFIG_NAMES = {
+    "Cargo.toml", "package.json", "pyproject.toml", "go.mod",
+    "requirements.txt", "setup.py", "pom.xml", "build.gradle",
+    "Gemfile", "mix.exs",
+}
+
+
+def _prioritize_tree(tree: list[str], limit: int = 300) -> list[str]:
+    source, config, rest = [], [], []
+    for path in tree:
+        name = path.rsplit("/", 1)[-1]
+        if any(name.endswith(ext) for ext in _SOURCE_EXTS):
+            source.append(path)
+        elif name in _CONFIG_NAMES:
+            config.append(path)
+        else:
+            rest.append(path)
+    return (source + config + rest)[:limit]
+
+
 def _parse_owner_repo(url: str) -> tuple[str, str]:
     parts = [s for s in urlparse(url).path.split("/") if s]
     return parts[0], parts[1]
@@ -139,7 +163,7 @@ def _build_repo_prompt(
     if meta.get("archived"):
         meta_block += "⚠️ This repository is ARCHIVED.\n"
 
-    tree_sample = tree[:200]
+    tree_sample = _prioritize_tree(tree, 300)
     tree_block = "File tree:\n" + "\n".join(f"  {p}" for p in tree_sample)
 
     if manifests:
