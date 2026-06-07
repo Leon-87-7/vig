@@ -5,6 +5,8 @@ description: On-demand reconcile of the project's ISSUE_KANBAN.md board against 
 
 # Update Kanban (manual reconcile)
 
+> **No external prerequisite.** Unlike the two wrappers, this skill has no source flow — it depends only on the bundled `kanban-sync.md` and `gh`, so it works on a fresh clone.
+
 Unlike `to-issue-kanban` / `triage-kanban` — which know exactly which issues they touched and hand that set to the sync helper — `/update-kanban` is handed **nothing**. It *discovers* the delta by diffing the whole board against GitHub, then applies it through the same shared helper. Use it when something changed on GitHub outside the normal flow (issues closed manually, labels edited, PRs merged) or when you just want a fresh sync.
 
 **GitHub Issues is authoritative; the board is a snapshot.** This reconciles the board *toward* GitHub. Hand-curated content (Done Notes, the Dependency Map, manual Ready-for-Agent ordering) is preserved — see `kanban-sync.md` §4–§5. The PR section is the one fully-derived block and is rebuilt every run.

@@ -7,6 +7,8 @@ description: Break a plan, spec, or PRD into independently-grabbable issues on t
 
 A thin wrapper over `/to-issues` that adds a final board-sync step. It does NOT reimplement the breakdown logic — it runs `/to-issues` for the core flow, then syncs the new issues into `ISSUE_KANBAN.md`.
 
+> **Prerequisite:** `to-issues` ([mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/engineering/to-issues)) must be installed globally (`~/.agents/skills/to-issues/`). It is not vendored into this repo — see `.claude/skills/README.md`.
+
 ## Process
 
 ### 1. Run the source flow

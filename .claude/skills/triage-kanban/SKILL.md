@@ -7,6 +7,8 @@ description: Triage issues through the triage state machine AND reflect each sta
 
 A thin wrapper over `/triage` that adds a final board-sync step. It does NOT reimplement the triage state machine — it runs `/triage` for the core flow, then syncs the outcome into `ISSUE_KANBAN.md`.
 
+> **Prerequisite:** `triage` ([mattpocock/skills](https://github.com/mattpocock/skills/tree/main/skills/engineering/triage)) must be installed globally (`~/.agents/skills/triage/`). It is not vendored into this repo — see `.claude/skills/README.md`.
+
 ## Process
 
 ### 1. Run the source flow
