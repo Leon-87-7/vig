@@ -18,11 +18,28 @@ images sent as files) — has no URL and no clean fit in the existing pipelines:
   different intent.
 
 The candidate parser is [liteparse](https://github.com/run-llama/liteparse)
-(run-llama, Apache-2.0). Its core value is **clean Markdown output** from
-documents, using internal spatial/bounding-box analysis to reconstruct layout
-(columns, tables, slides) correctly. It supports PDF natively, Office formats
-via **LibreOffice**, and images via **ImageMagick**, with **Tesseract OCR**
-bundled.
+(run-llama). Its core value is **fast, local, layout-aware text extraction**:
+it uses internal spatial/bounding-box analysis to reconstruct reading order
+(columns, tables, slides) correctly, and bundles OCR for scanned content. It
+supports PDF natively, Office formats via **LibreOffice**, and images via
+**ImageMagick**, with **Tesseract OCR** bundled.
+
+**Verified against the actual package (v2.0.7), not the README:**
+
+- **License is inconsistent upstream.** The GitHub `LICENSE` file (and GitHub's
+  SPDX detection) is **Apache-2.0**; the published PyPI metadata declares
+  **MIT** (`license_expression: MIT`, classifier `OSI Approved :: MIT
+  License`). Both are permissive and fine for commercial SaaS use, but the
+  discrepancy is real. **Mitigation: pin a specific liteparse version and retain
+  a copy of the LICENSE actually shipped with that version.**
+- **Liteparse does NOT output Markdown.** The README's "Markdown" framing is
+  marketing. The Python API (`LiteParse().parse()`) returns a `ParseResult`
+  with `.text` (whole-doc, layout-ordered **plain text**), `.pages[].text`
+  (per-page plain text), and `.pages[].text_items[]` (the spatial bounding-box
+  data: `text, x, y, width, height, font_name, font_size, confidence`). A
+  separate `.screenshot()` call returns per-page PNG bytes. `output_format` is
+  only `"json"` or `"text"` — there is no Markdown serializer. Markdown, if
+  wanted, must be produced downstream by Gemini.
 
 Two structural facts drove the design:
 
@@ -47,33 +64,53 @@ reasoning of [ADR-0017](0017-notebooklm-push-forked-sidecar.md) (Chromium). The
 sidecar owns LibreOffice/ImageMagick/Tesseract; `vig-worker` and `vig-api` stay
 lean. The worker calls it over HTTP.
 
-**2. The sidecar contract is: GCS object reference in, Markdown out.**
+**2. The sidecar contract is: GCS object reference in, plain text out.**
 The file is already in GCS at ingestion time, so the worker sends a reference
-(not bytes); the sidecar pulls the bytes itself, parses, and returns Markdown.
-The sidecar is intentionally dumb — it parses only. Enrichment (Gemini) stays
-in the worker, consistent with every other pipeline. Liteparse's spatial
-bounding-box JSON is **discarded for MVP** (no delivery surface consumes
-coordinates; the clean Markdown already reflects the layout liteparse derived
-from them). Carrying the spatial JSON is deferred to a future dashboard PDF
+(not bytes); the sidecar pulls the bytes itself, runs `liteparse.parse()`, and
+returns the layout-ordered **plain text** (`ParseResult.text`). The sidecar is
+intentionally dumb — it parses only. Liteparse's spatial bounding-box JSON and
+page screenshots are **not returned for MVP** (no delivery surface consumes
+coordinates). Carrying the spatial JSON is deferred to a future dashboard PDF
 viewer with source-highlighting.
 
-**3. The GCS bucket IS the cache, keyed by content hash (SHA-256).**
-- Raw file: `documents/{sha256}.{ext}`
-- Parsed Markdown: `parsed/{sha256}.md`
+**3. Two artifacts: plain text (auto) and Markdown (on-demand).**
+Liteparse produces plain text, not Markdown (see Context). The two artifacts
+serve different purposes:
 
-"Already parsed?" is a GCS exists-check on `parsed/{sha256}.md` — no separate
+- **Plain text (`.txt`) — the PRIMARY, portable, user-owned artifact.**
+  Liteparse's raw layout-ordered text, cached and delivered automatically. It
+  is neutral and tool-agnostic so the user can take it anywhere outside vig.
+- **Markdown (`.md`) — VIG's structured rendering, produced ON DEMAND.** There
+  is **no automatic Markdown rendering** — a `📄 Get Markdown` button is offered
+  after delivery; tapping it runs a Gemini pass over the plain text to produce
+  structured Markdown, caches it, and delivers the `.md`. This avoids spending
+  a Gemini call for Markdown on every document — most users want only the text
+  plus the enrichment.
+
+Document **enrichment** (the document-specific Gemini analysis) still runs
+**automatically** — it is the core vig value, consistent with every other
+pipeline. Markdown rendering is a separate, optional, cached Gemini call.
+
+**4. The GCS bucket IS the cache, keyed by content hash (SHA-256).**
+- Raw file: `documents/{sha256}.{ext}`
+- Parsed plain text: `parsed/{sha256}.txt` (always)
+- Rendered Markdown: `parsed/{sha256}.md` (only after a `📄 Get Markdown` tap)
+
+"Already parsed?" is a GCS exists-check on `parsed/{sha256}.txt`; "Markdown
+already rendered?" is an exists-check on `parsed/{sha256}.md`. No separate
 `markdown_cache`-style table. Direct file URLs are downloaded, hashed, and from
 there identical to uploads. This gives automatic cross-user, cross-channel
-dedup: a byte-identical PDF uploaded by three users parses once.
+dedup: a byte-identical PDF uploaded by three users parses once (and renders
+Markdown at most once).
 
-**4. Tenant isolation: shared parse, per-`chat_id` job rows.**
-Content-hash dedup means the *parsed Markdown* is shared across users who upload
-byte-identical files — acceptable, since it is purely derived from identical
-bytes. But `jobs` rows remain strictly `chat_id`-scoped: ownership, visibility,
-enrichment output, and Second Brain entries never cross tenants. The shared
-layer is the derived parse only.
+**5. Tenant isolation: shared parse, per-`chat_id` job rows.**
+Content-hash dedup means the *parsed text/Markdown* is shared across users who
+upload byte-identical files — acceptable, since it is purely derived from
+identical bytes. But `jobs` rows remain strictly `chat_id`-scoped: ownership,
+visibility, enrichment output, and Second Brain entries never cross tenants. The
+shared layer is the derived parse only.
 
-**5. The pipeline follows the article/repo pattern verbatim.**
+**6. The pipeline follows the article/repo pattern verbatim.**
 - Routing: Telegram `message.document` (PDF/DOCX/PPTX/XLSX + image-as-file);
   direct file URLs via `detect_pipeline` extension-sniff + curated host patterns
   (arxiv) running before the article-allowlist check.
@@ -87,13 +124,14 @@ layer is the derived parse only.
   `author`/`publisher`/`document_type`/`references` in `jobs.template_analysis`
   JSON blob ([ADR-0008](0008-template-analysis-json-blob.md)). No `promise_gap`
   (documents don't pitch — same reasoning as repos).
-- Delivery: Telegram-only for MVP (send `.md`, then enrichment, then
-  `✍️ Freestyle`). Freestyle re-run reuses the `awaiting_freestyle` seam and
-  the cached parse.
+- Delivery: Telegram-only for MVP (send `.txt`, then the enrichment message,
+  then buttons `[✍️ Freestyle] [📄 Get Markdown]`). Freestyle re-run reuses the
+  `awaiting_freestyle` seam and the cached parse. `📄 Get Markdown` triggers the
+  on-demand Markdown render (cached at `parsed/{sha256}.md`).
 - Drive/Sheets writes are opt-in exports per ADR-0022 (new `Document Analysis`
   tab).
 
-**6. Telegram's 20MB `getFile` cap is handled by rejection for MVP.**
+**7. Telegram's 20MB `getFile` cap is handled by rejection for MVP.**
 Files over 20MB are rejected with *"📄 File too large for Telegram (max 20MB).
 Upload via the web dashboard — feature coming soon."* A self-hosted
 `telegram-bot-api` server (raises the cap to 2000MB, stays bot-based) is the
@@ -127,7 +165,25 @@ flagged upgrade path.
   reasoning that sidecar-ed yt-dlp (`vig-transcript`) and Chromium (ADR-0017).
 - **Jina Reader for documents too** (reuse the article transport) — Rejected:
   Jina parses web pages, not uploaded binaries, and mangles PDFs. Liteparse is
-  purpose-built for document → Markdown.
+  purpose-built for document text extraction.
+
+### Markdown-strategy alternatives (resolved after API verification)
+
+Liteparse outputs plain text, not Markdown, so the Markdown deliverable had to
+come from somewhere:
+
+- **Plain text only, no Markdown** — Ship the `.txt` and stop. Rejected as the
+  *sole* output: loses the structured Markdown some users want. **Adopted in
+  part**: plain text IS the automatic primary artifact.
+- **Auto Markdown via Gemini on every document** — Liteparse text → Gemini →
+  Markdown for every job. Rejected: spends a Gemini call on every document when
+  most users want only text + enrichment. **Adopted on-demand instead** (the
+  `📄 Get Markdown` button).
+- **Screenshots → Gemini Vision → Markdown** — Use liteparse `.screenshot()`
+  page PNGs through the existing `call_gemini_vision`. Highest fidelity on
+  visual docs/slides but highest cost, and it shrinks liteparse's role to
+  OCR/screenshots. Rejected for MVP; revisit if text-based Markdown proves
+  inadequate for slide-heavy decks.
 - **Raw bytes over the wire to the sidecar** (transcript audio-fallback
   pattern) — Rejected: the file is already in GCS; round-tripping bytes through
   the worker is wasteful. GCS reference is leaner.
