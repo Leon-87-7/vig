@@ -79,6 +79,22 @@
 |   [#90](https://github.com/Leon-87-7/vig/issues/90) | web(S9): User templates + -name branch (ADR-0019)                                                       | Web / Templates          | Closed on GH (completed)                                                                  |
 |   [#91](https://github.com/Leon-87-7/vig/issues/91) | web(S10): Controls — Allowed + Ignored domain tabs                                                      | Web / Controls           | Closed on GH (completed)                                                                  |
 |   [#92](https://github.com/Leon-87-7/vig/issues/92) | web(S11): Brain semantic-search page                                                                    | Web / Brain              | Closed on GH (completed)                                                                  |
+|   [#96](https://github.com/Leon-87-7/vig/issues/96) | Templates API is not tenant-scoped (IDOR / cross-user read+write+delete)                                | Bug / Templates          | Fixed; commit 93ad9f0; closed on GH                                                       |
+|   [#97](https://github.com/Leon-87-7/vig/issues/97) | Short pipeline: caption-based job always produces a transcript                                          | Short Video              | Merged; PR #113; closed on GH                                                             |
+|   [#98](https://github.com/Leon-87-7/vig/issues/98) | Short pipeline: caption-less plain job transcribes via Gemini                                           | Short Video              | Merged; PR #113; closed on GH                                                             |
+|   [#99](https://github.com/Leon-87-7/vig/issues/99) | Short pipeline: caption-less template job persists transcript from the fused enrich_audio call          | Short Video              | Merged; PR #113; closed on GH                                                             |
+| [#100](https://github.com/Leon-87-7/vig/issues/100) | Short pipeline: explicit transcript-failure taxonomy                                                    | Short Video              | Merged; PR #113; closed on GH                                                             |
+| [#118](https://github.com/Leon-87-7/vig/issues/118) | feat(github+repo): topics field, v2 cache key, and _prioritize_tree helper                              | Repo Pipeline            | Merged; PR #120; closed on GH                                                             |
+| [#119](https://github.com/Leon-87-7/vig/issues/119) | feat(repo): improve _build_repo_prompt — constraints, topics, field guidance, caps, star calibration    | Repo Pipeline            | Merged; PR #120; closed on GH                                                             |
+| [#121](https://github.com/Leon-87-7/vig/issues/121) | refactor(feed): extract useFeedData + useFuseSearch + polling hook                                      | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#122](https://github.com/Leon-87-7/vig/issues/122) | refactor(spaces/detail): extract data hooks + split UrlsTab / ContextTab components                     | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#123](https://github.com/Leon-87-7/vig/issues/123) | refactor(job/detail): extract useJobDetail + useJobAnnotation + useJobTags hooks                        | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#124](https://github.com/Leon-87-7/vig/issues/124) | refactor(controls): extract useTagList + useDomainList; slim DomainTab                                  | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#125](https://github.com/Leon-87-7/vig/issues/125) | refactor(spaces/list): extract useSpaceList + useCreateSpace hooks                                      | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#126](https://github.com/Leon-87-7/vig/issues/126) | refactor(export-modal): extract useGdocExport; flatten handleGdoc branches                              | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#127](https://github.com/Leon-87-7/vig/issues/127) | refactor(prompts): extract useTemplateList; slim UserTemplateRow                                        | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#128](https://github.com/Leon-87-7/vig/issues/128) | refactor(brain): extract useSemanticSearch hook                                                         | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+| [#129](https://github.com/Leon-87-7/vig/issues/129) | refactor(fetch-utils): reduce mapFetchState complexity; consolidate shared fetch patterns               | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
 
 ---
 
@@ -86,7 +102,7 @@
 
 |                                                   # | Title                                                                                                  | Area                 | Depends On |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | -------------------- | ---------- |
-|                                                   — | (empty)                                                                                                |                      |            |
+| [#117](https://github.com/Leon-87-7/vig/issues/117) | ExportModal: restore PDF fallback when Google Drive is not configured                                  | Web / Spaces         | —          |
 
 ---
 
@@ -96,16 +112,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                                       | Area              | Depends On |
 | --------------------------------------------------: | ----------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-| [#129](https://github.com/Leon-87-7/vig/issues/129) | refactor(fetch-utils): flatten mapFetchState + shared fetchJson\<T> helper                                  | Web / Refactor    | —          |
-| [#121](https://github.com/Leon-87-7/vig/issues/121) | refactor(feed): extract useFeedData + useFuseSearch + polling hook                                          | Web / Refactor    | —          |
-| [#122](https://github.com/Leon-87-7/vig/issues/122) | refactor(spaces/detail): extract data hooks + split UrlsTab / ContextTab                                    | Web / Refactor    | —          |
-| [#123](https://github.com/Leon-87-7/vig/issues/123) | refactor(job/detail): extract useJobDetail + useJobAnnotation + useJobTags                                  | Web / Refactor    | —          |
-| [#124](https://github.com/Leon-87-7/vig/issues/124) | refactor(controls): extract useTagList + useDomainList; slim DomainTab                                      | Web / Refactor    | —          |
-| [#125](https://github.com/Leon-87-7/vig/issues/125) | refactor(spaces/list): extract useSpaceList + useCreateSpace hooks                                          | Web / Refactor    | —          |
-| [#126](https://github.com/Leon-87-7/vig/issues/126) | refactor(export-modal): extract useGdocExport; flatten handleGdoc branches                                  | Web / Refactor    | —          |
-| [#127](https://github.com/Leon-87-7/vig/issues/127) | refactor(prompts): extract useTemplateList; slim UserTemplateRow                                            | Web / Refactor    | —          |
-| [#128](https://github.com/Leon-87-7/vig/issues/128) | refactor(brain): extract useSemanticSearch hook                                                             | Web / Refactor    | —          |
-|   [#88](https://github.com/Leon-87-7/vig/issues/88) | web(S5): Job annotation + tagging (Milkdown)                                                                | Web / Jobs        | #86, #87 ✓ |
+|   [#88](https://github.com/Leon-87-7/vig/issues/88) | web(S5): Job annotation + tagging — Milkdown notes (debounced) + TagPicker                                  | Web / Jobs        | #86, #87 ✓ |
 | [#130](https://github.com/Leon-87-7/vig/issues/130) | refactor(webhook): extract URL-routing + template-shortcut helpers — cut webhook() CC 32→<12                | Refactor / Telegram | —        |
 | [#131](https://github.com/Leon-87-7/vig/issues/131) | refactor(short_video): extract _acquire_transcript — flatten run() nesting (CC 27, depth 6)                 | Refactor / Short Video | —     |
 | [#132](https://github.com/Leon-87-7/vig/issues/132) | refactor(database): add _execute/_fetch_one/_fetch_all helpers — collapse clone Group 38 (13 clones)        | Refactor / DB     | —          |
@@ -117,7 +124,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                            | Area      | Notes                                                                          |
 | --------------------------------------------------: | ---------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------ |
-|   [#94](https://github.com/Leon-87-7/vig/issues/94) | web(S12): Deploy — compose web + subdomains \[HITL]              | Web / Ops | HITL: DNS, app./api. subdomains, prod deploy, BotFather domain. Unblocked (#84 ✓) |
+|   [#94](https://github.com/Leon-87-7/vig/issues/94) | web(S12): Deploy — docker-compose 'web' service + Dockerfile + app./api. subdomains \[HITL]              | Web / Ops | HITL: DNS, app./api. subdomains, prod deploy, BotFather domain. Unblocked (#84 ✓) |
 
 ---
 
@@ -200,6 +207,9 @@ Repo URL feature (postgrill: docs/features/postgrill/repo-url-feature.md + ADR-0
                                           └── #73 freestyle re-run ✓ ◄───┘
                                                 (also depends on #70)
 
+#118 feat(github+repo): topics field, v2 cache key, _prioritize_tree helper ✓ (PR #120)
+#119 feat(repo): improve _build_repo_prompt ✓ (PR #120)
+
 webhook.py split (ADR-0015) — ✗ WONTFIX 2026-06-07 (#75–#79 closed not-planned; superseded by #130 CC-reduction on single-file webhook.py)
 
 Web dashboard feature (postgrill: docs/features/postgrill/web-plan.md + ADR-0016..0019)
@@ -223,18 +233,20 @@ Critical path: #83 → #84 → {#85, #86, #87} → #88/#89 → #93 → #95
     ├── #92 S11 — Brain search page ✓ ◄── also #83
     └── #94 S12 — Deploy [HITL]
 
+#96 Templates IDOR fix (tenant-scope templates table) ✓ (commit 93ad9f0)
+
 #82 test(long_video) under-mocked send_message → coroutine in editMessageText — ✗ WONTFIX 2026-06-07
 
 Web complexity reduction (fallow health — CRAP scores; all independent, no blockers)
-#129 refactor(fetch-utils) — flatten mapFetchState + shared fetchJson<T>
-#121 refactor(feed) — useFeedData + useFuseSearch + polling hook        (CRAP 506 → ~30)
-#122 refactor(spaces/detail) — 4 hooks + UrlsTab + ContextTab split     (CRAP 420 → ~60)
-#123 refactor(job/detail) — useJobDetail + useJobAnnotation + useJobTags (CRAP 272 → ~40)
-#124 refactor(controls) — useTagList + useDomainList                     (CRAP 110 → ~30)
-#125 refactor(spaces/list) — useSpaceList + useCreateSpace               (CRAP 110 → ~30)
-#126 refactor(export-modal) — useGdocExport + flatten handleGdoc         (CRAP 110 → ~25)
-#127 refactor(prompts) — useTemplateList + slim UserTemplateRow          (CRAP 72 → ~25)
-#128 refactor(brain) — useSemanticSearch                                 (CRAP 72 → ~25)
+#129 refactor(fetch-utils) — flatten mapFetchState + shared fetchJson<T> ✓ (PR #134)
+#121 refactor(feed) — useFeedData + useFuseSearch + polling hook ✓ (PR #134)        (CRAP 506 → ~30)
+#122 refactor(spaces/detail) — 4 hooks + UrlsTab + ContextTab split ✓ (PR #134)     (CRAP 420 → ~60)
+#123 refactor(job/detail) — useJobDetail + useJobAnnotation + useJobTags ✓ (PR #134) (CRAP 272 → ~40)
+#124 refactor(controls) — useTagList + useDomainList ✓ (PR #134)                     (CRAP 110 → ~30)
+#125 refactor(spaces/list) — useSpaceList + useCreateSpace ✓ (PR #134)               (CRAP 110 → ~30)
+#126 refactor(export-modal) — useGdocExport + flatten handleGdoc ✓ (PR #134)         (CRAP 110 → ~25)
+#127 refactor(prompts) — useTemplateList + slim UserTemplateRow ✓ (PR #134)          (CRAP 72 → ~25)
+#128 refactor(brain) — useSemanticSearch ✓ (PR #134)                                 (CRAP 72 → ~25)
 Note: #129 synergizes with #121–#128 (fetchJson<T> replaces repeated fetch boilerplate)
 
 ADR-0020: Guaranteed transcript on every short job (docs/adr/0020-always-transcript-short-pipeline.md)
@@ -244,6 +256,12 @@ ADR-0020: Guaranteed transcript on every short job (docs/adr/0020-always-transcr
         └── #103 transcript Drive upload + Telegram document delivery tail ✓
 Critical path: #101 → #102 → #103 (all ✓)
 
+Short pipeline transcript series (PR #113)
+#97 caption-based job always produces a transcript ✓
+#98 caption-less plain job transcribes via Gemini ✓
+#99 caption-less template job persists transcript from fused enrich_audio ✓
+#100 explicit transcript-failure taxonomy ✓
+
 pyscn health refactors (.pyscn report 2026-06-07 — Health 47/100; Duplication 0, Complexity 45)
 All independent — no blockers, all AFK, behavior-preserving (existing suite stays green).
 #130 refactor(webhook) — extract _route_url + _handle_user_template_shortcut + chat-state helper (CC 32 → <12)
@@ -252,3 +270,54 @@ All independent — no blockers, all AFK, behavior-preserving (existing suite st
 #133 refactor(short_video) — extract _acquire_transcript; flatten run() (CC 27, depth 6)
 #131 refactor(brain) — extract _select_refresh_batch + _refresh_one_link; flatten refresh_stale_links (CC 24)
 ```
+
+---
+
+## Open PRs
+
+| # | Title | Branch→Base | Linked Issue | Status |
+| --: | ----- | ----------- | ------------ | ------ |
+| [#116](https://github.com/Leon-87-7/vig/pull/116) | fix(queue/api/db): brpop idle handling, OpenAPI schema, per-chat ignored domains | repo-pipeline→main | — | Open |
+
+## Closed PRs
+
+| # | Title | Branch→Base | Linked Issue | Status |
+| --: | ----- | ----------- | ------------ | ------ |
+| [#135](https://github.com/Leon-87-7/vig/pull/135) | refactor(hooks): extract custom hooks + add vitest test infrastructure | refactor/hooks-121-129→main | — | ✅ Merged |
+| [#134](https://github.com/Leon-87-7/vig/pull/134) | refactor(frontend): extract custom hooks across all dashboard pages (#121-129) | refactor/hooks-121-129→main | #121 | ✅ Merged |
+| [#120](https://github.com/Leon-87-7/vig/pull/120) | feat(github+repo): topics field, v2 cache key, _prioritize_tree, and _build_repo_prompt improvements | feat/118-119-repo-prompt-improvements→main | #118, #119 | ✅ Merged |
+| [#115](https://github.com/Leon-87-7/vig/pull/115) | fix(spaces): ExportModal popup-block, controlled input, N+1 DB loop | pr/spaces-s7-s8→main | — | ✅ Merged |
+| [#114](https://github.com/Leon-87-7/vig/pull/114) | feat(web): S5/S6 job annotations + spaces CRUD, S11 brain semantic-search | pr/web-s2-s3-s4→main | — | ✅ Merged |
+| [#113](https://github.com/Leon-87-7/vig/pull/113) | feat(short-pipeline): transcript tail — closes #97 #98 #99 #100 | dev→main | #97, #98, #99, #100 | ✅ Merged |
+| [#112](https://github.com/Leon-87-7/vig/pull/112) | feat(web): S2/S3/S4 — feed, job detail, tags CRUD | pr/web-s2-s3-s4→main | — | ✅ Merged |
+| [#111](https://github.com/Leon-87-7/vig/pull/111) | feat(web): S7/S8 — space context blobs + export composer | pr/spaces-s7-s8→pr/spaces-s5-s6 | — | ❌ Closed |
+| [#110](https://github.com/Leon-87-7/vig/pull/110) | feat(short-pipeline): ADR-0020 — guaranteed transcript on every short job | pr/adr-0020-transcript→main | — | ✅ Merged |
+| [#109](https://github.com/Leon-87-7/vig/pull/109) | feat(web): S5/S6 — job annotations + spaces CRUD | pr/spaces-s5-s6→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#108](https://github.com/Leon-87-7/vig/pull/108) | feat(web): S11 — brain semantic-search page | pr/brain-search-s11→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#107](https://github.com/Leon-87-7/vig/pull/107) | feat(templates): user-defined templates CRUD + /templates command | pr/templates→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#106](https://github.com/Leon-87-7/vig/pull/106) | feat(controls): S10 — Allowed/Ignored Domains tabs | pr/web-controls-s10→main | — | ✅ Merged |
+| [#105](https://github.com/Leon-87-7/vig/pull/105) | feat(auth): S1 — auth hardening + cleanup | pr/auth-s1-fixes→main | — | ✅ Merged |
+| [#104](https://github.com/Leon-87-7/vig/pull/104) | fix(enrichment): repair malformed Gemini JSON with json-repair fallback | dev→main | — | ✅ Merged |
+| [#80](https://github.com/Leon-87-7/vig/pull/80) | feat(repo): full repo pipeline #2-#8 (issues #67-#73) | repo-pipeline→main | #67 | ✅ Merged |
+| [#74](https://github.com/Leon-87-7/vig/pull/74) | feat(repo): GitHub repo URL routing + stub processor | feat/repo-pipeline-66→main | #66 | ✅ Merged |
+| [#65](https://github.com/Leon-87-7/vig/pull/65) | feat(jina): markdown_cache + /download_md + /force cache invalidation | feat/60-jina-markdown-cache→main | #60 | ✅ Merged |
+| [#64](https://github.com/Leon-87-7/vig/pull/64) | feat(allowlist): /allowlist family + allowed_domains table + ARTICLE_DEFAULT_DOMAINS (#61) | feat/61-allowlist-family→main | #61 | ✅ Merged |
+| [#63](https://github.com/Leon-87-7/vig/pull/63) | refactor(sheets): consolidate three GOOGLE_SHEETS_ID_* vars into one with named tabs (#59) | refactor/59-sheets-consolidate-tabs→main | #59 | ✅ Merged |
+| [#58](https://github.com/Leon-87-7/vig/pull/58) | feat(webhook): /freestyle slash command for short and long pipelines | feat/54-freestyle-slash-command→main | #54 | ✅ Merged |
+| [#57](https://github.com/Leon-87-7/vig/pull/57) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue | feat/53-template-picker-keyboard→main | #53 | ✅ Merged |
+| [#56](https://github.com/Leon-87-7/vig/pull/56) | feat(enrichment): substitute freestyle_prompt for extra_instructions | feat/52-enrichment-freestyle-prompt→main | #52 | ✅ Merged |
+| [#55](https://github.com/Leon-87-7/vig/pull/55) | feat(db): add jobs.freestyle_prompt column | feat/51-jobs-freestyle-prompt→main | #51 | ✅ Merged |
+| [#50](https://github.com/Leon-87-7/vig/pull/50) | fix(test_short_video): stub get_ignored_domains in _patch_pipeline | fix/stub-get-ignored-domains→main | #47 | ✅ Merged |
+| [#49](https://github.com/Leon-87-7/vig/pull/49) | refactor(gemini): collapse 4 fallback loops into one unified module (ADR-0011) | refactor/unify-gemini-call-paths→main | #39 | ✅ Merged |
+| [#48](https://github.com/Leon-87-7/vig/pull/48) | fix(gemini_photo): add _UI_CHROME_PATTERNS drop to _filter_grounded_links | fix/ui-chrome-followed-by-filter→main | #36 | ✅ Merged |
+| [#45](https://github.com/Leon-87-7/vig/pull/45) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration runner | refactor/user-version-migrations→main | #43 | ✅ Merged |
+| [#44](https://github.com/Leon-87-7/vig/pull/44) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch | refactor/prd-slot-status→main | #41 | ✅ Merged |
+| [#40](https://github.com/Leon-87-7/vig/pull/40) | refactor: unify template-matching tables into the Template module (#38) | refactor/38-unify-template-tables→main | #38 | ✅ Merged |
+| [#31](https://github.com/Leon-87-7/vig/pull/31) | refactor(#25): replace _handle_callback elif chain with dispatch table | worktree-agent-ad4befae6823a8cd3→main | #25 | ✅ Merged |
+| [#30](https://github.com/Leon-87-7/vig/pull/30) | refactor(#24): extract run_prd() skeleton from run_auto/run_intent | worktree-agent-a516f10e59bd7c633→main | #24 | ✅ Merged |
+| [#29](https://github.com/Leon-87-7/vig/pull/29) | feat(#23): GeminiClient core module + migrate enrichment.py | worktree-agent-a8b8a8dda45b0f1fb→main | #23 | ✅ Merged |
+| [#28](https://github.com/Leon-87-7/vig/pull/28) | feat(#21): GitHub service + Redis cache for repo enrichment | worktree-agent-a0fe5775b79547014→main | #21 | ✅ Merged |
+| [#20](https://github.com/Leon-87-7/vig/pull/20) | feat(#17/#18): template system — data layer + handler layer (Phases 1–8) | feat/template-system-17-18→main | #17, #18 | ✅ Merged |
+| [#19](https://github.com/Leon-87-7/vig/pull/19) | feat(#15): extend /transcript to support TikTok/Instagram via yt-dlp | feat/15-tiktok-instagram-transcript→main | #15 | ✅ Merged |
+| [#14](https://github.com/Leon-87-7/vig/pull/14) | feat(#7): Mini-PRD intent slot + /spec + chat_state routing | feat/issue-7-intent-slot→main | #7 | ✅ Merged |
+| [#12](https://github.com/Leon-87-7/vig/pull/12) | feat: brain backfill, photo OCR, and Mini-PRD auto slot (#6, #8, #9, #11) | feat/issues-6-8-9-11-brain-photo-prd→main | — | ✅ Merged |
