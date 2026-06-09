@@ -608,63 +608,70 @@ async def connection() -> AsyncIterator[aiosqlite.Connection]:
         await conn.close()
 
 
-async def get_ignored_domains(chat_id: int) -> set[str]:
+async def _execute(sql: str, params: tuple = ()) -> None:
     async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,)
-        )
-        return {row[0] for row in await cur.fetchall()}
+        await conn.execute(sql, params)
+        await conn.commit()
+
+
+async def _execute_rowcount(sql: str, params: tuple = ()) -> int:
+    async with connection() as conn:
+        cur = await conn.execute(sql, params)
+        await conn.commit()
+        return cur.rowcount
+
+
+async def _fetch_one(sql: str, params: tuple = ()) -> aiosqlite.Row | None:
+    async with connection() as conn:
+        cur = await conn.execute(sql, params)
+        return await cur.fetchone()
+
+
+async def _fetch_all(sql: str, params: tuple = ()) -> list[aiosqlite.Row]:
+    async with connection() as conn:
+        cur = await conn.execute(sql, params)
+        return await cur.fetchall()
+
+
+async def get_ignored_domains(chat_id: int) -> set[str]:
+    rows = await _fetch_all("SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,))
+    return {row[0] for row in rows}
 
 
 async def add_ignored_domain(chat_id: int, domain: str) -> bool:
-    async with connection() as conn:
-        cur = await conn.execute(
-            "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
-            (chat_id, domain),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
+        (chat_id, domain),
+    ) > 0
 
 
 async def remove_ignored_domain(chat_id: int, domain: str) -> bool:
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM ignored_domains WHERE chat_id = ? AND domain = ?",
-            (chat_id, domain),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM ignored_domains WHERE chat_id = ? AND domain = ?",
+        (chat_id, domain),
+    ) > 0
 
 
 async def add_allowed_domain(chat_id: int, domain: str) -> bool:
     """Insert (chat_id, domain) into allowed_domains. Returns True if inserted, False if already present."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
-            (chat_id, domain),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
+        (chat_id, domain),
+    ) > 0
 
 
 async def list_allowed_domains(chat_id: int) -> set[str]:
     """Return the set of domains allowed for this chat."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT domain FROM allowed_domains WHERE chat_id = ?", (chat_id,)
-        )
-        return {row[0] for row in await cur.fetchall()}
+    rows = await _fetch_all("SELECT domain FROM allowed_domains WHERE chat_id = ?", (chat_id,))
+    return {row[0] for row in rows}
 
 
 async def remove_allowed_domain(chat_id: int, domain: str) -> bool:
     """Delete (chat_id, domain). Returns True if removed, False if not found."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
-            (chat_id, domain),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
+        (chat_id, domain),
+    ) > 0
 
 
 async def create_job(
@@ -725,10 +732,8 @@ async def reset_job(job_id: str) -> None:
 
 
 async def get_job(job_id: str) -> dict[str, Any] | None:
-    async with connection() as conn:
-        cursor = await conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one("SELECT * FROM jobs WHERE id = ?", (job_id,))
+    return dict(row) if row else None
 
 
 async def update_job_status(job_id: str, status: str, **fields: Any) -> None:
@@ -796,13 +801,11 @@ async def fetch_and_mark_stale_jobs(stale_minutes: int = 10) -> list[dict[str, A
 
 async def get_chat_state(chat_id: int) -> dict | None:
     """Return the chat_state row for chat_id, or None if absent."""
-    async with connection() as conn:
-        cursor = await conn.execute(
-            "SELECT chat_id, mode, job_id, created_at, expires_at FROM chat_state WHERE chat_id = ?",
-            (chat_id,),
-        )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT chat_id, mode, job_id, created_at, expires_at FROM chat_state WHERE chat_id = ?",
+        (chat_id,),
+    )
+    return dict(row) if row else None
 
 
 async def set_chat_state(
@@ -835,9 +838,7 @@ async def set_chat_state(
 
 async def clear_chat_state(chat_id: int) -> None:
     """Remove the chat_state row for chat_id, if any. Idempotent."""
-    async with connection() as conn:
-        await conn.execute("DELETE FROM chat_state WHERE chat_id = ?", (chat_id,))
-        await conn.commit()
+    await _execute("DELETE FROM chat_state WHERE chat_id = ?", (chat_id,))
 
 
 async def find_jobs_by_suffix(chat_id: int, suffix: str) -> list[dict]:
@@ -846,25 +847,21 @@ async def find_jobs_by_suffix(chat_id: int, suffix: str) -> list[dict]:
     Returns all content_types and statuses. Caller filters as needed
     (see webhook /spec handler).
     """
-    async with connection() as conn:
-        cursor = await conn.execute(
-            "SELECT * FROM jobs WHERE chat_id = ? AND id LIKE '%' || ? ORDER BY created_at DESC, id DESC",
-            (chat_id, suffix),
-        )
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+    rows = await _fetch_all(
+        "SELECT * FROM jobs WHERE chat_id = ? AND id LIKE '%' || ? ORDER BY created_at DESC, id DESC",
+        (chat_id, suffix),
+    )
+    return [dict(row) for row in rows]
 
 
 async def get_recent_jobs(chat_id: int, limit: int = 5) -> list[dict]:
     """Return the most-recent jobs in chat_id, capped at limit."""
-    async with connection() as conn:
-        cursor = await conn.execute(
-            "SELECT id, title, content_type, status FROM jobs "
-            "WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
-            (chat_id, limit),
-        )
-        rows = await cursor.fetchall()
-        return [dict(row) for row in rows]
+    rows = await _fetch_all(
+        "SELECT id, title, content_type, status FROM jobs "
+        "WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
+        (chat_id, limit),
+    )
+    return [dict(row) for row in rows]
 
 
 async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
@@ -873,15 +870,13 @@ async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
     Covers pending/processing (still running) and completed (cached result).
     Failed and stale jobs are excluded so the user can retry after a failure.
     """
-    async with connection() as conn:
-        cursor = await conn.execute(
-            "SELECT id, title, drive_url, content_type, status, bot_message_id FROM jobs "
-            "WHERE chat_id = ? AND url = ? AND status NOT IN ('error', 'cancelled') "
-            "ORDER BY created_at DESC, id DESC LIMIT 1",
-            (chat_id, url),
-        )
-        row = await cursor.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT id, title, drive_url, content_type, status, bot_message_id FROM jobs "
+        "WHERE chat_id = ? AND url = ? AND status NOT IN ('error', 'cancelled') "
+        "ORDER BY created_at DESC, id DESC LIMIT 1",
+        (chat_id, url),
+    )
+    return dict(row) if row else None
 
 
 # ---------------------------------------------------------------------------
@@ -902,24 +897,17 @@ async def get_markdown_cache(url: str) -> dict | None:
 
 async def insert_markdown_cache(url: str, content: str) -> None:
     """Insert or replace a markdown_cache row for *url*."""
-    async with connection() as conn:
-        await conn.execute(
-            "INSERT OR REPLACE INTO markdown_cache (url, content, fetched_at) "
-            "VALUES (?, ?, CURRENT_TIMESTAMP)",
-            (url, content),
-        )
-        await conn.commit()
+    await _execute(
+        "INSERT OR REPLACE INTO markdown_cache (url, content, fetched_at) "
+        "VALUES (?, ?, CURRENT_TIMESTAMP)",
+        (url, content),
+    )
     log.info("markdown_cache.inserted", url=url, content_len=len(content))
 
 
 async def delete_markdown_cache(url: str) -> bool:
     """Delete the markdown_cache row for *url*. Returns True if a row was deleted."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM markdown_cache WHERE url = ?", (url,)
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount("DELETE FROM markdown_cache WHERE url = ?", (url,)) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -960,12 +948,11 @@ async def upsert_user(
 
 
 async def list_tags(chat_id: int) -> list[dict]:
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, name, meaning, color, created_at FROM tags WHERE chat_id = ? ORDER BY name",
-            (chat_id,),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        "SELECT id, name, meaning, color, created_at FROM tags WHERE chat_id = ? ORDER BY name",
+        (chat_id,),
+    )
+    return [dict(row) for row in rows]
 
 
 async def create_tag(*, chat_id: int, name: str, meaning: str, color: str) -> dict:
@@ -980,22 +967,16 @@ async def create_tag(*, chat_id: int, name: str, meaning: str, color: str) -> di
 
 
 async def update_tag(*, chat_id: int, tag_id: str, name: str, meaning: str, color: str) -> bool:
-    async with connection() as conn:
-        cur = await conn.execute(
-            "UPDATE tags SET name = ?, meaning = ?, color = ? WHERE id = ? AND chat_id = ?",
-            (name, meaning, color, tag_id, chat_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "UPDATE tags SET name = ?, meaning = ?, color = ? WHERE id = ? AND chat_id = ?",
+        (name, meaning, color, tag_id, chat_id),
+    ) > 0
 
 
 async def delete_tag(*, chat_id: int, tag_id: str) -> bool:
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM tags WHERE id = ? AND chat_id = ?", (tag_id, chat_id)
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM tags WHERE id = ? AND chat_id = ?", (tag_id, chat_id)
+    ) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1005,27 +986,24 @@ async def delete_tag(*, chat_id: int, tag_id: str) -> bool:
 
 async def list_user_templates(chat_id: int) -> list[dict]:
     """Return user-defined templates for this chat, ordered by name."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, name, description, extra_instructions, trigger_patterns, "
-            "brave_search, content_type_scope, created_at, updated_at "
-            "FROM templates WHERE chat_id = ? AND is_builtin = 0 ORDER BY name",
-            (chat_id,),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        "SELECT id, name, description, extra_instructions, trigger_patterns, "
+        "brave_search, content_type_scope, created_at, updated_at "
+        "FROM templates WHERE chat_id = ? AND is_builtin = 0 ORDER BY name",
+        (chat_id,),
+    )
+    return [dict(row) for row in rows]
 
 
 async def get_user_template_by_name(chat_id: int, name: str) -> dict | None:
     """Return a user-defined template owned by this chat, or None."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, name, description, extra_instructions, trigger_patterns, "
-            "brave_search, content_type_scope, created_at, updated_at "
-            "FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
-            (chat_id, name),
-        )
-        row = await cur.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT id, name, description, extra_instructions, trigger_patterns, "
+        "brave_search, content_type_scope, created_at, updated_at "
+        "FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
+        (chat_id, name),
+    )
+    return dict(row) if row else None
 
 
 async def create_user_template(
@@ -1066,26 +1044,20 @@ async def update_user_template(
     extra_instructions: str = "",
 ) -> bool:
     """Update a user template owned by this chat. Returns True if updated."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            """UPDATE templates
-               SET description = ?, extra_instructions = ?, updated_at = CURRENT_TIMESTAMP
-               WHERE chat_id = ? AND name = ? AND is_builtin = 0""",
-            (description, extra_instructions, chat_id, name),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        """UPDATE templates
+           SET description = ?, extra_instructions = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE chat_id = ? AND name = ? AND is_builtin = 0""",
+        (description, extra_instructions, chat_id, name),
+    ) > 0
 
 
 async def delete_user_template(chat_id: int, name: str) -> bool:
     """Delete a user template owned by this chat. Returns True if deleted."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
-            (chat_id, name),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
+        (chat_id, name),
+    ) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1095,13 +1067,11 @@ async def delete_user_template(chat_id: int, name: str) -> bool:
 
 async def get_job_annotation(job_id: str) -> dict | None:
     """Return the job_annotations row for *job_id*, or None if absent."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT job_id, notes, updated_at FROM job_annotations WHERE job_id = ?",
-            (job_id,),
-        )
-        row = await cur.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT job_id, notes, updated_at FROM job_annotations WHERE job_id = ?",
+        (job_id,),
+    )
+    return dict(row) if row else None
 
 
 async def upsert_job_annotation(job_id: str, notes: str) -> dict:
@@ -1126,16 +1096,15 @@ async def upsert_job_annotation(job_id: str, notes: str) -> dict:
 
 async def list_job_tags(job_id: str) -> list[dict]:
     """Return tags attached to *job_id* ordered by name."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            """SELECT t.id, t.name, t.color, t.meaning
-               FROM job_tags jt
-               JOIN tags t ON t.id = jt.tag_id
-               WHERE jt.job_id = ?
-               ORDER BY t.name""",
-            (job_id,),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        """SELECT t.id, t.name, t.color, t.meaning
+           FROM job_tags jt
+           JOIN tags t ON t.id = jt.tag_id
+           WHERE jt.job_id = ?
+           ORDER BY t.name""",
+        (job_id,),
+    )
+    return [dict(row) for row in rows]
 
 
 async def batch_get_jobs(job_ids: list[str]) -> dict[str, dict]:
@@ -1188,24 +1157,16 @@ async def batch_list_job_tags(job_ids: list[str]) -> dict[str, list[dict]]:
 
 async def attach_job_tag(job_id: str, tag_id: str) -> bool:
     """Attach *tag_id* to *job_id*. Idempotent. Returns True."""
-    async with connection() as conn:
-        await conn.execute(
-            "INSERT OR IGNORE INTO job_tags (job_id, tag_id) VALUES (?, ?)",
-            (job_id, tag_id),
-        )
-        await conn.commit()
+    await _execute("INSERT OR IGNORE INTO job_tags (job_id, tag_id) VALUES (?, ?)", (job_id, tag_id))
     return True
 
 
 async def detach_job_tag(job_id: str, tag_id: str) -> bool:
     """Remove *tag_id* from *job_id*. Returns True if a row was deleted."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM job_tags WHERE job_id = ? AND tag_id = ?",
-            (job_id, tag_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM job_tags WHERE job_id = ? AND tag_id = ?",
+        (job_id, tag_id),
+    ) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1232,98 +1193,80 @@ async def create_space(*, chat_id: int, name: str, color: str) -> dict:
 
 async def list_spaces(chat_id: int) -> list[dict]:
     """Return all spaces for chat_id ordered newest-first."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, chat_id, name, color, created_at, updated_at "
-            "FROM spaces WHERE chat_id = ? ORDER BY created_at DESC",
-            (chat_id,),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        "SELECT id, chat_id, name, color, created_at, updated_at "
+        "FROM spaces WHERE chat_id = ? ORDER BY created_at DESC",
+        (chat_id,),
+    )
+    return [dict(row) for row in rows]
 
 
 async def get_space(space_id: str) -> dict | None:
     """Return a single space by PK, or None."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, chat_id, name, color, created_at, updated_at FROM spaces WHERE id = ?",
-            (space_id,),
-        )
-        row = await cur.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT id, chat_id, name, color, created_at, updated_at FROM spaces WHERE id = ?",
+        (space_id,),
+    )
+    return dict(row) if row else None
 
 
 async def update_space(*, chat_id: int, space_id: str, name: str, color: str) -> bool:
     """UPDATE name/color for a space owned by chat_id. Returns True if updated."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "UPDATE spaces SET name = ?, color = ?, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = ? AND chat_id = ?",
-            (name, color, space_id, chat_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "UPDATE spaces SET name = ?, color = ?, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = ? AND chat_id = ?",
+        (name, color, space_id, chat_id),
+    ) > 0
 
 
 async def delete_space(*, chat_id: int, space_id: str) -> bool:
     """DELETE a space owned by chat_id. Returns True if deleted."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM spaces WHERE id = ? AND chat_id = ?",
-            (space_id, chat_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM spaces WHERE id = ? AND chat_id = ?",
+        (space_id, chat_id),
+    ) > 0
 
 
 async def add_space_url(*, space_id: str, job_id: str) -> bool:
     """Pin a job into a space. sort_order = max+1. Idempotent (INSERT OR IGNORE)."""
-    async with connection() as conn:
-        await conn.execute(
-            """INSERT OR IGNORE INTO space_urls (space_id, job_id, sort_order)
-               VALUES (?, ?, COALESCE(
-                   (SELECT MAX(sort_order) FROM space_urls WHERE space_id = ?), 0
-               ) + 1)""",
-            (space_id, job_id, space_id),
-        )
-        await conn.commit()
-        return True
+    await _execute(
+        """INSERT OR IGNORE INTO space_urls (space_id, job_id, sort_order)
+           VALUES (?, ?, COALESCE(
+               (SELECT MAX(sort_order) FROM space_urls WHERE space_id = ?), 0
+           ) + 1)""",
+        (space_id, job_id, space_id),
+    )
+    return True
 
 
 async def remove_space_url(*, space_id: str, job_id: str) -> bool:
     """Unpin a job from a space. Returns True if the row existed."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM space_urls WHERE space_id = ? AND job_id = ?",
-            (space_id, job_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "DELETE FROM space_urls WHERE space_id = ? AND job_id = ?",
+        (space_id, job_id),
+    ) > 0
 
 
 async def reorder_space_url(*, space_id: str, job_id: str, new_sort_order: int) -> bool:
     """Update sort_order for a pinned job. Returns True if the row existed."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "UPDATE space_urls SET sort_order = ? WHERE space_id = ? AND job_id = ?",
-            (new_sort_order, space_id, job_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "UPDATE space_urls SET sort_order = ? WHERE space_id = ? AND job_id = ?",
+        (new_sort_order, space_id, job_id),
+    ) > 0
 
 
 async def list_space_urls(space_id: str, chat_id: int) -> list[dict]:
     """Return jobs pinned to a space, joined with key job fields, ordered by sort_order."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            """SELECT j.id, j.title, j.url, j.content_type, j.status,
-                      su.sort_order, su.added_at
-               FROM space_urls su
-               JOIN jobs j ON j.id = su.job_id AND j.chat_id = ?
-               WHERE su.space_id = ?
-               ORDER BY su.sort_order ASC""",
-            (chat_id, space_id),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        """SELECT j.id, j.title, j.url, j.content_type, j.status,
+                  su.sort_order, su.added_at
+           FROM space_urls su
+           JOIN jobs j ON j.id = su.job_id AND j.chat_id = ?
+           WHERE su.space_id = ?
+           ORDER BY su.sort_order ASC""",
+        (chat_id, space_id),
+    )
+    return [dict(row) for row in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -1354,55 +1297,41 @@ async def create_context_blob(*, space_id: str, name: str, content: str = "") ->
 
 async def list_context_blobs(space_id: str) -> list[dict]:
     """Return all context blobs for a space ordered by sort_order."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
-            "FROM context_blobs WHERE space_id = ? ORDER BY sort_order ASC",
-            (space_id,),
-        )
-        return [dict(row) for row in await cur.fetchall()]
+    rows = await _fetch_all(
+        "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
+        "FROM context_blobs WHERE space_id = ? ORDER BY sort_order ASC",
+        (space_id,),
+    )
+    return [dict(row) for row in rows]
 
 
 async def get_context_blob(blob_id: str) -> dict | None:
     """Return a single context blob by PK, or None."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
-            "FROM context_blobs WHERE id = ?",
-            (blob_id,),
-        )
-        row = await cur.fetchone()
-        return dict(row) if row else None
+    row = await _fetch_one(
+        "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
+        "FROM context_blobs WHERE id = ?",
+        (blob_id,),
+    )
+    return dict(row) if row else None
 
 
 async def update_context_blob(*, blob_id: str, name: str, content: str) -> bool:
     """UPDATE name and content; sets updated_at. Returns True if the row existed."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "UPDATE context_blobs SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = ?",
-            (name, content, blob_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "UPDATE context_blobs SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP "
+        "WHERE id = ?",
+        (name, content, blob_id),
+    ) > 0
 
 
 async def delete_context_blob(blob_id: str) -> bool:
     """DELETE a context blob. Returns True if the row existed."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "DELETE FROM context_blobs WHERE id = ?", (blob_id,)
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount("DELETE FROM context_blobs WHERE id = ?", (blob_id,)) > 0
 
 
 async def reorder_context_blob(*, blob_id: str, new_sort_order: int) -> bool:
     """UPDATE sort_order for a blob. Returns True if the row existed."""
-    async with connection() as conn:
-        cur = await conn.execute(
-            "UPDATE context_blobs SET sort_order = ? WHERE id = ?",
-            (new_sort_order, blob_id),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
+    return await _execute_rowcount(
+        "UPDATE context_blobs SET sort_order = ? WHERE id = ?",
+        (new_sort_order, blob_id),
+    ) > 0

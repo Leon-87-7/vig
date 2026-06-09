@@ -557,6 +557,136 @@ async def rebuild_graph() -> int:
         return len(all_links)
 
 
+async def _select_refresh_batch(
+    conn, effective_batch: int
+) -> tuple[list[dict], set]:
+    cursor2 = await conn.execute(
+        """
+        SELECT * FROM links
+        WHERE embedding IS NULL OR drive_file_id IS NULL
+        ORDER BY updated_at ASC
+        LIMIT ?
+        """,
+        (effective_batch,),
+    )
+    repair_rows = [dict(r) for r in await cursor2.fetchall()]
+    repair_ids = {r["id"] for r in repair_rows}
+
+    remaining = effective_batch - len(repair_rows)
+    healthy_rows: list[dict] = []
+    if remaining > 0:
+        placeholders = ",".join("?" * len(repair_ids)) if repair_ids else "NULL"
+        if repair_ids:
+            cursor3 = await conn.execute(
+                f"""
+                SELECT * FROM links
+                WHERE id NOT IN ({placeholders})
+                ORDER BY updated_at ASC
+                LIMIT ?
+                """,
+                (*repair_ids, remaining),
+            )
+        else:
+            cursor3 = await conn.execute(
+                "SELECT * FROM links ORDER BY updated_at ASC LIMIT ?",
+                (remaining,),
+            )
+        healthy_rows = [dict(r) for r in await cursor3.fetchall()]
+
+    return repair_rows + healthy_rows, repair_ids
+
+
+async def _refresh_one_link(
+    conn, lnk: dict, repair_ids: set, ids_list: list, matrix, now_iso: str
+) -> int:
+    lnk_id = lnk["id"]
+    embedding_blob = lnk["embedding"]
+    is_repair = lnk_id in repair_ids
+    repaired_delta = 0
+
+    if embedding_blob is None:
+        embed_doc = f"{lnk['url']} {lnk['title'] or ''} {lnk['topic'] or ''}"
+        new_arr = await _embed(embed_doc)
+        if new_arr is not None:
+            embedding_blob = new_arr.tobytes()
+            await conn.execute(
+                "UPDATE links SET embedding = ? WHERE id = ?",
+                (embedding_blob, lnk_id),
+            )
+            await conn.commit()
+            if lnk_id not in ids_list:
+                ids_list.append(lnk_id)
+                matrix = (
+                    np.vstack([matrix, new_arr]) if matrix.size else new_arr.reshape(1, -1)
+                )
+            repaired_delta += 1
+
+    self_vec: np.ndarray | None = None
+    if embedding_blob and len(embedding_blob) == EMBEDDING_DIM * 4:
+        self_vec = np.frombuffer(embedding_blob, dtype=np.float32)
+
+    related_titles: list[str] = []
+    if self_vec is not None and ids_list:
+        sims = [
+            (ids_list[i], _cosine_similarity(self_vec, matrix[i]))
+            for i in range(len(ids_list))
+            if ids_list[i] != lnk_id
+        ]
+        sims.sort(key=lambda x: x[1], reverse=True)
+        top_ids = [rid for rid, score in sims[:3] if score >= settings.BRAIN_MIN_SCORE]
+        for rid in top_ids:
+            cursor5 = await conn.execute(
+                "SELECT title, url FROM links WHERE id = ?", (rid,)
+            )
+            rel_row = await cursor5.fetchone()
+            if rel_row:
+                related_titles.append(rel_row["title"] or rel_row["url"])
+
+    src_url, src_drive_url = await _get_source_job_info(conn, lnk["source_job"])
+
+    md_text = _build_obsidian_md(
+        title=lnk["title"] or lnk["url"],
+        url=lnk["url"],
+        topic=lnk["topic"] or "",
+        source_video_url=src_url,
+        source_drive_url=src_drive_url,
+        seen_count=lnk["seen_count"],
+        created_at=lnk["created_at"],
+        last_seen_at=lnk["last_seen_at"],
+        related_titles=related_titles,
+    )
+    slug = _slugify(lnk["title"] or lnk["url"])
+
+    try:
+        if lnk["drive_file_id"] is None:
+            file_id, _ = await upload_file(
+                md_text,
+                f"{slug}.md",
+                settings.GOOGLE_DRIVE_FOLDER_BRAIN,
+            )
+            await conn.execute(
+                "UPDATE links SET drive_file_id = ? WHERE id = ?",
+                (file_id, lnk_id),
+            )
+            if is_repair:
+                repaired_delta += 1
+        else:
+            await upload_file(
+                md_text,
+                f"{slug}.md",
+                settings.GOOGLE_DRIVE_FOLDER_BRAIN,
+            )
+    except Exception as exc:
+        log.warning("brain.refresh_drive_failed", link_id=lnk_id, error=str(exc))
+
+    await conn.execute(
+        "UPDATE links SET updated_at = ? WHERE id = ?",
+        (now_iso, lnk_id),
+    )
+
+    return repaired_delta
+
+
 async def refresh_stale_links() -> None:
     """APScheduler job — repair NULL embeddings and refresh oldest Drive .md files."""
     import aiosqlite
@@ -576,48 +706,12 @@ async def refresh_stale_links() -> None:
 
         effective_batch = min(500, max(settings.BRAIN_REFRESH_BATCH, corpus_size // 20))
 
-        # Repair rows first (NULL embedding or NULL drive_file_id)
-        cursor2 = await conn.execute(
-            """
-            SELECT * FROM links
-            WHERE embedding IS NULL OR drive_file_id IS NULL
-            ORDER BY updated_at ASC
-            LIMIT ?
-            """,
-            (effective_batch,),
-        )
-        repair_rows = [dict(r) for r in await cursor2.fetchall()]
-        repair_ids = {r["id"] for r in repair_rows}
-
-        # Fill remaining slots with oldest healthy rows
-        remaining = effective_batch - len(repair_rows)
-        healthy_rows: list[dict] = []
-        if remaining > 0:
-            placeholders = ",".join("?" * len(repair_ids)) if repair_ids else "NULL"
-            if repair_ids:
-                cursor3 = await conn.execute(
-                    f"""
-                    SELECT * FROM links
-                    WHERE id NOT IN ({placeholders})
-                    ORDER BY updated_at ASC
-                    LIMIT ?
-                    """,
-                    (*repair_ids, remaining),
-                )
-            else:
-                cursor3 = await conn.execute(
-                    "SELECT * FROM links ORDER BY updated_at ASC LIMIT ?",
-                    (remaining,),
-                )
-            healthy_rows = [dict(r) for r in await cursor3.fetchall()]
-
-        batch_rows = repair_rows + healthy_rows
+        batch_rows, repair_ids = await _select_refresh_batch(conn, effective_batch)
 
         if not batch_rows:
             log.info("brain.refresh_done", batch=0, repaired=0, duration_ms=0)
             return
 
-        # Load corpus embeddings for related computation
         cursor4 = await conn.execute("SELECT id, embedding FROM links WHERE embedding IS NOT NULL")
         corpus_rows = [dict(r) for r in await cursor4.fetchall()]
         ids_list, matrix = _load_embeddings(corpus_rows)
@@ -626,92 +720,7 @@ async def refresh_stale_links() -> None:
         repaired = 0
 
         for lnk in batch_rows:
-            lnk_id = lnk["id"]
-            embedding_blob = lnk["embedding"]
-            is_repair = lnk_id in repair_ids
-
-            # Regenerate NULL embedding
-            if embedding_blob is None:
-                embed_doc = f"{lnk['url']} {lnk['title'] or ''} {lnk['topic'] or ''}"
-                new_arr = await _embed(embed_doc)
-                if new_arr is not None:
-                    embedding_blob = new_arr.tobytes()
-                    await conn.execute(
-                        "UPDATE links SET embedding = ? WHERE id = ?",
-                        (embedding_blob, lnk_id),
-                    )
-                    await conn.commit()
-                    # Update local corpus
-                    if lnk_id not in ids_list:
-                        ids_list.append(lnk_id)
-                        matrix = (
-                            np.vstack([matrix, new_arr]) if matrix.size else new_arr.reshape(1, -1)
-                        )
-                    repaired += 1
-
-            # Compute related
-            self_vec: np.ndarray | None = None
-            if embedding_blob and len(embedding_blob) == EMBEDDING_DIM * 4:
-                self_vec = np.frombuffer(embedding_blob, dtype=np.float32)
-
-            related_titles: list[str] = []
-            if self_vec is not None and ids_list:
-                sims = [
-                    (ids_list[i], _cosine_similarity(self_vec, matrix[i]))
-                    for i in range(len(ids_list))
-                    if ids_list[i] != lnk_id
-                ]
-                sims.sort(key=lambda x: x[1], reverse=True)
-                top_ids = [rid for rid, score in sims[:3] if score >= settings.BRAIN_MIN_SCORE]
-                for rid in top_ids:
-                    cursor5 = await conn.execute(
-                        "SELECT title, url FROM links WHERE id = ?", (rid,)
-                    )
-                    rel_row = await cursor5.fetchone()
-                    if rel_row:
-                        related_titles.append(rel_row["title"] or rel_row["url"])
-
-            src_url, src_drive_url = await _get_source_job_info(conn, lnk["source_job"])
-
-            md_text = _build_obsidian_md(
-                title=lnk["title"] or lnk["url"],
-                url=lnk["url"],
-                topic=lnk["topic"] or "",
-                source_video_url=src_url,
-                source_drive_url=src_drive_url,
-                seen_count=lnk["seen_count"],
-                created_at=lnk["created_at"],
-                last_seen_at=lnk["last_seen_at"],
-                related_titles=related_titles,
-            )
-            slug = _slugify(lnk["title"] or lnk["url"])
-
-            try:
-                if lnk["drive_file_id"] is None:
-                    file_id, _ = await upload_file(
-                        md_text,
-                        f"{slug}.md",
-                        settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-                    )
-                    await conn.execute(
-                        "UPDATE links SET drive_file_id = ? WHERE id = ?",
-                        (file_id, lnk_id),
-                    )
-                    if is_repair:
-                        repaired += 1
-                else:
-                    await upload_file(
-                        md_text,
-                        f"{slug}.md",
-                        settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-                    )
-            except Exception as exc:
-                log.warning("brain.refresh_drive_failed", link_id=lnk_id, error=str(exc))
-
-            await conn.execute(
-                "UPDATE links SET updated_at = ? WHERE id = ?",
-                (now_iso, lnk_id),
-            )
+            repaired += await _refresh_one_link(conn, lnk, repair_ids, ids_list, matrix, now_iso)
 
         await conn.commit()
 
