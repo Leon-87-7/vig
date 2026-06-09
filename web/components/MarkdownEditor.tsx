@@ -2,6 +2,13 @@
 
 import { useEffect, useRef } from 'react'
 
+// Crepe ships its editor chrome (toolbar, slash-menu, placeholder, list/table
+// styling) entirely via CSS. Without these imports the WYSIWYG controls render
+// unstyled or invisible, so a non-technical user never sees the formatting UI.
+// `common` is the required base; `frame-dark` matches the dark dashboard theme.
+import '@milkdown/crepe/theme/common/style.css'
+import '@milkdown/crepe/theme/frame-dark.css'
+
 interface MarkdownEditorProps {
   initialMarkdown: string
   onSave: (md: string) => void
