@@ -991,6 +991,157 @@ async def _handle_spec(chat_id: int, parts: list[str]) -> None:
             await queue.enqueue({"task": "prd_auto", "job_id": job_id})
 
 
+def _resolve_chat_state(state: dict) -> bool:
+    from datetime import datetime as _dt, timezone as _tz
+    expires_at_raw = state["expires_at"]
+    try:
+        expires_at = _dt.fromisoformat(expires_at_raw.replace(" ", "T"))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=_tz.utc)
+    except Exception:
+        expires_at = None
+    return bool(expires_at and expires_at > _dt.now(_tz.utc))
+
+
+async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: int) -> bool:
+    if not re.match(r"^-[a-zA-Z0-9][a-zA-Z0-9_-]*$", text.split()[0]):
+        return False
+    parts = text.split()
+    tmpl_name = parts[0][1:].lower()  # strip leading '-'
+    if len(parts) < 2:
+        await send_message(chat_id, f"❌ Usage: `-{tmpl_name} <url>`")
+        return True
+    tmpl_row = await database.get_user_template_by_name(chat_id, tmpl_name)
+    if tmpl_row is None:
+        await send_message(
+            chat_id,
+            f"❌ Unknown template `-{tmpl_name}`. Create it at /prompts or check the name.",
+        )
+        return True
+    url = parts[1]
+    extra_domains = await database.list_allowed_domains(chat_id)
+    pipeline = detect_pipeline(url, frozenset(extra_domains))
+    if pipeline == "rejected":
+        await send_message(
+            chat_id,
+            "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
+            "Instagram Reels, TikTok videos, and allowlisted article domains.",
+        )
+        return True
+    cached = await database.find_recent_job_by_url(chat_id, url)
+    if cached:
+        await _reply_cached_job(chat_id, cached)
+        return True
+    extra_instructions = (tmpl_row.get("extra_instructions") or "").strip()
+    job_id = await database.create_job(
+        chat_id=chat_id,
+        url=url,
+        content_type=pipeline,
+        message_id=message_id,
+        template="freestyle" if extra_instructions else None,
+    )
+    await database.set_job_template_prompt(
+        job_id,
+        freestyle_prompt=extra_instructions or None,
+        template_detection_method=f"user_template:{tmpl_name}",
+    )
+    task_type = (
+        "repo" if pipeline == "repo"
+        else "article" if pipeline == "article"
+        else "video"
+    )
+    await queue.enqueue({"task": task_type, "job_id": job_id})
+    await send_message(
+        chat_id,
+        f"📥 Received\n✨ Kicking off analysis ({tmpl_name})\njob_{job_id[-4:]}",
+    )
+    log.info("user_template_shortcut.enqueued", chat_id=chat_id, job_id=job_id, template=tmpl_name)
+    return True
+
+
+async def _route_url(chat_id: int, text: str, message_id: int) -> None:
+    client = queue._client()
+    pending_template: str | None = await client.get(f"pending_template:{chat_id}")
+    if pending_template:
+        await client.delete(f"pending_template:{chat_id}")
+
+    extra_domains = await database.list_allowed_domains(chat_id)
+    pipeline = detect_pipeline(text, frozenset(extra_domains))
+    if pipeline == "rejected":
+        try:
+            _host = (urlparse(text).hostname or "").lower().removeprefix("www.")
+        except Exception:
+            _host = ""
+        _github_hint = f"\n{_REPO_HINT}" if _host == "github.com" or _host.endswith(".github.com") else ""
+        await send_message(
+            chat_id,
+            "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
+            "Instagram Reels (not /p/ carousels), and TikTok videos.\n"
+            + _ARTICLE_HINT
+            + _github_hint,
+        )
+        log.info("url_rejected", chat_id=chat_id, url=text)
+        return
+
+    if pipeline == "article":
+        if not pending_template:
+            cached = await database.find_recent_job_by_url(chat_id, text)
+            if cached:
+                await _reply_cached_job(chat_id, cached)
+                return
+        job_id = await database.create_job(
+            chat_id=chat_id, url=text, content_type="article", message_id=message_id,
+        )
+        await queue.enqueue({"task": "article", "job_id": job_id})
+        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        return
+
+    if pipeline == "repo":
+        repo_url = normalize_repo_url(text)
+        if pending_template:
+            await client.set(f"pending_template:{chat_id}", pending_template, ex=120)
+            await send_message(
+                chat_id,
+                f"ℹ️ `/{pending_template}` templates don't apply to repo URLs yet — "
+                "your template is still active for the next video or article.",
+            )
+        cached = await database.find_recent_job_by_url(chat_id, repo_url)
+        if cached:
+            await _reply_cached_job(chat_id, cached)
+            return
+        job_id = await database.create_job(
+            chat_id=chat_id, url=repo_url, content_type="repo", message_id=message_id,
+        )
+        await queue.enqueue({"task": "repo", "job_id": job_id})
+        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        return
+
+    if pending_template == "freestyle":
+        await _handle_freestyle_url(chat_id, text, pipeline, message_id)
+        return
+
+    if not pending_template:
+        cached = await database.find_recent_job_by_url(chat_id, text)
+        if cached:
+            await _reply_cached_job(chat_id, cached)
+            return
+
+    job_id = await database.create_job(
+        chat_id=chat_id, url=text, content_type=pipeline, message_id=message_id,
+        template=pending_template,
+    )
+    if pending_template:
+        await database.update_job_status(
+            job_id, "pending",
+            template_detection_method="explicit_command",
+        )
+    await queue.enqueue({"task": "video", "job_id": job_id})
+    if pending_template:
+        await send_message(chat_id, f"📥 Received\n✨ Kicking off Gemini analysis ({pending_template})\njob_{job_id[-4:]}")
+    else:
+        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+
+
 @router.post("/webhook")
 async def webhook(
     request: Request,
@@ -1038,15 +1189,7 @@ async def webhook(
     # 2. Awaiting-intent path
     state = await database.get_chat_state(chat_id)
     if state:
-        from datetime import datetime as _dt, timezone as _tz
-        expires_at_raw = state["expires_at"]
-        try:
-            expires_at = _dt.fromisoformat(expires_at_raw.replace(" ", "T"))
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=_tz.utc)
-        except Exception:
-            expires_at = None
-        if expires_at and expires_at > _dt.now(_tz.utc):
+        if _resolve_chat_state(state):
             if state.get("mode") == "awaiting_freestyle":
                 await _handle_awaiting_freestyle(chat_id, text, state)
             else:
@@ -1063,138 +1206,9 @@ async def webhook(
         return {"ok": True}
 
     # 3b. User-template shortcut: "-mytemplate <url>"
-    if re.match(r"^-[a-zA-Z0-9][a-zA-Z0-9_-]*$", text.split()[0]):
-        parts = text.split()
-        tmpl_name = parts[0][1:].lower()  # strip leading '-'
-        if len(parts) < 2:
-            await send_message(chat_id, f"❌ Usage: `-{tmpl_name} <url>`")
-            return {"ok": True}
-        tmpl_row = await database.get_user_template_by_name(chat_id, tmpl_name)
-        if tmpl_row is None:
-            await send_message(
-                chat_id,
-                f"❌ Unknown template `-{tmpl_name}`. Create it at /prompts or check the name.",
-            )
-            return {"ok": True}
-        url = parts[1]
-        extra_domains = await database.list_allowed_domains(chat_id)
-        pipeline = detect_pipeline(url, frozenset(extra_domains))
-        if pipeline == "rejected":
-            await send_message(
-                chat_id,
-                "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-                "Instagram Reels, TikTok videos, and allowlisted article domains.",
-            )
-            return {"ok": True}
-        cached = await database.find_recent_job_by_url(chat_id, url)
-        if cached:
-            await _reply_cached_job(chat_id, cached)
-            return {"ok": True}
-        extra_instructions = (tmpl_row.get("extra_instructions") or "").strip()
-        job_id = await database.create_job(
-            chat_id=chat_id,
-            url=url,
-            content_type=pipeline,
-            message_id=message_id,
-            template="freestyle" if extra_instructions else None,
-        )
-        await database.set_job_template_prompt(
-            job_id,
-            freestyle_prompt=extra_instructions or None,
-            template_detection_method=f"user_template:{tmpl_name}",
-        )
-        task_type = (
-            "repo" if pipeline == "repo"
-            else "article" if pipeline == "article"
-            else "video"
-        )
-        await queue.enqueue({"task": task_type, "job_id": job_id})
-        await send_message(
-            chat_id,
-            f"📥 Received\n✨ Kicking off analysis ({tmpl_name})\njob_{job_id[-4:]}",
-        )
-        log.info("user_template_shortcut.enqueued", chat_id=chat_id, job_id=job_id, template=tmpl_name)
+    if await _handle_user_template_shortcut(chat_id, text, message_id):
         return {"ok": True}
 
     # 4. Normal URL routing
-    client = queue._client()
-    pending_template: str | None = await client.get(f"pending_template:{chat_id}")
-    if pending_template:
-        await client.delete(f"pending_template:{chat_id}")
-
-    extra_domains = await database.list_allowed_domains(chat_id)
-    pipeline = detect_pipeline(text, frozenset(extra_domains))
-    if pipeline == "rejected":
-        try:
-            _host = (urlparse(text).hostname or "").lower().removeprefix("www.")
-        except Exception:
-            _host = ""
-        _github_hint = f"\n{_REPO_HINT}" if _host == "github.com" or _host.endswith(".github.com") else ""
-        await send_message(
-            chat_id,
-            "❌ Unsupported URL. I accept YouTube videos, YouTube Shorts, "
-            "Instagram Reels (not /p/ carousels), and TikTok videos.\n"
-            + _ARTICLE_HINT
-            + _github_hint,
-        )
-        log.info("url_rejected", chat_id=chat_id, url=text)
-        return {"ok": True}
-
-    if pipeline == "article":
-        if not pending_template:
-            cached = await database.find_recent_job_by_url(chat_id, text)
-            if cached:
-                await _reply_cached_job(chat_id, cached)
-                return {"ok": True}
-        job_id = await database.create_job(
-            chat_id=chat_id, url=text, content_type="article", message_id=message_id,
-        )
-        await queue.enqueue({"task": "article", "job_id": job_id})
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
-        return {"ok": True}
-
-    if pipeline == "repo":
-        repo_url = normalize_repo_url(text)
-        if pending_template:
-            await client.set(f"pending_template:{chat_id}", pending_template, ex=120)
-            await send_message(
-                chat_id,
-                f"ℹ️ `/{pending_template}` templates don't apply to repo URLs yet — "
-                "your template is still active for the next video or article.",
-            )
-        cached = await database.find_recent_job_by_url(chat_id, repo_url)
-        if cached:
-            await _reply_cached_job(chat_id, cached)
-            return {"ok": True}
-        job_id = await database.create_job(
-            chat_id=chat_id, url=repo_url, content_type="repo", message_id=message_id,
-        )
-        await queue.enqueue({"task": "repo", "job_id": job_id})
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
-        return {"ok": True}
-
-    if pending_template == "freestyle":
-        await _handle_freestyle_url(chat_id, text, pipeline, message_id)
-        return {"ok": True}
-
-    if not pending_template:
-        cached = await database.find_recent_job_by_url(chat_id, text)
-        if cached:
-            await _reply_cached_job(chat_id, cached)
-            return {"ok": True}
-
-    job_id = await database.create_job(
-        chat_id=chat_id, url=text, content_type=pipeline, message_id=message_id,
-        template=pending_template,
-    )
-    if pending_template:
-        await database.update_job_status(
-            job_id, "pending",
-            template_detection_method="explicit_command",
-        )
-    await queue.enqueue({"task": "video", "job_id": job_id})
-    if pending_template:
-        await send_message(chat_id, f"📥 Received\n✨ Kicking off Gemini analysis ({pending_template})\njob_{job_id[-4:]}")
-    else:
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+    await _route_url(chat_id, text, message_id)
     return {"ok": True}
