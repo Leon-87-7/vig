@@ -64,8 +64,10 @@ async def _accumulate_media_group(chat_id: int, media_group_id: str, file_id: st
 
     async def _debounce() -> None:
         await asyncio.sleep(1)
-        await _process_media_group(chat_id, media_group_id)
-        _BATCH_TASKS.pop(media_group_id, None)
+        try:
+            await _process_media_group(chat_id, media_group_id)
+        finally:
+            _BATCH_TASKS.pop(media_group_id, None)
 
     _BATCH_TASKS[media_group_id] = asyncio.create_task(_debounce())
 
