@@ -95,6 +95,11 @@
 | [#127](https://github.com/Leon-87-7/vig/issues/127) | refactor(prompts): extract useTemplateList; slim UserTemplateRow                                        | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
 | [#128](https://github.com/Leon-87-7/vig/issues/128) | refactor(brain): extract useSemanticSearch hook                                                         | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
 | [#129](https://github.com/Leon-87-7/vig/issues/129) | refactor(fetch-utils): reduce mapFetchState complexity; consolidate shared fetch patterns               | Web / Refactor           | Merged; PR #134; closed on GH                                                             |
+|   [#88](https://github.com/Leon-87-7/vig/issues/88) | web(S5): Job annotation + tagging — Milkdown notes (debounced) + TagPicker                              | Web / Jobs               | Committed to main (7e37bd4); closed on GH                                                 |
+| [#130](https://github.com/Leon-87-7/vig/issues/130) | refactor(webhook): extract URL-routing + template-shortcut helpers — cut webhook() CC 32→<12            | Refactor / Telegram      | Committed to main (057a28d); closed on GH                                                 |
+| [#131](https://github.com/Leon-87-7/vig/issues/131) | refactor(short_video): extract _acquire_transcript — flatten run() nesting (CC 27, depth 6)             | Refactor / Short Video   | Committed to main; closed on GH                                                           |
+| [#132](https://github.com/Leon-87-7/vig/issues/132) | refactor(database): add _execute/_fetch_one/_fetch_all helpers — collapse clone Group 38 (13 clones)   | Refactor / DB            | Committed to main (7038a5d); closed on GH                                                 |
+| [#133](https://github.com/Leon-87-7/vig/issues/133) | refactor(brain): extract _select_refresh_batch + _refresh_one_link — flatten refresh_stale_links (CC 24) | Refactor / Brain       | Committed to main; closed on GH                                                           |
 
 ---
 
@@ -110,13 +115,8 @@
 
 Ordered by unblocked-first, then dependency chain.
 
-|                                                   # | Title                                                                                                       | Area              | Depends On |
-| --------------------------------------------------: | ----------------------------------------------------------------------------------------------------------- | ----------------- | ---------- |
-|   [#88](https://github.com/Leon-87-7/vig/issues/88) | web(S5): Job annotation + tagging — Milkdown notes (debounced) + TagPicker                                  | Web / Jobs        | #86, #87 ✓ |
-| [#130](https://github.com/Leon-87-7/vig/issues/130) | refactor(webhook): extract URL-routing + template-shortcut helpers — cut webhook() CC 32→<12                | Refactor / Telegram | —        |
-| [#131](https://github.com/Leon-87-7/vig/issues/131) | refactor(short_video): extract _acquire_transcript — flatten run() nesting (CC 27, depth 6)                 | Refactor / Short Video | —     |
-| [#132](https://github.com/Leon-87-7/vig/issues/132) | refactor(database): add _execute/_fetch_one/_fetch_all helpers — collapse clone Group 38 (13 clones)        | Refactor / DB     | —          |
-| [#133](https://github.com/Leon-87-7/vig/issues/133) | refactor(brain): extract _select_refresh_batch + _refresh_one_link — flatten refresh_stale_links (CC 24)    | Refactor / Brain  | —          |
+|                                                   # | Title | Area | Depends On |
+| --------------------------------------------------: | ----- | ---- | ---------- |
 
 ---
 
@@ -226,7 +226,7 @@ Critical path: #83 → #84 → {#85, #86, #87} → #88/#89 → #93 → #95
     │       └── #93 S7 — Context blobs ✓ ◄── also #88
     │           └── #95 S8 — Space export ✓ ◄── also #87, #88
     ├── #86 S3 — Job detail ✓
-    │   └── #88 S5 — Job annotation ◄── also #87
+    │   └── #88 S5 — Job annotation ✓ ◄── also #87
     ├── #87 S4 — Controls Tags tab ✓
     ├── #90 S9 — User templates ✓ ◄── also #83
     ├── #91 S10 — Controls Allowed/Ignored ✓ ◄── also #81
@@ -264,11 +264,11 @@ Short pipeline transcript series (PR #113)
 
 pyscn health refactors (.pyscn report 2026-06-07 — Health 47/100; Duplication 0, Complexity 45)
 All independent — no blockers, all AFK, behavior-preserving (existing suite stays green).
-#130 refactor(webhook) — extract _route_url + _handle_user_template_shortcut + chat-state helper (CC 32 → <12)
+#130 refactor(webhook) — extract _route_url + _handle_user_template_shortcut + chat-state helper (CC 32 → <12) ✓
      (replaces the parked #75–#79 webhook split; works on current single-file webhook.py)
-#132 refactor(database) — _execute/_execute_rowcount/_fetch_one/_fetch_all; collapse clone Group 38 (13 clones)
-#133 refactor(short_video) — extract _acquire_transcript; flatten run() (CC 27, depth 6)
-#131 refactor(brain) — extract _select_refresh_batch + _refresh_one_link; flatten refresh_stale_links (CC 24)
+#132 refactor(database) — _execute/_execute_rowcount/_fetch_one/_fetch_all; collapse clone Group 38 (13 clones) ✓
+#131 refactor(short_video) — extract _acquire_transcript; flatten run() (CC 27, depth 6) ✓
+#133 refactor(brain) — extract _select_refresh_batch + _refresh_one_link; flatten refresh_stale_links (CC 24) ✓
 ```
 
 ---
