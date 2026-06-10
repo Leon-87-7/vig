@@ -598,7 +598,7 @@ async def _select_refresh_batch(
 
 async def _refresh_one_link(
     conn, lnk: dict, repair_ids: set, ids_list: list, matrix, now_iso: str
-) -> int:
+) -> tuple[int, np.ndarray]:
     lnk_id = lnk["id"]
     embedding_blob = lnk["embedding"]
     is_repair = lnk_id in repair_ids
@@ -684,7 +684,7 @@ async def _refresh_one_link(
         (now_iso, lnk_id),
     )
 
-    return repaired_delta
+    return repaired_delta, matrix
 
 
 async def refresh_stale_links() -> None:
@@ -720,7 +720,8 @@ async def refresh_stale_links() -> None:
         repaired = 0
 
         for lnk in batch_rows:
-            repaired += await _refresh_one_link(conn, lnk, repair_ids, ids_list, matrix, now_iso)
+            delta, matrix = await _refresh_one_link(conn, lnk, repair_ids, ids_list, matrix, now_iso)
+            repaired += delta
 
         await conn.commit()
 
