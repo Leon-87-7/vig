@@ -198,7 +198,11 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
             <Badge label={job.status} styleClass={statusStyle} />
           </div>
         </div>
-        <p className="mt-1 text-xs text-gray-500 break-all">{job.url}</p>
+        {/^https?:\/\//i.test(job.url) ? (
+          <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs text-gray-500 break-all hover:text-blue-400 hover:underline">{job.url}</a>
+        ) : (
+          <p className="mt-1 text-xs text-gray-500 break-all">{job.url}</p>
+        )}
       </div>
 
       {job.status === "error" && job.error_msg && (
@@ -209,7 +213,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
       {(job.drive_url || presentFields.length > 0) && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {job.drive_url ? (
+          {job.drive_url && /^https?:\/\//i.test(job.drive_url) ? (
             <a href={job.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-gray-400 hover:text-white">
               Open in Drive &#8599;
             </a>
