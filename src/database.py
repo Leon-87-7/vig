@@ -626,6 +626,12 @@ async def _fetch_all(sql: str, params: tuple = ()) -> list[aiosqlite.Row]:
         return await cur.fetchall()
 
 
+async def _fetch_dicts(sql: str, params: tuple = ()) -> list[dict]:
+    """`_fetch_all` with rows converted to plain dicts."""
+    rows = await _fetch_all(sql, params)
+    return [dict(row) for row in rows]
+
+
 async def _insert_returning(
     insert_sql: str, insert_params: tuple, select_sql: str, select_params: tuple
 ) -> dict:
@@ -649,7 +655,8 @@ async def _fetch_in(sql_template: str, ids: list[str]) -> list[dict]:
 
 
 async def get_ignored_domains(chat_id: int) -> set[str]:
-    rows = await _fetch_all("SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,))
+    return await _fetch_dicts(
+"SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,))
     return {row[0] for row in rows}
 
 
@@ -862,21 +869,19 @@ async def find_jobs_by_suffix(chat_id: int, suffix: str) -> list[dict]:
     Returns all content_types and statuses. Caller filters as needed
     (see webhook /spec handler).
     """
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT * FROM jobs WHERE chat_id = ? AND id LIKE '%' || ? ORDER BY created_at DESC, id DESC",
         (chat_id, suffix),
     )
-    return [dict(row) for row in rows]
 
 
 async def get_recent_jobs(chat_id: int, limit: int = 5) -> list[dict]:
     """Return the most-recent jobs in chat_id, capped at limit."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT id, title, content_type, status FROM jobs "
         "WHERE chat_id = ? ORDER BY created_at DESC, id DESC LIMIT ?",
         (chat_id, limit),
     )
-    return [dict(row) for row in rows]
 
 
 async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
@@ -963,11 +968,10 @@ async def upsert_user(
 
 
 async def list_tags(chat_id: int) -> list[dict]:
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT id, name, meaning, color, created_at FROM tags WHERE chat_id = ? ORDER BY name",
         (chat_id,),
     )
-    return [dict(row) for row in rows]
 
 
 async def create_tag(*, chat_id: int, name: str, meaning: str, color: str) -> dict:
@@ -1001,13 +1005,12 @@ async def delete_tag(*, chat_id: int, tag_id: str) -> bool:
 
 async def list_user_templates(chat_id: int) -> list[dict]:
     """Return user-defined templates for this chat, ordered by name."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT id, name, description, extra_instructions, trigger_patterns, "
         "brave_search, content_type_scope, created_at, updated_at "
         "FROM templates WHERE chat_id = ? AND is_builtin = 0 ORDER BY name",
         (chat_id,),
     )
-    return [dict(row) for row in rows]
 
 
 async def get_user_template_by_name(chat_id: int, name: str) -> dict | None:
@@ -1105,7 +1108,7 @@ async def upsert_job_annotation(job_id: str, notes: str) -> dict:
 
 async def list_job_tags(job_id: str) -> list[dict]:
     """Return tags attached to *job_id* ordered by name."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         """SELECT t.id, t.name, t.color, t.meaning
            FROM job_tags jt
            JOIN tags t ON t.id = jt.tag_id
@@ -1113,7 +1116,6 @@ async def list_job_tags(job_id: str) -> list[dict]:
            ORDER BY t.name""",
         (job_id,),
     )
-    return [dict(row) for row in rows]
 
 
 async def batch_get_jobs(job_ids: list[str]) -> dict[str, dict]:
@@ -1181,12 +1183,11 @@ async def create_space(*, chat_id: int, name: str, color: str) -> dict:
 
 async def list_spaces(chat_id: int) -> list[dict]:
     """Return all spaces for chat_id ordered newest-first."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT id, chat_id, name, color, created_at, updated_at "
         "FROM spaces WHERE chat_id = ? ORDER BY created_at DESC",
         (chat_id,),
     )
-    return [dict(row) for row in rows]
 
 
 async def get_space(space_id: str) -> dict | None:
@@ -1245,7 +1246,7 @@ async def reorder_space_url(*, space_id: str, job_id: str, new_sort_order: int) 
 
 async def list_space_urls(space_id: str, chat_id: int) -> list[dict]:
     """Return jobs pinned to a space, joined with key job fields, ordered by sort_order."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         """SELECT j.id, j.title, j.url, j.content_type, j.status,
                   su.sort_order, su.added_at
            FROM space_urls su
@@ -1254,7 +1255,6 @@ async def list_space_urls(space_id: str, chat_id: int) -> list[dict]:
            ORDER BY su.sort_order ASC""",
         (chat_id, space_id),
     )
-    return [dict(row) for row in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -1279,12 +1279,11 @@ async def create_context_blob(*, space_id: str, name: str, content: str = "") ->
 
 async def list_context_blobs(space_id: str) -> list[dict]:
     """Return all context blobs for a space ordered by sort_order."""
-    rows = await _fetch_all(
+    return await _fetch_dicts(
         "SELECT id, space_id, name, content, sort_order, created_at, updated_at "
         "FROM context_blobs WHERE space_id = ? ORDER BY sort_order ASC",
         (space_id,),
     )
-    return [dict(row) for row in rows]
 
 
 async def get_context_blob(blob_id: str) -> dict | None:
