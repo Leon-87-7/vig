@@ -21,6 +21,10 @@ min_lines = 10
 min_nodes = 20
 similarity_threshold = 0.65
 grouping_threshold = 0.65
+# Gate copy-paste (exact + renamed), not Type-3/4 structural similarity —
+# idiomatic same-shaped functions (section builders, thin handlers, small SQL
+# accessors) are not refactor targets. Decision logged 2026-06-11.
+enabled_clone_types = ["type1", "type2"]
 
 [analysis]
 recursive = true
