@@ -64,26 +64,36 @@ def _repo_row(job: dict, analysis: dict, bundle: dict) -> list:
     ]
 
 
+async def _append_row_logged(tab: str, row: list, event_prefix: str, job_id) -> int | None:
+    """Append *row* to *tab*; log `<prefix>_appended` / `<prefix>_failed`; never raise."""
+    try:
+        row_idx = await asyncio.to_thread(_append_sync, tab, row)
+        log.info(f"{event_prefix}_appended", job_id=job_id, row_idx=row_idx)
+        return row_idx
+    except Exception:
+        log.exception(f"{event_prefix}_failed", job_id=job_id)
+        return None
+
+
+async def _update_row_logged(tab: str, row_idx: int, row: list, event_prefix: str, job_id) -> None:
+    """Overwrite *row_idx* in *tab*; log `<prefix>_updated` / `<prefix>_update_failed`."""
+    try:
+        await asyncio.to_thread(_update_sync, tab, row_idx, row)
+        log.info(f"{event_prefix}_updated", job_id=job_id, row_idx=row_idx)
+    except Exception:
+        log.exception(f"{event_prefix}_update_failed", job_id=job_id)
+
+
 async def append_repo_row(job: dict, analysis: dict, bundle: dict) -> int | None:
     """Append one row to 'Repo Analysis' tab and return the 1-based row index."""
     row = _repo_row(job, analysis, bundle)
-    try:
-        row_idx = await asyncio.to_thread(_append_sync, TAB_REPO, row)
-        log.info("sheets_repo_appended", job_id=job.get("id"), row_idx=row_idx)
-        return row_idx
-    except Exception:
-        log.exception("sheets_repo_failed", job_id=job.get("id"))
-        return None
+    return await _append_row_logged(TAB_REPO, row, "sheets_repo", job.get("id"))
 
 
 async def update_repo_row(row_idx: int, job: dict, analysis: dict, bundle: dict) -> None:
     """Overwrite the Repo Analysis row at row_idx (1-based) in-place."""
     row = _repo_row(job, analysis, bundle)
-    try:
-        await asyncio.to_thread(_update_sync, TAB_REPO, row_idx, row)
-        log.info("sheets_repo_updated", job_id=job.get("id"), row_idx=row_idx)
-    except Exception:
-        log.exception("sheets_repo_update_failed", job_id=job.get("id"))
+    await _update_row_logged(TAB_REPO, row_idx, row, "sheets_repo", job.get("id"))
 
 
 def _build_service() -> Any:
@@ -240,23 +250,13 @@ async def append_article_row(job: dict, *, domain: str) -> int | None:
              promise_gap, submitted_at, status
     """
     row = _article_row(job, domain=domain)
-    try:
-        row_idx = await asyncio.to_thread(_append_sync, TAB_ARTICLE, row)
-        log.info("sheets_article_appended", job_id=job.get("id"), row_idx=row_idx)
-        return row_idx
-    except Exception:
-        log.exception("sheets_article_failed", job_id=job.get("id"))
-        return None
+    return await _append_row_logged(TAB_ARTICLE, row, "sheets_article", job.get("id"))
 
 
 async def update_article_row(row_idx: int, job: dict, *, domain: str) -> None:
     """Overwrite the existing Article Analysis row at *row_idx* (1-based) in-place."""
     row = _article_row(job, domain=domain)
-    try:
-        await asyncio.to_thread(_update_sync, TAB_ARTICLE, row_idx, row)
-        log.info("sheets_article_updated", job_id=job.get("id"), row_idx=row_idx)
-    except Exception:
-        log.exception("sheets_article_update_failed", job_id=job.get("id"))
+    await _update_row_logged(TAB_ARTICLE, row_idx, row, "sheets_article", job.get("id"))
 
 
 async def append_prd_row(
