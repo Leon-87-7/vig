@@ -8,6 +8,13 @@ import { StatsOverview } from "@/components/feed/stats-overview";
 import { FilterBar } from "@/components/feed/filter-bar";
 import { SkeletonList, ErrorBanner, EmptyState } from "@/components/feed/feed-states";
 
+function jobCountLabel(firstLoad: boolean, loading: boolean, query: string, shown: number, total: number): string {
+  if (firstLoad) return "loading…";
+  if (loading) return "syncing…";
+  if (query.trim()) return `${shown} result${shown === 1 ? "" : "s"}`;
+  return `${total} job${total === 1 ? "" : "s"}`;
+}
+
 export default function FeedPage() {
   const { ctFilter, setCtFilter, stFilter, setStFilter, stats, jobs, total, loading, error, reload } = useFeedData();
   const { query, setQuery, displayedJobs } = useFuseSearch(jobs);
@@ -17,13 +24,7 @@ export default function FeedPage() {
   const hasFilters = Boolean(ctFilter || stFilter || query.trim());
   const empty = !loading && !error && displayedJobs.length === 0;
 
-  const countLabel = firstLoad
-    ? "loading…"
-    : loading
-    ? "syncing…"
-    : query.trim()
-      ? `${displayedJobs.length} result${displayedJobs.length === 1 ? "" : "s"}`
-      : `${total} job${total === 1 ? "" : "s"}`;
+  const countLabel = jobCountLabel(firstLoad, loading, query, displayedJobs.length, total);
 
   const clearAll = () => {
     setCtFilter("");
