@@ -174,6 +174,84 @@ async def init_db() -> None:
         raise
 
 
+async def _rewrite_existing_md(
+    conn, existing, url: str, topic: str, source_job_id: str, now_iso: str,
+    new_seen: int, last_seen: str,
+) -> None:
+    """Re-upload the Obsidian .md for an already-known link with fresh counters."""
+    existing_title = existing["title"] or url
+    existing_topic = existing["topic"] or topic
+
+    # Load related links for the .md
+    cursor2 = await conn.execute(
+        "SELECT id, embedding FROM links WHERE embedding IS NOT NULL"
+    )
+    all_rows = [dict(r) for r in await cursor2.fetchall()]
+    ids_list, matrix = _load_embeddings(all_rows)
+
+    related: list[dict] = []
+    if ids_list:
+        cursor3 = await conn.execute(
+            "SELECT id, embedding FROM links WHERE id = ? AND embedding IS NOT NULL",
+            (existing["id"],),
+        )
+        self_row = await cursor3.fetchone()
+        if self_row and self_row["embedding"]:
+            blob = self_row["embedding"]
+            if len(blob) == EMBEDDING_DIM * 4:
+                self_vec = np.frombuffer(blob, dtype=np.float32)
+                related = _compute_related(existing["id"], self_vec, ids_list, matrix, conn)
+
+    related_titles = await _fetch_related_titles(conn, related)
+    src_url, src_drive_url = await _get_source_job_info(conn, source_job_id)
+
+    # Updated seen count + last seen
+    cursor4 = await conn.execute(
+        "SELECT seen_count, last_seen_at, created_at FROM links WHERE id = ?",
+        (existing["id"],),
+    )
+    updated_row = await cursor4.fetchone()
+
+    md_text = _build_obsidian_md(
+        title=existing_title,
+        url=url,
+        topic=existing_topic,
+        source_video_url=src_url,
+        source_drive_url=src_drive_url,
+        seen_count=updated_row["seen_count"] if updated_row else new_seen,
+        created_at=updated_row["created_at"] if updated_row else now_iso,
+        last_seen_at=updated_row["last_seen_at"] if updated_row else last_seen,
+        related_titles=related_titles,
+    )
+    slug = _slugify(existing_title)
+    try:
+        await upload_file(
+            md_text,
+            f"{slug}.md",
+            settings.GOOGLE_DRIVE_FOLDER_BRAIN,
+        )
+    except Exception as exc:
+        log.warning("brain.drive_rewrite_failed", url=url, error=str(exc))
+
+
+async def _touch_existing_link(
+    conn, existing, url: str, topic: str, source_job_id: str, now_iso: str
+) -> None:
+    """Bump seen_count/last_seen and rewrite the Drive .md when one exists."""
+    new_seen = existing["seen_count"] + 1
+    last_seen = datetime.now(timezone.utc).isoformat()
+    await conn.execute(
+        "UPDATE links SET seen_count = ?, last_seen_at = ? WHERE id = ?",
+        (new_seen, last_seen, existing["id"]),
+    )
+    await conn.commit()
+
+    if existing["drive_file_id"] and settings.GOOGLE_DRIVE_FOLDER_BRAIN:
+        await _rewrite_existing_md(
+            conn, existing, url, topic, source_job_id, now_iso, new_seen, last_seen
+        )
+
+
 async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> None:
     """Fire-and-forget: persist each URL as a semantic node in the graph."""
     import aiosqlite
@@ -196,74 +274,7 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                 existing = await cursor.fetchone()
 
                 if existing:
-                    new_seen = existing["seen_count"] + 1
-                    last_seen = datetime.now(timezone.utc).isoformat()
-                    await conn.execute(
-                        "UPDATE links SET seen_count = ?, last_seen_at = ? WHERE id = ?",
-                        (new_seen, last_seen, existing["id"]),
-                    )
-                    await conn.commit()
-
-                    # Rewrite Drive .md with updated seen_count
-                    if existing["drive_file_id"] and settings.GOOGLE_DRIVE_FOLDER_BRAIN:
-                        existing_title = existing["title"] or url
-                        existing_topic = existing["topic"] or topic
-
-                        # Load related links for the .md
-                        cursor2 = await conn.execute(
-                            "SELECT id, embedding FROM links WHERE embedding IS NOT NULL"
-                        )
-                        all_rows = [dict(r) for r in await cursor2.fetchall()]
-                        ids_list, matrix = _load_embeddings(all_rows)
-
-                        related: list[dict] = []
-                        if ids_list:
-                            cursor3 = await conn.execute(
-                                "SELECT id, embedding FROM links WHERE id = ? AND embedding IS NOT NULL",
-                                (existing["id"],),
-                            )
-                            self_row = await cursor3.fetchone()
-                            if self_row and self_row["embedding"]:
-                                blob = self_row["embedding"]
-                                if len(blob) == EMBEDDING_DIM * 4:
-                                    self_vec = np.frombuffer(blob, dtype=np.float32)
-                                    related = _compute_related(
-                                        existing["id"], self_vec, ids_list, matrix, conn
-                                    )
-
-                        # Fetch related titles
-                        related_titles = await _fetch_related_titles(conn, related)
-
-                        # Get source job info
-                        src_url, src_drive_url = await _get_source_job_info(conn, source_job_id)
-
-                        # Updated seen count + last seen
-                        cursor4 = await conn.execute(
-                            "SELECT seen_count, last_seen_at, created_at FROM links WHERE id = ?",
-                            (existing["id"],),
-                        )
-                        updated_row = await cursor4.fetchone()
-
-                        md_text = _build_obsidian_md(
-                            title=existing_title,
-                            url=url,
-                            topic=existing_topic,
-                            source_video_url=src_url,
-                            source_drive_url=src_drive_url,
-                            seen_count=updated_row["seen_count"] if updated_row else new_seen,
-                            created_at=updated_row["created_at"] if updated_row else now_iso,
-                            last_seen_at=updated_row["last_seen_at"] if updated_row else last_seen,
-                            related_titles=related_titles,
-                        )
-                        slug = _slugify(existing_title)
-                        try:
-                            await upload_file(
-                                md_text,
-                                f"{slug}.md",
-                                settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-                            )
-                        except Exception as exc:
-                            log.warning("brain.drive_rewrite_failed", url=url, error=str(exc))
+                    await _touch_existing_link(conn, existing, url, topic, source_job_id, now_iso)
                     continue
 
                 # --- First sighting ---
