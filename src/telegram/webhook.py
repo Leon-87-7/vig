@@ -72,17 +72,13 @@ async def _accumulate_media_group(chat_id: int, media_group_id: str, file_id: st
     _BATCH_TASKS[media_group_id] = asyncio.create_task(_debounce())
 
 
-async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) -> None:
-    from src.services.gemini_photo import call_gemini_photo_links
+async def _report_photo_links(
+    chat_id: int, result: dict, source_job_id: str, *, plural: bool
+) -> None:
+    """Send enriched links (and kick off brain ingest) or a no-links notice."""
     from src.services.github import enrich_github_links
     from src.utils.markdown import build_enriched_links_message
 
-    await send_message(chat_id, "🔍 Scanning image for links...")
-    photo_bytes, mime_type = await download_photo(file_id)
-    result = await call_gemini_photo_links(
-        [{"bytes": photo_bytes, "mime_type": mime_type}],
-        caption=caption,
-    )
     links = result.get("links", [])
     summary = result.get("summary", "")
     if links:
@@ -91,20 +87,31 @@ async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) 
         if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
             from src import brain
             asyncio.create_task(
-                brain.ingest_links(links, topic=summary, source_job_id=f"photo_{chat_id}")
+                brain.ingest_links(links, topic=summary, source_job_id=source_job_id)
             )
     else:
+        noun = "these images" if plural else "this image"
         await send_message(
             chat_id,
-            f"🔍 No links found in this image.\nThat is what I did see:\n{summary}",
+            f"🔍 No links found in {noun}.\nThat is what I did see:\n{summary}",
         )
+
+
+async def _handle_single_photo(chat_id: int, file_id: str, caption: str | None) -> None:
+    from src.services.gemini_photo import call_gemini_photo_links
+
+    await send_message(chat_id, "🔍 Scanning image for links...")
+    photo_bytes, mime_type = await download_photo(file_id)
+    result = await call_gemini_photo_links(
+        [{"bytes": photo_bytes, "mime_type": mime_type}],
+        caption=caption,
+    )
+    await _report_photo_links(chat_id, result, f"photo_{chat_id}", plural=False)
 
 
 async def _process_media_group(chat_id: int, media_group_id: str) -> None:
     """Read all accumulated file IDs for a media group, download them, and run Gemini."""
     from src.services.gemini_photo import call_gemini_photo_links
-    from src.services.github import enrich_github_links
-    from src.utils.markdown import build_enriched_links_message
 
     client = queue._client()
     file_ids: list[str] = await client.lrange(f"photo_group_files:{media_group_id}", 0, -1)  # pyright: ignore[reportGeneralTypeIssues]
@@ -117,25 +124,7 @@ async def _process_media_group(chat_id: int, media_group_id: str) -> None:
         b, mt = await download_photo(fid)
         images.append({"bytes": b, "mime_type": mt})
     result = await call_gemini_photo_links(images, caption=None)
-    links = result.get("links", [])
-    summary = result.get("summary", "")
-    if links:
-        links = await enrich_github_links(links)
-        await send_message(chat_id, build_enriched_links_message(links))
-        if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
-            from src import brain
-            asyncio.create_task(
-                brain.ingest_links(
-                    links,
-                    topic=summary,
-                    source_job_id=f"photo_group_{media_group_id}",
-                )
-            )
-    else:
-        await send_message(
-            chat_id,
-            f"🔍 No links found in these images.\nThat is what I did see:\n{summary}",
-        )
+    await _report_photo_links(chat_id, result, f"photo_group_{media_group_id}", plural=True)
 
 
 async def _cb_gemini_no(ctx: CallbackCtx) -> None:
@@ -688,47 +677,52 @@ async def _cmd_download_md(ctx: SlashCtx) -> None:
 
 _PROTECTED_DOMAINS = {"github.com"}
 
+
+def _normalize_domain(raw: str) -> str:
+    """Strip to bare hostname, lowercase, drop 'www.' prefix."""
+    from urllib.parse import urlparse as _urlparse
+    host = _urlparse(raw).hostname or raw
+    return host.lower().removeprefix("www.")
+
+
+def _format_domain_report(*sections: tuple[str, list[str]]) -> str:
+    """Join non-empty '<label> `d1`, `d2`' lines for a domain-command reply."""
+    return "\n".join(
+        f"{label} " + ", ".join(f"`{d}`" for d in domains)
+        for label, domains in sections
+        if domains
+    )
+
+
 async def _cmd_ignore(ctx: SlashCtx) -> None:
     if len(ctx.parts) < 2:
         await send_message(ctx.chat_id, "Usage: /ignore <domain or URL> [more...]")
         return
-    from urllib.parse import urlparse as _urlparse
     added, protected = [], []
     for raw in ctx.parts[1:]:
-        host = _urlparse(raw).hostname or raw
-        domain = host.lower().removeprefix("www.")
+        domain = _normalize_domain(raw)
         if domain in _PROTECTED_DOMAINS:
             protected.append(domain)
             continue
         await database.add_ignored_domain(ctx.chat_id, domain)
         added.append(domain)
-    parts = []
-    if added:
-        parts.append("🚫 Ignored: " + ", ".join(f"`{d}`" for d in added))
-    if protected:
-        parts.append("⛔ Cannot ignore: " + ", ".join(f"`{d}`" for d in protected))
-    await send_message(ctx.chat_id, "\n".join(parts))
+    await send_message(ctx.chat_id, _format_domain_report(
+        ("🚫 Ignored:", added), ("⛔ Cannot ignore:", protected)))
 
 
 async def _cmd_unignore(ctx: SlashCtx) -> None:
     if len(ctx.parts) < 2:
         await send_message(ctx.chat_id, "Usage: /unignore <domain or URL> [more...]")
         return
-    from urllib.parse import urlparse as _urlparse
     removed, missing = [], []
     for raw in ctx.parts[1:]:
-        host = _urlparse(raw).hostname or raw
-        domain = host.lower().removeprefix("www.")
+        domain = _normalize_domain(raw)
         if await database.remove_ignored_domain(ctx.chat_id, domain):
             removed.append(domain)
         else:
             missing.append(domain)
-    parts = []
-    if removed:
-        parts.append("✅ Removed: " + ", ".join(f"`{d}`" for d in removed))
-    if missing:
-        parts.append("⚠️ Not found: " + ", ".join(f"`{d}`" for d in missing))
-    await send_message(ctx.chat_id, "\n".join(parts))
+    await send_message(ctx.chat_id, _format_domain_report(
+        ("✅ Removed:", removed), ("⚠️ Not found:", missing)))
 
 
 async def _cmd_ignore_list(ctx: SlashCtx) -> None:
@@ -738,13 +732,6 @@ async def _cmd_ignore_list(ctx: SlashCtx) -> None:
         return
     lines = "\n".join(f"• `{d}`" for d in domains)
     await send_message(ctx.chat_id, f"🚫 Ignored domains ({len(domains)}):\n{lines}")
-
-
-def _normalize_domain(raw: str) -> str:
-    """Strip to bare hostname, lowercase, drop 'www.' prefix."""
-    from urllib.parse import urlparse as _urlparse
-    host = _urlparse(raw).hostname or raw
-    return host.lower().removeprefix("www.")
 
 
 async def _cmd_allowlist(ctx: SlashCtx) -> None:
@@ -770,12 +757,8 @@ async def _cmd_unallowlist(ctx: SlashCtx) -> None:
             removed.append(domain)
         else:
             missing.append(domain)
-    parts = []
-    if removed:
-        parts.append("✅ Removed: " + ", ".join(f"`{d}`" for d in removed))
-    if missing:
-        parts.append("⚠️ Not in your allowlist: " + ", ".join(f"`{d}`" for d in missing))
-    await send_message(ctx.chat_id, "\n".join(parts))
+    await send_message(ctx.chat_id, _format_domain_report(
+        ("✅ Removed:", removed), ("⚠️ Not in your allowlist:", missing)))
 
 
 async def _cmd_allowlist_list(ctx: SlashCtx) -> None:
@@ -1043,6 +1026,17 @@ async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: in
     return True
 
 
+async def _enqueue_simple_job(
+    chat_id: int, url: str, content_type: str, message_id: int
+) -> None:
+    """Create + enqueue an article/repo job and ack the user."""
+    job_id = await database.create_job(
+        chat_id=chat_id, url=url, content_type=content_type, message_id=message_id,
+    )
+    await queue.enqueue({"task": content_type, "job_id": job_id})
+    await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+
+
 async def _route_url(chat_id: int, text: str, message_id: int) -> None:
     client = queue._client()
     pending_template: str | None = await client.get(f"pending_template:{chat_id}")
@@ -1073,11 +1067,7 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
             if cached:
                 await _reply_cached_job(chat_id, cached)
                 return
-        job_id = await database.create_job(
-            chat_id=chat_id, url=text, content_type="article", message_id=message_id,
-        )
-        await queue.enqueue({"task": "article", "job_id": job_id})
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        await _enqueue_simple_job(chat_id, text, "article", message_id)
         return
 
     if pipeline == "repo":
@@ -1093,11 +1083,7 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
         if cached:
             await _reply_cached_job(chat_id, cached)
             return
-        job_id = await database.create_job(
-            chat_id=chat_id, url=repo_url, content_type="repo", message_id=message_id,
-        )
-        await queue.enqueue({"task": "repo", "job_id": job_id})
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        await _enqueue_simple_job(chat_id, repo_url, "repo", message_id)
         return
 
     if pending_template == "freestyle":
