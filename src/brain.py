@@ -310,16 +310,7 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
 
                 related: list[dict] = []
                 if embedding_arr is not None and ids_list:
-                    sims = [
-                        (ids_list[i], _cosine_similarity(embedding_arr, matrix[i]))
-                        for i in range(len(ids_list))
-                    ]
-                    sims.sort(key=lambda x: x[1], reverse=True)
-                    related = [
-                        {"id": rid, "score": score}
-                        for rid, score in sims[:3]
-                        if score >= settings.BRAIN_MIN_SCORE
-                    ]
+                    related = _compute_related(link_id, embedding_arr, ids_list, matrix, conn)
 
                 related_titles = await _fetch_related_titles(conn, related)
 
@@ -339,15 +330,7 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                 slug = _slugify(title_str)
 
                 try:
-                    file_id, _ = await upload_file(
-                        md_text,
-                        f"{slug}.md",
-                        settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-                    )
-                    await conn.execute(
-                        "UPDATE links SET drive_file_id = ? WHERE id = ?",
-                        (file_id, link_id),
-                    )
+                    await _upload_brain_md(conn, md_text, slug, link_id)
                     await conn.commit()
                     log.info("brain.link_ingested", link_id=link_id, url=url)
                 except Exception as exc:
@@ -375,14 +358,27 @@ def _compute_related(
     ]
 
 
-async def _fetch_related_titles(conn: Any, related: list[dict]) -> list[str]:
+async def _fetch_related_titles(
+    conn: Any, related: list[dict], *, fallback_to_url: bool = False
+) -> list[str]:
     titles: list[str] = []
     for r in related:
-        cursor = await conn.execute("SELECT title FROM links WHERE id = ?", (r["id"],))
+        cursor = await conn.execute("SELECT title, url FROM links WHERE id = ?", (r["id"],))
         row = await cursor.fetchone()
         if row and row["title"]:
             titles.append(row["title"])
+        elif row and fallback_to_url:
+            titles.append(row["url"])
     return titles
+
+
+async def _upload_brain_md(conn: Any, md_text: str, slug: str, link_id: str) -> None:
+    """Upload the Obsidian .md to Drive and persist drive_file_id on the link row."""
+    file_id, _ = await upload_file(md_text, f"{slug}.md", settings.GOOGLE_DRIVE_FOLDER_BRAIN)
+    await conn.execute(
+        "UPDATE links SET drive_file_id = ? WHERE id = ?",
+        (file_id, link_id),
+    )
 
 
 async def _get_source_job_info(conn: Any, source_job_id: str) -> tuple[str, str]:
@@ -627,20 +623,8 @@ async def _refresh_one_link(
 
     related_titles: list[str] = []
     if self_vec is not None and ids_list:
-        sims = [
-            (ids_list[i], _cosine_similarity(self_vec, matrix[i]))
-            for i in range(len(ids_list))
-            if ids_list[i] != lnk_id
-        ]
-        sims.sort(key=lambda x: x[1], reverse=True)
-        top_ids = [rid for rid, score in sims[:3] if score >= settings.BRAIN_MIN_SCORE]
-        for rid in top_ids:
-            cursor5 = await conn.execute(
-                "SELECT title, url FROM links WHERE id = ?", (rid,)
-            )
-            rel_row = await cursor5.fetchone()
-            if rel_row:
-                related_titles.append(rel_row["title"] or rel_row["url"])
+        related = _compute_related(lnk_id, self_vec, ids_list, matrix, conn)
+        related_titles = await _fetch_related_titles(conn, related, fallback_to_url=True)
 
     src_url, src_drive_url = await _get_source_job_info(conn, lnk["source_job"])
 
@@ -659,15 +643,7 @@ async def _refresh_one_link(
 
     try:
         if lnk["drive_file_id"] is None:
-            file_id, _ = await upload_file(
-                md_text,
-                f"{slug}.md",
-                settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-            )
-            await conn.execute(
-                "UPDATE links SET drive_file_id = ? WHERE id = ?",
-                (file_id, lnk_id),
-            )
+            await _upload_brain_md(conn, md_text, slug, lnk_id)
             if is_repair:
                 repaired_delta += 1
         else:
