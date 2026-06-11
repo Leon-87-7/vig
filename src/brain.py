@@ -503,65 +503,61 @@ async def rebuild_graph() -> int:
 
         async with aiosqlite.connect(settings.DB_PATH) as conn:
             conn.row_factory = aiosqlite.Row
-
             for lnk in all_links:
-                lnk_id = lnk["id"]
-
-                # Compute related
-                if lnk["embedding"] and lnk_id in ids_list:
-                    idx = ids_list.index(lnk_id)
-                    self_vec = matrix[idx]
-                    sims = [
-                        (ids_list[i], _cosine_similarity(self_vec, matrix[i]))
-                        for i in range(len(ids_list))
-                        if ids_list[i] != lnk_id
-                    ]
-                    sims.sort(key=lambda x: x[1], reverse=True)
-                    related_ids = [
-                        rid for rid, score in sims[:3] if score >= settings.BRAIN_MIN_SCORE
-                    ]
-                else:
-                    related_ids = []
-
-                related_titles = [
-                    id_to_link[rid]["title"] or id_to_link[rid]["url"]
-                    for rid in related_ids
-                    if rid in id_to_link
-                ]
-
-                src_url, src_drive_url = await _get_source_job_info(conn, lnk["source_job"])
-
-                md_text = _build_obsidian_md(
-                    title=lnk["title"] or lnk["url"],
-                    url=lnk["url"],
-                    topic=lnk["topic"] or "",
-                    source_video_url=src_url,
-                    source_drive_url=src_drive_url,
-                    seen_count=lnk["seen_count"],
-                    created_at=lnk["created_at"],
-                    last_seen_at=lnk["last_seen_at"],
-                    related_titles=related_titles,
-                )
-                slug = _slugify(lnk["title"] or lnk["url"])
-
-                try:
-                    await upload_file(
-                        md_text,
-                        f"{slug}.md",
-                        settings.GOOGLE_DRIVE_FOLDER_BRAIN,
-                    )
-                except Exception as exc:
-                    log.warning("brain.rebuild_drive_failed", link_id=lnk_id, error=str(exc))
-
-                await conn.execute(
-                    "UPDATE links SET updated_at = ? WHERE id = ?",
-                    (now_iso, lnk_id),
-                )
-
+                await _rebuild_one_link(conn, lnk, ids_list, matrix, id_to_link, now_iso)
             await conn.commit()
 
         log.info("brain.rebuild_complete", nodes=len(all_links))
         return len(all_links)
+
+
+async def _rebuild_one_link(
+    conn, lnk: dict, ids_list: list, matrix, id_to_link: dict, now_iso: str
+) -> None:
+    """Recompute related titles and re-upload the Obsidian .md for one node."""
+    lnk_id = lnk["id"]
+
+    if lnk["embedding"] and lnk_id in ids_list:
+        idx = ids_list.index(lnk_id)
+        self_vec = matrix[idx]
+        related_ids = [r["id"] for r in _compute_related(lnk_id, self_vec, ids_list, matrix, conn)]
+    else:
+        related_ids = []
+
+    related_titles = [
+        id_to_link[rid]["title"] or id_to_link[rid]["url"]
+        for rid in related_ids
+        if rid in id_to_link
+    ]
+
+    src_url, src_drive_url = await _get_source_job_info(conn, lnk["source_job"])
+
+    md_text = _build_obsidian_md(
+        title=lnk["title"] or lnk["url"],
+        url=lnk["url"],
+        topic=lnk["topic"] or "",
+        source_video_url=src_url,
+        source_drive_url=src_drive_url,
+        seen_count=lnk["seen_count"],
+        created_at=lnk["created_at"],
+        last_seen_at=lnk["last_seen_at"],
+        related_titles=related_titles,
+    )
+    slug = _slugify(lnk["title"] or lnk["url"])
+
+    try:
+        await upload_file(
+            md_text,
+            f"{slug}.md",
+            settings.GOOGLE_DRIVE_FOLDER_BRAIN,
+        )
+    except Exception as exc:
+        log.warning("brain.rebuild_drive_failed", link_id=lnk_id, error=str(exc))
+
+    await conn.execute(
+        "UPDATE links SET updated_at = ? WHERE id = ?",
+        (now_iso, lnk_id),
+    )
 
 
 async def _select_refresh_batch(
