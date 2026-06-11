@@ -220,38 +220,42 @@ PRD_JSON_SCHEMA = {
 # Reaper
 # ---------------------------------------------------------------------------
 
-async def reaper() -> None:
-    """Reset stale in-progress PRD jobs (run once at worker startup)."""
+async def _reap_stale(column: str, event: str) -> None:
+    """Reset stale 'generating' rows in *column* (run once at worker startup)."""
     async with database.connection() as conn:
         cur = await conn.execute(
-            "UPDATE jobs SET prd_auto_status='error', updated_at=CURRENT_TIMESTAMP "
-            "WHERE prd_auto_status='generating' AND updated_at < datetime('now','-10 minutes')"
+            f"UPDATE jobs SET {column}='error', updated_at=CURRENT_TIMESTAMP "
+            f"WHERE {column}='generating' AND updated_at < datetime('now','-10 minutes')"
         )
         await conn.commit()
         if cur.rowcount:
-            log.info("prd.reaper.released", count=cur.rowcount)
+            log.info(event, count=cur.rowcount)
+
+
+async def reaper() -> None:
+    """Reset stale in-progress PRD jobs (run once at worker startup)."""
+    await _reap_stale("prd_auto_status", "prd.reaper.released")
 
 
 async def reaper_intent() -> None:
     """Reset stale in-progress intent-slot PRD jobs (run once at worker startup)."""
-    async with database.connection() as conn:
-        cur = await conn.execute(
-            "UPDATE jobs SET prd_intent_status='error', updated_at=CURRENT_TIMESTAMP "
-            "WHERE prd_intent_status='generating' AND updated_at < datetime('now','-10 minutes')"
-        )
-        await conn.commit()
-        if cur.rowcount:
-            log.info("prd.reaper_intent.released", count=cur.rowcount)
+    await _reap_stale("prd_intent_status", "prd.reaper_intent.released")
 
 
 # ---------------------------------------------------------------------------
 # Prompt builders
 # ---------------------------------------------------------------------------
 
-def _build_auto_prompt(job: dict) -> str:
+def _build_prd_prompt(job: dict, intent_text: str | None = None) -> str:
+    """Shared PRD prompt; an intent line is prepended when *intent_text* is given."""
     transcript = sample_transcript(job.get("transcript") or "", settings.PRD_MAX_TRANSCRIPT_CHARS)
+    intent_prefix = (
+        f"The user's project direction: {intent_text}. Use this to shape the PRD.\n\n"
+        if intent_text else ""
+    )
     return (
-        "You are a product architect. Based on the following transcript and enrichment "
+        intent_prefix
+        + "You are a product architect. Based on the following transcript and enrichment "
         "analysis, generate a Mini-PRD JSON document.\n\n"
         f"Video: {job.get('title', '')}\n"
         f"Topic: {job.get('ai_topic', '')}\n"
@@ -261,22 +265,14 @@ def _build_auto_prompt(job: dict) -> str:
         f"Transcript:\n{transcript}\n\n"
         "Return the PRD as JSON matching the provided schema."
     )
+
+
+def _build_auto_prompt(job: dict) -> str:
+    return _build_prd_prompt(job)
 
 
 def _build_intent_prompt(job: dict, intent_text: str) -> str:
-    transcript = sample_transcript(job.get("transcript") or "", settings.PRD_MAX_TRANSCRIPT_CHARS)
-    return (
-        f"The user's project direction: {intent_text}. Use this to shape the PRD.\n\n"
-        "You are a product architect. Based on the following transcript and enrichment "
-        "analysis, generate a Mini-PRD JSON document.\n\n"
-        f"Video: {job.get('title', '')}\n"
-        f"Topic: {job.get('ai_topic', '')}\n"
-        f"Objective: {job.get('ai_objective', '')}\n"
-        f"Action Points: {job.get('ai_action_points', '')}\n"
-        f"Tools: {job.get('ai_tools', '')}\n\n"
-        f"Transcript:\n{transcript}\n\n"
-        "Return the PRD as JSON matching the provided schema."
-    )
+    return _build_prd_prompt(job, intent_text)
 
 
 # ---------------------------------------------------------------------------
