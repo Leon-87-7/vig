@@ -21,7 +21,9 @@ rtk proxy uvx pyscn@latest analyze src transcript_server.py --json
 
 # Web — MUST run from web/ (root run loses node_modules resolution)
 cd web && npm run test:coverage
-rtk proxy npx fallow --coverage coverage/coverage-final.json
+rtk proxy npx fallow                                              # combined gates; exit 0 = green
+rtk proxy npx fallow health --coverage coverage/coverage-final.json  # exact CRAP scores
+# (fallow ≥2.93: --coverage exists only on the `health` subcommand, not top-level)
 ```
 
 ## Triage rules — noise vs signal
