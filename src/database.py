@@ -655,8 +655,7 @@ async def _fetch_in(sql_template: str, ids: list[str]) -> list[dict]:
 
 
 async def get_ignored_domains(chat_id: int) -> set[str]:
-    return await _fetch_dicts(
-"SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,))
+    rows = await _fetch_all("SELECT domain FROM ignored_domains WHERE chat_id = ?", (chat_id,))
     return {row[0] for row in rows}
 
 
