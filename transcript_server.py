@@ -249,6 +249,39 @@ def get_metadata():
         ), 200
 
 
+def _detect_platform(extractor: str, url: str) -> str:
+    if extractor == "Youtube" and "/shorts/" in url:
+        return "youtube_shorts"
+    if extractor == "TikTok":
+        return "tiktok"
+    if extractor == "Instagram":
+        return "instagram_reels"
+    return "unknown"
+
+
+def _encode_frames(tmp_frame_dir: str, interval: float) -> list[dict]:
+    """Re-encode the ffmpeg frame dumps as base64 JPEG descriptors."""
+    frame_files = sorted(
+        f for f in os.listdir(tmp_frame_dir) if f.startswith("frame_") and f.endswith(".jpg")
+    )
+    frames = []
+    for i, fname in enumerate(frame_files):
+        fpath = os.path.join(tmp_frame_dir, fname)
+        with Image.open(fpath) as img:
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        frames.append(
+            {
+                "index": i,
+                "timestamp_s": round(i * interval, 2),
+                "base64": b64,
+                "mime_type": "image/jpeg",
+            }
+        )
+    return frames
+
+
 @app.route("/short_frames", methods=["GET"])
 def get_short_frames():
     url = request.args.get("url")
@@ -320,17 +353,7 @@ def get_short_frames():
                 }
             )
 
-        # Platform detection
-        extractor = info.get("extractor_key", "")
-        if extractor == "Youtube" and "/shorts/" in url:
-            platform = "youtube_shorts"
-        elif extractor == "TikTok":
-            platform = "tiktok"
-        elif extractor == "Instagram":
-            platform = "instagram_reels"
-        else:
-            platform = "unknown"
-
+        platform = _detect_platform(info.get("extractor_key", ""), url)
         title = info.get("title", "")
         video_id = info.get("id", "")
 
@@ -358,25 +381,7 @@ def get_short_frames():
                 }
             )
 
-        # Collect and encode frames
-        frame_files = sorted(
-            f for f in os.listdir(tmp_frame_dir) if f.startswith("frame_") and f.endswith(".jpg")
-        )
-        frames = []
-        for i, fname in enumerate(frame_files):
-            fpath = os.path.join(tmp_frame_dir, fname)
-            with Image.open(fpath) as img:
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=85)
-                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
-            frames.append(
-                {
-                    "index": i,
-                    "timestamp_s": round(i * interval, 2),
-                    "base64": b64,
-                    "mime_type": "image/jpeg",
-                }
-            )
+        frames = _encode_frames(tmp_frame_dir, interval)
 
         return jsonify(
             {
