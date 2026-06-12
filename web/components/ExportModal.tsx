@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGdocExport } from "@/lib/hooks/useGdocExport";
+import { Spinner } from "@/components/ui";
 
 interface ExportModalProps {
   spaceId: string;
@@ -55,50 +56,50 @@ export default function ExportModal({ spaceId, spaceName, onClose }: ExportModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-xl bg-gray-900 p-6 shadow-2xl border border-gray-700">
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-overlay">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">Export &quot;{spaceName}&quot;</h2>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:text-white transition-colors" aria-label="Close">✕</button>
+          <h2 className="text-base font-semibold text-ink">Export &quot;{spaceName}&quot;</h2>
+          <button onClick={onClose} className="rounded p-1 text-muted transition-ui hover:bg-raised hover:text-ink" aria-label="Close">✕</button>
         </div>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-gray-400 justify-center">
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-body">
+            <Spinner />
             Composing export…
           </div>
         ) : loadError ? (
-          <p className="py-4 text-sm text-red-400">Failed to compose export. Please try again.</p>
+          <p className="py-4 text-sm text-status-error">Failed to compose export. Please try again.</p>
         ) : (
           <>
-            <p className="mb-5 text-sm text-gray-400">
+            <p className="mb-5 text-sm text-body">
               Choose a format. Markdown, plain text, and PDF are generated in your browser.
             </p>
             <div className="space-y-3">
-              <button onClick={handleMd} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-left text-sm text-gray-100 hover:border-indigo-500 hover:bg-gray-750 transition-colors">
+              <button onClick={handleMd} className="w-full rounded-lg border border-line bg-canvas px-4 py-3 text-left text-sm text-ink transition-ui hover:border-line-strong hover:bg-raised">
                 <span className="font-medium">Download .md</span>
-                <span className="ml-2 text-xs text-gray-400">Markdown file</span>
+                <span className="ml-2 text-xs text-muted">Markdown file</span>
               </button>
-              <button onClick={handleTxt} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-left text-sm text-gray-100 hover:border-indigo-500 transition-colors">
+              <button onClick={handleTxt} className="w-full rounded-lg border border-line bg-canvas px-4 py-3 text-left text-sm text-ink transition-ui hover:border-line-strong hover:bg-raised">
                 <span className="font-medium">Download .txt</span>
-                <span className="ml-2 text-xs text-gray-400">Plain text file</span>
+                <span className="ml-2 text-xs text-muted">Plain text file</span>
               </button>
-              <button onClick={handlePrint} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-left text-sm text-gray-100 hover:border-indigo-500 transition-colors">
+              <button onClick={handlePrint} className="w-full rounded-lg border border-line bg-canvas px-4 py-3 text-left text-sm text-ink transition-ui hover:border-line-strong hover:bg-raised">
                 <span className="font-medium">Save as PDF</span>
-                <span className="ml-2 text-xs text-gray-400">Opens browser print dialog</span>
+                <span className="ml-2 text-xs text-muted">Opens browser print dialog</span>
               </button>
-              <button onClick={trigger} disabled={gdocStatus === "exporting"} className="w-full rounded-lg border border-indigo-700 bg-indigo-900/40 px-4 py-3 text-left text-sm text-indigo-200 hover:border-indigo-500 disabled:opacity-50 transition-colors">
+              <button onClick={trigger} disabled={gdocStatus === "exporting"} className="w-full rounded-lg border border-line-strong bg-raised px-4 py-3 text-left text-sm text-ink transition-ui hover:border-signal disabled:opacity-50">
                 <span className="font-medium">{gdocStatus === "exporting" ? "Creating Google Doc…" : "Create Google Doc"}</span>
-                <span className="ml-2 text-xs text-indigo-400">{gdocStatus === "done" ? "Done!" : "Saved to Google Drive · falls back to PDF if Drive unset"}</span>
+                <span className="ml-2 text-xs text-muted">{gdocStatus === "done" ? "Done!" : "Saved to Google Drive · falls back to PDF if Drive unset"}</span>
               </button>
             </div>
             {gdocStatus === "done" && gdocUrl && (
-              <p className="mt-4 text-sm text-green-400">
+              <p className="mt-4 text-sm text-status-done">
                 Google Doc created:{" "}
-                <a href={gdocUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-green-300">Open</a>
+                <a href={gdocUrl} target="_blank" rel="noopener noreferrer" className="underline transition-ui hover:text-signal">Open</a>
               </p>
             )}
             {gdocStatus === "error" && gdocError && (
-              <p className="mt-4 text-sm text-red-400">{gdocError}</p>
+              <p className="mt-4 text-sm text-status-error">{gdocError}</p>
             )}
           </>
         )}

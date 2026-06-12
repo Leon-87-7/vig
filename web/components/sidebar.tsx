@@ -1,38 +1,256 @@
-import Link from "next/link";
+'use client';
 
-const NAV = [
-  { href: "/", label: "Feed" },
-  { href: "/brain", label: "Brain" },
-  { href: "/spaces", label: "Spaces" },
-  { href: "/prompts", label: "Prompts" },
-  { href: "/controls", label: "Controls" },
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Rss,
+  Brain,
+  LayoutGrid,
+  MessageSquareText,
+  SlidersHorizontal,
+  ChevronRight,
+  ChevronLeft,
+  type LucideIcon,
+} from 'lucide-react';
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+const NAV: NavItem[] = [
+  { href: '/', label: 'Feed', icon: Rss },
+  { href: '/brain', label: 'Brain', icon: Brain },
+  { href: '/spaces', label: 'Spaces', icon: LayoutGrid },
+  { href: '/prompts', label: 'Prompts', icon: MessageSquareText },
+  { href: '/controls', label: 'Controls', icon: SlidersHorizontal },
 ];
 
-export function Sidebar() {
+function isActive(pathname: string, href: string): boolean {
+  if (href === '/')
+    return pathname === '/' || pathname.startsWith('/jobs');
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+// One nav link, two layouts: icon-only square in the rail, icon+label row in
+// the drawer. Active state earns the signal in both.
+function NavLink({
+  item,
+  pathname,
+  collapsed,
+  tabbable = true,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+  tabbable?: boolean;
+}) {
+  const { href, label, icon: Icon } = item;
+  const active = isActive(pathname, href);
+  const layout = collapsed
+    ? 'flex h-9 w-9 items-center justify-center'
+    : 'flex items-center gap-3 px-3 py-2';
   return (
-    <aside className="flex w-52 flex-col border-r border-gray-800 bg-gray-900 px-4 py-6">
-      <span className="mb-8 text-lg font-bold tracking-tight">vig</span>
-      <nav className="flex flex-col gap-1">
-        {NAV.map(({ href, label }) => (
-          <Link
-            key={href}
-            href={href}
-            className="rounded-md px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white"
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-      <div className="mt-auto">
-        <form action="/api/auth/logout" method="POST">
-          <button
-            type="submit"
-            className="w-full rounded-md px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-800 hover:text-white"
-          >
-            Sign out
-          </button>
-        </form>
+    <Link
+      href={href}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      aria-current={active ? 'page' : undefined}
+      tabIndex={tabbable ? undefined : -1}
+      className={`${layout} rounded-md text-sm font-medium transition-ui ${
+        active
+          ? 'bg-raised text-signal'
+          : 'text-body hover:bg-raised hover:text-ink'
+      }`}
+    >
+      <Icon
+        className="h-[18px] w-[18px] shrink-0"
+        strokeWidth={2}
+        aria-hidden="true"
+      />
+      {!collapsed && label}
+    </Link>
+  );
+}
+
+/**
+ * Collapsible navigation (DESIGN.md "Operator's Console").
+ * Collapsed: a slim rail showing the favicon logo + per-page icons (active in signal).
+ * Expanded: a slide-in drawer with the "vig" wordmark + icon-and-label rows.
+ * The wordmark only appears when expanded; collapsed shows the logo alone.
+ */
+export function Sidebar() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Close on navigation.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Close on Escape while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // Move focus into the drawer on open; return it on close (APG dialog pattern).
+  useEffect(() => {
+    if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      closeButtonRef.current?.focus();
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [open]);
+
+  // Lock body scroll behind the backdrop while open.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  return (
+    <>
+      {/* Collapsed rail — always visible. Favicon logo + per-page icons. */}
+      <div className="flex w-16 shrink-0 flex-col items-center border-r border-line bg-surface py-5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open navigation"
+          aria-expanded={open}
+          aria-controls="vig-nav-panel"
+          className="mb-6 flex h-9 w-9 items-center justify-center rounded-md transition-ui hover:bg-signal-bright"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon0.svg"
+            alt="vig"
+            width={28}
+            height={28}
+            className="h-7 w-7"
+          />
+        </button>
+
+        <nav
+          className="flex flex-col items-center gap-1"
+          aria-label="Primary"
+        >
+          {NAV.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              collapsed
+              tabbable={!open}
+            />
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Expand navigation"
+          aria-expanded={open}
+          aria-controls="vig-nav-panel"
+          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
+        >
+          <ChevronRight
+            className="h-[18px] w-[18px]"
+            strokeWidth={2}
+            aria-hidden="true"
+          />
+        </button>
       </div>
-    </aside>
+
+      {/* Backdrop */}
+      <div
+        onClick={() => setOpen(false)}
+        aria-hidden="true"
+        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ease-out-quart ${
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      {/* Expanded panel — slide-in drawer with the "vig" wordmark + icon-and-label rows. */}
+      <aside
+        id="vig-nav-panel"
+        aria-label="Primary navigation"
+        aria-hidden={!open}
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-line bg-surface px-4 py-5 shadow-overlay transition-transform duration-200 ease-out-quart ${
+          open ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="mb-6 flex items-center justify-between px-1">
+          <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/icon0.svg"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7"
+            />
+            vig
+          </span>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Collapse navigation"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
+          >
+            <ChevronLeft
+              className="h-[18px] w-[18px]"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        <nav
+          className="flex flex-col gap-1"
+          aria-label="Primary expanded"
+        >
+          {NAV.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              collapsed={false}
+              tabbable={open}
+            />
+          ))}
+        </nav>
+
+        <div className="mt-auto">
+          <form
+            action="/api/auth/logout"
+            method="POST"
+          >
+            <button
+              type="submit"
+              tabIndex={open ? undefined : -1}
+              className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      </aside>
+    </>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { JobSummary } from '@/components/job-card';
 
-interface Stats {
+export interface FeedStats {
   total: number;
   by_status: Record<string, number>;
   by_content_type: Record<string, number>;
@@ -14,7 +14,7 @@ interface JobsResponse {
   total: number;
 }
 
-async function fetchFeed(ct: string, st: string): Promise<{ stats: Stats; jobs: JobSummary[]; total: number }> {
+async function fetchFeed(ct: string, st: string): Promise<{ stats: FeedStats; jobs: JobSummary[]; total: number }> {
   const params = new URLSearchParams();
   if (ct) params.set('content_type', ct);
   if (st) params.set('status', st);
@@ -26,7 +26,7 @@ async function fetchFeed(ct: string, st: string): Promise<{ stats: Stats; jobs: 
   if (!statsRes.ok) throw new Error('Failed to load stats');
   if (!jobsRes.ok) throw new Error('Failed to load jobs');
   const [stats, jobsData] = await Promise.all([
-    statsRes.json() as Promise<Stats>,
+    statsRes.json() as Promise<FeedStats>,
     jobsRes.json() as Promise<JobsResponse>,
   ]);
   return { stats, jobs: jobsData.items, total: jobsData.total };
@@ -35,7 +35,7 @@ async function fetchFeed(ct: string, st: string): Promise<{ stats: Stats; jobs: 
 export function useFeedData() {
   const [ctFilter, setCtFilter] = useState('');
   const [stFilter, setStFilter] = useState('');
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<FeedStats | null>(null);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

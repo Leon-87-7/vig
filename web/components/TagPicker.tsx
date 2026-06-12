@@ -40,20 +40,20 @@ export default function TagPicker({ jobId, jobTags, allTags, onTagChange }: TagP
   }
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4">
-      <span className="mb-3 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="rounded-lg border border-line bg-surface p-4">
+      <span className="mb-3 block font-mono text-[11px] font-medium uppercase tracking-wider text-muted">
         Tags
       </span>
 
       {/* Attached tag chips */}
       <div className="flex flex-wrap gap-2 mb-3">
         {jobTags.length === 0 && (
-          <span className="text-xs text-gray-500">No tags attached.</span>
+          <span className="text-xs text-muted">No tags attached.</span>
         )}
         {jobTags.map((tag) => (
           <span
             key={tag.id}
-            className="inline-flex items-center gap-1.5 rounded-full border border-gray-600 bg-gray-700 px-2.5 py-1 text-xs font-medium text-gray-100"
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink"
             title={tag.meaning || undefined}
           >
             {/* Color dot */}
@@ -64,7 +64,7 @@ export default function TagPicker({ jobId, jobTags, allTags, onTagChange }: TagP
             {tag.name}
             <button
               onClick={() => handleDetach(tag.id)}
-              className="ml-0.5 rounded-full text-gray-400 hover:text-white transition-colors focus:outline-none"
+              className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none"
               aria-label={`Remove tag ${tag.name}`}
             >
               &times;
@@ -76,7 +76,7 @@ export default function TagPicker({ jobId, jobTags, allTags, onTagChange }: TagP
       {/* Add tag dropdown */}
       {unattached.length > 0 && (
         <select
-          className="rounded border border-gray-600 bg-gray-700 px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-line bg-canvas px-2 py-1 text-xs text-body focus:border-signal focus:outline-none"
           value=""
           onChange={(e) => handleAttach(e.target.value)}
         >

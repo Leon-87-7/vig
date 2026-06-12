@@ -74,13 +74,13 @@ export default function MarkdownEditor({ initialMarkdown, onSave }: MarkdownEdit
   }, [])
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="rounded-lg border border-line bg-surface p-4">
+      <span className="mb-2 block font-mono text-[11px] font-medium uppercase tracking-wider text-muted">
         Notes
       </span>
       <div
         ref={mountRef}
-        className="milkdown-editor prose prose-invert max-w-none text-sm text-gray-100 min-h-[6rem]"
+        className="milkdown-editor prose prose-invert min-h-[6rem] max-w-none text-sm text-ink"
       />
     </div>
   )

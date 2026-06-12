@@ -17,6 +17,7 @@
     "@milkdown/ctx": "^7.21.1",
     "@milkdown/transformer": "^7.21.1",
     "fuse.js": "^7.4.0",
+    "lucide-react": "^1.17.0",
     "next": "14.2.29",
     "react": "^18",
     "react-dom": "^18"
