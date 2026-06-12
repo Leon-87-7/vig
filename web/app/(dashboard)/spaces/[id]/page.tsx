@@ -8,6 +8,7 @@ import { useSpaceDetail } from "@/lib/hooks/useSpaceDetail";
 import { useSpaceEdit } from "@/lib/hooks/useSpaceEdit";
 import { UrlsTab } from "./UrlsTab";
 import { ContextTab } from "./ContextTab";
+import { Spinner, TabBar } from "@/components/ui";
 
 type ActiveTab = "urls" | "context";
 
@@ -28,7 +29,7 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
   if (fetchState === "loading") {
     return (
       <div className="flex items-center gap-2 text-sm text-body">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
+        <Spinner />
         Loading…
       </div>
     );
@@ -39,7 +40,7 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link href="/spaces" className="inline-flex items-center gap-1 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink">
+      <Link href="/spaces" className="inline-flex items-center gap-1 text-xs text-muted transition-ui hover:text-ink">
         <span aria-hidden="true">&#8592;</span> Back to spaces
       </Link>
 
@@ -50,9 +51,9 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{space.name}</h1>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowExport(true)} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Export</button>
-            <button onClick={startEdit} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Edit</button>
-            <button onClick={handleDelete} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Delete</button>
+            <button onClick={() => setShowExport(true)} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Export</button>
+            <button onClick={startEdit} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Edit</button>
+            <button onClick={handleDelete} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-status-error transition-ui hover:bg-raised">Delete</button>
           </div>
         </div>
       ) : (
@@ -62,31 +63,26 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-medium text-body" htmlFor="edit-name">Name</label>
-              <input id="edit-name" type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+              <input id="edit-name" type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-body" htmlFor="edit-color">Color</label>
               <input id="edit-color" type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} className="h-9 w-12 cursor-pointer rounded-md border border-line bg-canvas p-0.5" />
             </div>
             <div className="flex gap-2">
-              <button type="submit" disabled={editSaving} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{editSaving ? "Saving…" : "Save"}</button>
-              <button type="button" onClick={cancelEdit} className="h-8 rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Cancel</button>
+              <button type="submit" disabled={editSaving} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{editSaving ? "Saving…" : "Save"}</button>
+              <button type="button" onClick={cancelEdit} className="h-8 rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Cancel</button>
             </div>
           </div>
         </form>
       )}
 
-      <div className="flex gap-1 border-b border-line">
-        {(["urls", "context"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ease-out-quart ${activeTab === tab ? "border-b-2 border-signal text-ink" : "text-body hover:text-ink"}`}
-          >
-            {tab === "urls" ? "URLs" : "Context"}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        tabs={["urls", "context"] as const}
+        active={activeTab}
+        onChange={setActiveTab}
+        labels={{ urls: "URLs", context: "Context" }}
+      />
 
       {activeTab === "urls" && <UrlsTab spaceId={params.id} />}
       {activeTab === "context" && <ContextTab spaceId={params.id} />}

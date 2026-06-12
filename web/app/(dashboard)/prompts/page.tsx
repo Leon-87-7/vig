@@ -28,19 +28,19 @@ function CreateForm({ onCreated }: { onCreated: (values: TemplateFormState) => P
       <div className="flex flex-wrap gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-body">Name <span className="text-muted">(no spaces, no leading - or /)</span></label>
-          <input type="text" required maxLength={64} pattern="[a-z0-9_-]+" title="Lowercase letters, digits, hyphens, underscores only" value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value.toLowerCase() }))} placeholder="e.g. startup-notes" className="w-52 rounded-md border border-line bg-canvas px-3 py-1.5 font-mono text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+          <input type="text" required maxLength={64} pattern="[a-z0-9_-]+" title="Lowercase letters, digits, hyphens, underscores only" value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value.toLowerCase() }))} placeholder="e.g. startup-notes" className="w-52 rounded-md border border-line bg-canvas px-3 py-1.5 font-mono text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-body">Description (optional)</label>
-          <input type="text" maxLength={500} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} placeholder="Short description..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+          <input type="text" maxLength={500} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} placeholder="Short description..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
         </div>
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-body">Extra instructions (optional — sent as Gemini prompt)</label>
-        <textarea maxLength={4000} rows={4} value={values.extra_instructions} onChange={(e) => setValues((v) => ({ ...v, extra_instructions: e.target.value }))} placeholder="Write custom Gemini analysis instructions here..." className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+        <textarea maxLength={4000} rows={4} value={values.extra_instructions} onChange={(e) => setValues((v) => ({ ...v, extra_instructions: e.target.value }))} placeholder="Write custom Gemini analysis instructions here..." className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
       </div>
       {error && <p className="text-xs text-status-error">{error}</p>}
-      <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
+      <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
         {submitting ? 'Creating…' : 'Create template'}
       </button>
     </form>
@@ -88,16 +88,16 @@ function UserTemplateRow({
         <form onSubmit={handleSave} className="space-y-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-body">Description</label>
-            <input type="text" maxLength={500} value={editValues.description} onChange={(e) => setEditValues((v) => ({ ...v, description: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+            <input type="text" maxLength={500} value={editValues.description} onChange={(e) => setEditValues((v) => ({ ...v, description: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-body">Extra instructions</label>
-            <textarea maxLength={4000} rows={4} value={editValues.extra_instructions} onChange={(e) => setEditValues((v) => ({ ...v, extra_instructions: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+            <textarea maxLength={4000} rows={4} value={editValues.extra_instructions} onChange={(e) => setEditValues((v) => ({ ...v, extra_instructions: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
           {saveError && <p className="text-xs text-status-error">{saveError}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="h-8 rounded-md bg-signal px-3 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{saving ? 'Saving…' : 'Save'}</button>
-            <button type="button" onClick={() => { setEditing(false); setEditValues({ description: template.description, extra_instructions: template.extra_instructions }); }} className="h-8 rounded-md px-3 text-[13px] font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Cancel</button>
+            <button type="submit" disabled={saving} className="h-8 rounded-md bg-signal px-3 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{saving ? 'Saving…' : 'Save'}</button>
+            <button type="button" onClick={() => { setEditing(false); setEditValues({ description: template.description, extra_instructions: template.extra_instructions }); }} className="h-8 rounded-md px-3 text-[13px] font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Cancel</button>
           </div>
         </form>
       </li>
@@ -117,8 +117,8 @@ function UserTemplateRow({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Edit</button>
-          <button onClick={handleDelete} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Delete</button>
+          <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Edit</button>
+          <button onClick={handleDelete} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-ui hover:bg-raised">Delete</button>
         </div>
       </div>
       {deleteError && <p className="mt-1 text-xs text-status-error">{deleteError}</p>}

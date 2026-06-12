@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSpaceContext } from '@/lib/hooks/useSpaceContext';
+import { Spinner } from '@/components/ui';
 
 const MarkdownEditor = dynamic(() => import('@/components/MarkdownEditor'), {
   ssr: false,
@@ -33,7 +34,7 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
     <section className="space-y-4">
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-body">
-          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-line border-t-ink" />
+          <Spinner size={3} />
           Loading…
         </div>
       ) : blobs.length === 0 ? (
@@ -49,13 +50,13 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
                   <button
                     onClick={() => reorderBlob(idx, 'up')}
                     disabled={idx === 0}
-                    className="rounded px-1 py-0.5 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink disabled:opacity-30"
+                    className="rounded px-1 py-0.5 text-xs text-muted transition-ui hover:text-ink disabled:opacity-30"
                     aria-label="Move up"
                   >&#9650;</button>
                   <button
                     onClick={() => reorderBlob(idx, 'down')}
                     disabled={idx === blobs.length - 1}
-                    className="rounded px-1 py-0.5 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink disabled:opacity-30"
+                    className="rounded px-1 py-0.5 text-xs text-muted transition-ui hover:text-ink disabled:opacity-30"
                     aria-label="Move down"
                   >&#9660;</button>
                 </div>
@@ -64,12 +65,12 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
                   value={blob.name}
                   onChange={(e) => patchBlobName(blob.id, e.target.value)}
                   onBlur={(e) => updateBlob(blob.id, e.target.value, blob.content)}
-                  className="flex-1 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none"
+                  className="flex-1 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
                   placeholder="Context name"
                 />
                 <button
                   onClick={() => deleteBlob(blob.id)}
-                  className="rounded border border-line px-2 py-0.5 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised"
+                  className="rounded border border-line px-2 py-0.5 text-xs font-medium text-status-error transition-ui hover:bg-raised"
                 >
                   Remove
                 </button>
@@ -91,12 +92,12 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
           value={newBlobName}
           onChange={(e) => setNewBlobName(e.target.value)}
           placeholder="Context document name…"
-          className="flex-1 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none"
+          className="flex-1 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
         />
         <button
           onClick={handleAddBlob}
           disabled={addingBlob}
-          className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
+          className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
         >
           {addingBlob ? 'Adding…' : 'Add context'}
         </button>

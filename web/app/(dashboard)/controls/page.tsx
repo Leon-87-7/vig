@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTagList } from '@/lib/hooks/useTagList';
 import { useDomainList } from '@/lib/hooks/useDomainList';
 import type { Tag, TagFormState } from '@/lib/hooks/useTagList';
+import { TabBar } from '@/components/ui';
 
 const DEFAULT_COLOR = '#6366f1';
 
@@ -43,21 +44,21 @@ function TagForm({
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-body">Name</label>
-        <input type="text" required maxLength={80} value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} placeholder="Tag name" className="w-44 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+        <input type="text" required maxLength={80} value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} placeholder="Tag name" className="w-44 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-body">Meaning</label>
-        <input type="text" maxLength={500} value={values.meaning} onChange={(e) => setValues((v) => ({ ...v, meaning: e.target.value }))} placeholder="What this tag means..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+        <input type="text" maxLength={500} value={values.meaning} onChange={(e) => setValues((v) => ({ ...v, meaning: e.target.value }))} placeholder="What this tag means..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-body">Color</label>
         <input type="color" value={values.color} onChange={(e) => setValues((v) => ({ ...v, color: e.target.value }))} className="h-9 w-14 cursor-pointer rounded-md border border-line bg-canvas p-1" />
       </div>
       <div className="flex items-center gap-2">
-        <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
+        <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
           {submitting ? 'Saving…' : submitLabel}
         </button>
-        {onCancel && <button type="button" onClick={onCancel} className="h-8 rounded-md px-3.5 text-[13px] font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Cancel</button>}
+        {onCancel && <button type="button" onClick={onCancel} className="h-8 rounded-md px-3.5 text-[13px] font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Cancel</button>}
       </div>
       {localError && <p className="w-full text-xs text-status-error">{localError}</p>}
     </form>
@@ -107,8 +108,8 @@ function TagRow({
         {tag.meaning && <span className="ml-2 truncate text-sm text-body">{tag.meaning}</span>}
       </span>
       <div className="flex shrink-0 items-center gap-2">
-        <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Edit</button>
-        <button onClick={handleDelete} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Delete</button>
+        <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Edit</button>
+        <button onClick={handleDelete} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-ui hover:bg-raised">Delete</button>
       </div>
       {deleteError && <p className="w-full text-xs text-status-error">{deleteError}</p>}
     </li>
@@ -175,9 +176,9 @@ function DomainTab({ apiPath, label }: { apiPath: string; label: string }) {
         <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="domain-input" className="text-xs font-medium text-body">Domain or URL</label>
-            <input id="domain-input" type="text" required value={input} onChange={(e) => setInput(e.target.value)} placeholder="example.com" className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
+            <input id="domain-input" type="text" required value={input} onChange={(e) => setInput(e.target.value)} placeholder="example.com" className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
-          <button type="submit" disabled={adding} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
+          <button type="submit" disabled={adding} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
             {adding ? 'Adding…' : 'Add'}
           </button>
           {addError && <p className="w-full text-xs text-status-error">{addError}</p>}
@@ -193,7 +194,7 @@ function DomainTab({ apiPath, label }: { apiPath: string; label: string }) {
           {domains.map((domain) => (
             <li key={domain} className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
               <span className="min-w-0 flex-1 font-mono text-sm text-ink">{domain}</span>
-              <button onClick={() => handleRemove(domain)} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Remove</button>
+              <button onClick={() => handleRemove(domain)} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-ui hover:bg-raised">Remove</button>
             </li>
           ))}
         </ul>
@@ -211,12 +212,8 @@ export default function ControlsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">Controls</h1>
-      <div className="mb-6 flex gap-1 border-b border-line">
-        {TABS.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ease-out-quart ${activeTab === tab ? 'border-b-2 border-signal text-ink' : 'text-body hover:text-ink'}`}>
-            {tab}
-          </button>
-        ))}
+      <div className="mb-6">
+        <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
       </div>
       {activeTab === 'Tags' && <TagsTab />}
       {activeTab === 'Allowed Domains' && <DomainTab apiPath="/api/controls/allowed-domains" label="Allowed Domains" />}

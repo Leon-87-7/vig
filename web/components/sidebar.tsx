@@ -34,8 +34,46 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const linkBase =
-  'rounded-md text-sm font-medium transition-colors duration-150 ease-out-quart';
+// One nav link, two layouts: icon-only square in the rail, icon+label row in
+// the drawer. Active state earns the signal in both.
+function NavLink({
+  item,
+  pathname,
+  collapsed,
+  tabbable = true,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+  tabbable?: boolean;
+}) {
+  const { href, label, icon: Icon } = item;
+  const active = isActive(pathname, href);
+  const layout = collapsed
+    ? 'flex h-9 w-9 items-center justify-center'
+    : 'flex items-center gap-3 px-3 py-2';
+  return (
+    <Link
+      href={href}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      aria-current={active ? 'page' : undefined}
+      tabIndex={tabbable ? undefined : -1}
+      className={`${layout} rounded-md text-sm font-medium transition-ui ${
+        active
+          ? 'bg-raised text-signal'
+          : 'text-body hover:bg-raised hover:text-ink'
+      }`}
+    >
+      <Icon
+        className="h-[18px] w-[18px] shrink-0"
+        strokeWidth={2}
+        aria-hidden="true"
+      />
+      {!collapsed && label}
+    </Link>
+  );
+}
 
 /**
  * Collapsible navigation (DESIGN.md "Operator's Console").
@@ -72,11 +110,11 @@ export function Sidebar() {
           aria-label="Open navigation"
           aria-expanded={open}
           aria-controls="vig-nav-panel"
-          className="mb-6 flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-150 ease-out-quart hover:bg-signal-bright"
+          className="mb-6 flex h-9 w-9 items-center justify-center rounded-md transition-ui hover:bg-signal-bright"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo.svg"
+            src="/icon0.svg"
             alt="vig"
             width={28}
             height={28}
@@ -88,36 +126,21 @@ export function Sidebar() {
           className="flex flex-col items-center gap-1"
           aria-label="Primary"
         >
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={label}
-                aria-label={label}
-                aria-current={active ? 'page' : undefined}
-                className={`flex h-9 w-9 items-center justify-center ${linkBase} ${
-                  active
-                    ? 'bg-raised text-signal'
-                    : 'text-body hover:bg-raised hover:text-ink'
-                }`}
-              >
-                <Icon
-                  className="h-[18px] w-[18px]"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
-              </Link>
-            );
-          })}
+          {NAV.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              collapsed
+            />
+          ))}
         </nav>
 
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Expand navigation"
-          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink"
+          className="mt-auto flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
         >
           <ChevronRight
             className="h-[18px] w-[18px]"
@@ -141,7 +164,7 @@ export function Sidebar() {
         id="vig-nav-panel"
         aria-label="Primary navigation"
         aria-hidden={!open}
-        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-line bg-surface px-4 py-5 shadow-[0px_2px_4px_rgba(0,0,0,0.4),0px_12px_24px_-8px_rgba(0,0,0,0.5)] transition-transform duration-200 ease-out-quart ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-line bg-surface px-4 py-5 shadow-overlay transition-transform duration-200 ease-out-quart ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -149,7 +172,7 @@ export function Sidebar() {
           <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo.svg"
+              src="/icon0.svg"
               alt=""
               width={28}
               height={28}
@@ -161,7 +184,7 @@ export function Sidebar() {
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Collapse navigation"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
           >
             <ChevronLeft
               className="h-[18px] w-[18px]"
@@ -175,29 +198,15 @@ export function Sidebar() {
           className="flex flex-col gap-1"
           aria-label="Primary expanded"
         >
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                tabIndex={open ? undefined : -1}
-                aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-3 px-3 py-2 ${linkBase} ${
-                  active
-                    ? 'bg-raised text-signal'
-                    : 'text-body hover:bg-raised hover:text-ink'
-                }`}
-              >
-                <Icon
-                  className="h-[18px] w-[18px] shrink-0"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                />
-                {label}
-              </Link>
-            );
-          })}
+          {NAV.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              collapsed={false}
+              tabbable={open}
+            />
+          ))}
         </nav>
 
         <div className="mt-auto">
@@ -208,7 +217,7 @@ export function Sidebar() {
             <button
               type="submit"
               tabIndex={open ? undefined : -1}
-              className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink"
+              className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
             >
               Sign out
             </button>

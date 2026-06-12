@@ -64,7 +64,7 @@ export default function TagPicker({ jobId, jobTags, allTags, onTagChange }: TagP
             {tag.name}
             <button
               onClick={() => handleDetach(tag.id)}
-              className="ml-0.5 rounded-full text-muted transition-colors duration-150 ease-out-quart hover:text-ink focus:outline-none"
+              className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none"
               aria-label={`Remove tag ${tag.name}`}
             >
               &times;

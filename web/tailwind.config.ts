@@ -53,6 +53,11 @@ const config: Config = {
       transitionTimingFunction: {
         "out-quart": "cubic-bezier(0.25, 1, 0.5, 1)",
       },
+      boxShadow: {
+        // The one shadow in the system (DESIGN.md Plate Rule): overlays only.
+        overlay:
+          "0px 2px 4px rgba(0,0,0,0.4), 0px 12px 24px -8px rgba(0,0,0,0.5)",
+      },
     },
   },
   plugins: [],

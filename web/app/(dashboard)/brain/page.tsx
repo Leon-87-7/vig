@@ -43,7 +43,7 @@ function ResultRow({ result }: { result: BrainResult }) {
           href={safeUrl(result.url)}
           target="_blank"
           rel="noopener noreferrer"
-          className="block max-w-full truncate font-mono text-xs text-body transition-colors duration-150 ease-out-quart hover:text-signal hover:underline"
+          className="block max-w-full truncate font-mono text-xs text-body transition-ui hover:text-signal hover:underline"
         >
           {result.url}
         </a>
@@ -93,12 +93,12 @@ export default function BrainPage() {
           disabled={loading}
           placeholder="e.g. machine learning, startup advice…"
           aria-label="Semantic search query"
-          className="h-9 flex-1 rounded-md border border-line bg-canvas px-3 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none disabled:opacity-50"
+          className="h-9 flex-1 rounded-md border border-line bg-canvas px-3 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none disabled:opacity-50"
         />
         <button
           onClick={handleRun}
           disabled={loading}
-          className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
+          className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
         >
           {loading ? (
             <span className="flex items-center gap-2">

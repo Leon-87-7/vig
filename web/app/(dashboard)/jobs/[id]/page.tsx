@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import TagPicker from "@/components/TagPicker";
+import { StatusBadge, TypeBadge } from "@/components/badges";
+import { Spinner } from "@/components/ui";
 import { useJobDetail } from "@/lib/hooks/useJobDetail";
 import { useJobAnnotation } from "@/lib/hooks/useJobAnnotation";
 import { useJobTags } from "@/lib/hooks/useJobTags";
@@ -27,25 +29,6 @@ const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
     </div>
   ),
 });
-
-// Two-Dialect Badge Rule (DESIGN.md): statuses FILLED (tint + hue), types OUTLINED (hairline + hue).
-const STATUS_STYLES: Record<string, string> = {
-  done: "bg-status-done-tint text-status-done",
-  pending: "bg-status-pending-tint text-status-pending",
-  queued: "bg-status-pending-tint text-status-pending",
-  processing: "bg-status-processing-tint text-status-processing",
-  transcript_done: "bg-status-enriching-tint text-status-enriching",
-  enriching: "bg-status-enriching-tint text-status-enriching",
-  error: "bg-status-error-tint text-status-error",
-  cancelled: "bg-status-cancelled-tint text-status-cancelled",
-};
-
-const CONTENT_TYPE_STYLES: Record<string, string> = {
-  short: "border border-line text-type-short",
-  long: "border border-line text-type-long",
-  article: "border border-line text-type-article",
-  repo: "border border-line text-type-repo",
-};
 
 // --- Icons ---
 
@@ -128,17 +111,13 @@ function TemplateAnalysis({ raw }: { raw: string }) {
 
 // --- UI pieces ---
 
-function Badge({ label, styleClass }: { label: string; styleClass: string }) {
-  return <span className={`inline-block rounded px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider ${styleClass}`}>{label}</span>;
-}
-
 function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   };
   return (
-    <button onClick={handleCopy} aria-label={ariaLabel} title={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-out-quart hover:border-line-strong hover:bg-raised hover:text-ink">
+    <button onClick={handleCopy} aria-label={ariaLabel} title={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink">
       {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
       {label && <span>{copied ? "Copied!" : label}</span>}
     </button>
@@ -169,22 +148,20 @@ function FieldCard({ label, value, render }: { label: string; value: string; ren
 
 function JobHeader({ job }: { job: JobDetail }) {
   const displayTitle = job.title ?? job.url;
-  const statusStyle = STATUS_STYLES[job.status] ?? "bg-status-cancelled-tint text-status-cancelled";
-  const contentTypeStyle = CONTENT_TYPE_STYLES[job.content_type] ?? "border border-line text-body";
   return (
     <div>
-      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink">
+      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-xs text-muted transition-ui hover:text-ink">
         <span aria-hidden="true">&#8592;</span> Back to feed
       </Link>
       <div className="flex flex-wrap items-start gap-3">
         <h1 className="flex-1 break-all text-xl font-semibold leading-snug text-ink">{displayTitle}</h1>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
-          <Badge label={job.content_type} styleClass={contentTypeStyle} />
-          <Badge label={job.status} styleClass={statusStyle} />
+          <TypeBadge label={job.content_type} />
+          <StatusBadge label={job.status} />
         </div>
       </div>
       {/^https?:\/\//i.test(job.url) ? (
-        <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all font-mono text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-signal hover:underline">{job.url}</a>
+        <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all font-mono text-xs text-muted transition-ui hover:text-signal hover:underline">{job.url}</a>
       ) : (
         <p className="mt-1 break-all font-mono text-xs text-muted">{job.url}</p>
       )}
@@ -197,7 +174,7 @@ function JobActionsBar({ job, hasFields }: { job: JobDetail; hasFields: boolean 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {job.drive_url && /^https?:\/\//i.test(job.drive_url) ? (
-        <a href={job.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">
+        <a href={job.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-[13px] font-medium text-ink transition-ui hover:bg-raised">
           Open in Drive &#8599;
         </a>
       ) : <span />}
@@ -214,7 +191,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
   if (fetchState === "loading") {
     return (
       <div className="flex items-center gap-2 text-sm text-body">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
+        <Spinner />
         Loading…
       </div>
     );

@@ -21,7 +21,7 @@ function FilterButton({ label, active, onClick }: { label: string; active: boole
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`h-7 rounded-md px-3 text-[13px] font-medium transition-colors duration-150 ease-out-quart ${
+      className={`h-7 rounded-md px-3 text-[13px] font-medium transition-ui ${
         active
           ? "bg-signal text-onsignal hover:bg-signal-bright"
           : "border border-line bg-surface text-body hover:bg-raised hover:text-ink"
@@ -47,7 +47,7 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, stFilter, se
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by title or URL…"
-        className="h-10 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none"
+        className="h-10 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
       />
       <div className="flex flex-wrap items-center gap-1">
         {CONTENT_TYPE_FILTERS.map(({ label, value }) => (
