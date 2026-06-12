@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Rss,
   Brain,
@@ -84,6 +84,8 @@ function NavLink({
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   // Close on navigation.
   useEffect(() => {
@@ -98,6 +100,27 @@ export function Sidebar() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  // Move focus into the drawer on open; return it on close (APG dialog pattern).
+  useEffect(() => {
+    if (open) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      closeButtonRef.current?.focus();
+    } else if (previousFocusRef.current) {
+      previousFocusRef.current.focus();
+      previousFocusRef.current = null;
+    }
+  }, [open]);
+
+  // Lock body scroll behind the backdrop while open.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
   }, [open]);
 
   return (
@@ -140,6 +163,8 @@ export function Sidebar() {
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Expand navigation"
+          aria-expanded={open}
+          aria-controls="vig-nav-panel"
           className="mt-auto flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
         >
           <ChevronRight
@@ -181,6 +206,7 @@ export function Sidebar() {
             vig
           </span>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Collapse navigation"

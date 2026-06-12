@@ -24,6 +24,7 @@ export function TabBar<T extends string>({ tabs, active, onChange, labels }: Tab
       {tabs.map((tab) => (
         <button
           key={tab}
+          type="button"
           onClick={() => onChange(tab)}
           className={`px-4 py-2 text-sm font-medium transition-ui ${
             tab === active ? "border-b-2 border-signal text-ink" : "text-body hover:text-ink"

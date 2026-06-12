@@ -1,10 +1,5 @@
 import { StatCard } from "@/components/stat-card";
-
-export interface FeedStats {
-  total: number;
-  by_status: Record<string, number>;
-  by_content_type: Record<string, number>;
-}
+import type { FeedStats } from "@/lib/hooks/useFeedData";
 
 export function StatsOverview({ stats }: { stats: FeedStats }) {
   return (
