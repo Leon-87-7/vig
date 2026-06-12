@@ -7,7 +7,7 @@ import { useSpaceContext } from '@/lib/hooks/useSpaceContext';
 const MarkdownEditor = dynamic(() => import('@/components/MarkdownEditor'), {
   ssr: false,
   loading: () => (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4 text-xs text-gray-500">
+    <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">
       Loading editor…
     </div>
   ),
@@ -32,12 +32,12 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
   return (
     <section className="space-y-4">
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+        <div className="flex items-center gap-2 text-sm text-body">
+          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-line border-t-ink" />
           Loading…
         </div>
       ) : blobs.length === 0 ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           No context documents yet. Add one to frame how sources should be read.
         </p>
       ) : (
@@ -49,13 +49,13 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
                   <button
                     onClick={() => reorderBlob(idx, 'up')}
                     disabled={idx === 0}
-                    className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                    className="rounded px-1 py-0.5 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink disabled:opacity-30"
                     aria-label="Move up"
                   >&#9650;</button>
                   <button
                     onClick={() => reorderBlob(idx, 'down')}
                     disabled={idx === blobs.length - 1}
-                    className="rounded px-1 py-0.5 text-xs text-gray-500 hover:text-white disabled:opacity-30 transition-colors"
+                    className="rounded px-1 py-0.5 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink disabled:opacity-30"
                     aria-label="Move down"
                   >&#9660;</button>
                 </div>
@@ -64,12 +64,12 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
                   value={blob.name}
                   onChange={(e) => patchBlobName(blob.id, e.target.value)}
                   onBlur={(e) => updateBlob(blob.id, e.target.value, blob.content)}
-                  className="flex-1 rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+                  className="flex-1 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none"
                   placeholder="Context name"
                 />
                 <button
                   onClick={() => deleteBlob(blob.id)}
-                  className="rounded border border-red-700 px-2 py-0.5 text-xs text-red-400 hover:border-red-500 hover:text-red-300 transition-colors"
+                  className="rounded border border-line px-2 py-0.5 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised"
                 >
                   Remove
                 </button>
@@ -83,7 +83,7 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      {blobError && <p className="text-sm text-red-400">{blobError}</p>}
+      {blobError && <p className="text-sm text-status-error">{blobError}</p>}
 
       <div className="flex items-center gap-3 pt-2">
         <input
@@ -91,12 +91,12 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
           value={newBlobName}
           onChange={(e) => setNewBlobName(e.target.value)}
           placeholder="Context document name…"
-          className="flex-1 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none"
+          className="flex-1 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none"
         />
         <button
           onClick={handleAddBlob}
           disabled={addingBlob}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+          className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
         >
           {addingBlob ? 'Adding…' : 'Add context'}
         </button>

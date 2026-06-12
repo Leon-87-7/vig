@@ -27,19 +27,19 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
 
   if (fetchState === "loading") {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+      <div className="flex items-center gap-2 text-sm text-body">
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
         Loading…
       </div>
     );
   }
-  if (fetchState === "not_found") return <div className="text-sm text-gray-400">Space not found. <Link href="/spaces" className="text-blue-400 hover:underline">Back to spaces</Link></div>;
-  if (fetchState === "forbidden") return <div className="text-sm text-gray-400">Access denied. <Link href="/spaces" className="text-blue-400 hover:underline">Back to spaces</Link></div>;
-  if (fetchState === "error" || !space) return <div className="text-sm text-gray-400">Failed to load space. <Link href="/spaces" className="text-blue-400 hover:underline">Back to spaces</Link></div>;
+  if (fetchState === "not_found") return <div className="text-sm text-body">Space not found. <Link href="/spaces" className="text-signal hover:underline">Back to spaces</Link></div>;
+  if (fetchState === "forbidden") return <div className="text-sm text-body">Access denied. <Link href="/spaces" className="text-signal hover:underline">Back to spaces</Link></div>;
+  if (fetchState === "error" || !space) return <div className="text-sm text-body">Failed to load space. <Link href="/spaces" className="text-signal hover:underline">Back to spaces</Link></div>;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link href="/spaces" className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300">
+      <Link href="/spaces" className="inline-flex items-center gap-1 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink">
         <span aria-hidden="true">&#8592;</span> Back to spaces
       </Link>
 
@@ -47,41 +47,41 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="inline-block h-4 w-4 flex-shrink-0 rounded-full" style={{ backgroundColor: space.color }} />
-            <h1 className="text-xl font-semibold text-white">{space.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">{space.name}</h1>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowExport(true)} className="rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400 hover:text-white transition-colors">Export</button>
-            <button onClick={startEdit} className="rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 hover:border-gray-400 hover:text-white transition-colors">Edit</button>
-            <button onClick={handleDelete} className="rounded-md border border-red-700 px-3 py-1.5 text-sm text-red-400 hover:border-red-500 hover:text-red-300 transition-colors">Delete</button>
+            <button onClick={() => setShowExport(true)} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Export</button>
+            <button onClick={startEdit} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Edit</button>
+            <button onClick={handleDelete} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Delete</button>
           </div>
         </div>
       ) : (
         <form onSubmit={handleEditSave} className="space-y-4">
-          <h2 className="text-sm font-semibold text-gray-300">Edit Space</h2>
-          {editError && <p className="text-sm text-red-400">{editError}</p>}
+          <h2 className="text-sm font-semibold text-ink">Edit Space</h2>
+          {editError && <p className="text-sm text-status-error">{editError}</p>}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-gray-400" htmlFor="edit-name">Name</label>
-              <input id="edit-name" type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100 focus:border-indigo-500 focus:outline-none" />
+              <label className="mb-1 block text-xs font-medium text-body" htmlFor="edit-name">Name</label>
+              <input id="edit-name" type="text" required value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-gray-400" htmlFor="edit-color">Color</label>
-              <input id="edit-color" type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} className="h-9 w-12 cursor-pointer rounded border border-gray-700 bg-gray-900 p-0.5" />
+              <label className="mb-1 block text-xs font-medium text-body" htmlFor="edit-color">Color</label>
+              <input id="edit-color" type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} className="h-9 w-12 cursor-pointer rounded-md border border-line bg-canvas p-0.5" />
             </div>
             <div className="flex gap-2">
-              <button type="submit" disabled={editSaving} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors">{editSaving ? "Saving…" : "Save"}</button>
-              <button type="button" onClick={cancelEdit} className="rounded-md border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 transition-colors">Cancel</button>
+              <button type="submit" disabled={editSaving} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{editSaving ? "Saving…" : "Save"}</button>
+              <button type="button" onClick={cancelEdit} className="h-8 rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">Cancel</button>
             </div>
           </div>
         </form>
       )}
 
-      <div className="flex gap-1 border-b border-gray-700">
+      <div className="flex gap-1 border-b border-line">
         {(["urls", "context"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab ? "border-b-2 border-indigo-500 text-white" : "text-gray-400 hover:text-gray-200"}`}
+            className={`px-4 py-2 text-sm font-medium transition-colors duration-150 ease-out-quart ${activeTab === tab ? "border-b-2 border-signal text-ink" : "text-body hover:text-ink"}`}
           >
             {tab === "urls" ? "URLs" : "Context"}
           </button>

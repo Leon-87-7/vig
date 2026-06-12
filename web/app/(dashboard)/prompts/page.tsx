@@ -27,20 +27,20 @@ function CreateForm({ onCreated }: { onCreated: (values: TemplateFormState) => P
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-wrap gap-3">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-400">Name <span className="text-gray-500">(no spaces, no leading - or /)</span></label>
-          <input type="text" required maxLength={64} pattern="[a-z0-9_-]+" title="Lowercase letters, digits, hyphens, underscores only" value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value.toLowerCase() }))} placeholder="e.g. startup-notes" className="w-52 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none" />
+          <label className="text-xs font-medium text-body">Name <span className="text-muted">(no spaces, no leading - or /)</span></label>
+          <input type="text" required maxLength={64} pattern="[a-z0-9_-]+" title="Lowercase letters, digits, hyphens, underscores only" value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value.toLowerCase() }))} placeholder="e.g. startup-notes" className="w-52 rounded-md border border-line bg-canvas px-3 py-1.5 font-mono text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-400">Description (optional)</label>
-          <input type="text" maxLength={500} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} placeholder="Short description..." className="w-72 rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none" />
+          <label className="text-xs font-medium text-body">Description (optional)</label>
+          <input type="text" maxLength={500} value={values.description} onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))} placeholder="Short description..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-gray-400">Extra instructions (optional — sent as Gemini prompt)</label>
-        <textarea maxLength={4000} rows={4} value={values.extra_instructions} onChange={(e) => setValues((v) => ({ ...v, extra_instructions: e.target.value }))} placeholder="Write custom Gemini analysis instructions here..." className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none" />
+        <label className="text-xs font-medium text-body">Extra instructions (optional — sent as Gemini prompt)</label>
+        <textarea maxLength={4000} rows={4} value={values.extra_instructions} onChange={(e) => setValues((v) => ({ ...v, extra_instructions: e.target.value }))} placeholder="Write custom Gemini analysis instructions here..." className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder-muted transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
       </div>
-      {error && <p className="text-xs text-red-400">{error}</p>}
-      <button type="submit" disabled={submitting} className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
+      {error && <p className="text-xs text-status-error">{error}</p>}
+      <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
         {submitting ? 'Creating…' : 'Create template'}
       </button>
     </form>
@@ -84,20 +84,20 @@ function UserTemplateRow({
 
   if (editing) {
     return (
-      <li className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 space-y-3">
+      <li className="space-y-3 rounded-lg border border-line bg-surface px-4 py-3">
         <form onSubmit={handleSave} className="space-y-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Description</label>
-            <input type="text" maxLength={500} value={editValues.description} onChange={(e) => setEditValues((v) => ({ ...v, description: e.target.value }))} className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+            <label className="text-xs font-medium text-body">Description</label>
+            <input type="text" maxLength={500} value={editValues.description} onChange={(e) => setEditValues((v) => ({ ...v, description: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">Extra instructions</label>
-            <textarea maxLength={4000} rows={4} value={editValues.extra_instructions} onChange={(e) => setEditValues((v) => ({ ...v, extra_instructions: e.target.value }))} className="w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+            <label className="text-xs font-medium text-body">Extra instructions</label>
+            <textarea maxLength={4000} rows={4} value={editValues.extra_instructions} onChange={(e) => setEditValues((v) => ({ ...v, extra_instructions: e.target.value }))} className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink transition-colors duration-150 ease-out-quart hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
-          {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+          {saveError && <p className="text-xs text-status-error">{saveError}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">{saving ? 'Saving…' : 'Save'}</button>
-            <button type="button" onClick={() => { setEditing(false); setEditValues({ description: template.description, extra_instructions: template.extra_instructions }); }} className="rounded-md px-3 py-1.5 text-sm text-gray-400 hover:text-white">Cancel</button>
+            <button type="submit" disabled={saving} className="h-8 rounded-md bg-signal px-3 text-[13px] font-medium text-onsignal transition-colors duration-150 ease-out-quart hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">{saving ? 'Saving…' : 'Save'}</button>
+            <button type="button" onClick={() => { setEditing(false); setEditValues({ description: template.description, extra_instructions: template.extra_instructions }); }} className="h-8 rounded-md px-3 text-[13px] font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Cancel</button>
           </div>
         </form>
       </li>
@@ -105,23 +105,23 @@ function UserTemplateRow({
   }
 
   return (
-    <li className="rounded-lg border border-gray-700 bg-gray-800 px-4 py-3">
+    <li className="rounded-lg border border-line bg-surface px-4 py-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <span className="font-mono text-sm font-semibold text-indigo-400">-{template.name}</span>
-          {template.description && <span className="ml-2 text-sm text-gray-400">{template.description}</span>}
+          <span className="font-mono text-sm font-semibold text-ink">-{template.name}</span>
+          {template.description && <span className="ml-2 text-sm text-body">{template.description}</span>}
           {template.extra_instructions && (
-            <p className="mt-1 truncate text-xs text-gray-500">
+            <p className="mt-1 truncate text-xs text-muted">
               {template.extra_instructions.slice(0, 120)}{template.extra_instructions.length > 120 ? '…' : ''}
             </p>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-white">Edit</button>
-          <button onClick={handleDelete} className="rounded px-2 py-1 text-xs text-red-400 hover:bg-gray-700 hover:text-red-300">Delete</button>
+          <button onClick={() => setEditing(true)} className="rounded px-2 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-out-quart hover:bg-raised hover:text-ink">Edit</button>
+          <button onClick={handleDelete} className="rounded px-2 py-1 text-xs font-medium text-status-error transition-colors duration-150 ease-out-quart hover:bg-raised">Delete</button>
         </div>
       </div>
-      {deleteError && <p className="mt-1 text-xs text-red-400">{deleteError}</p>}
+      {deleteError && <p className="mt-1 text-xs text-status-error">{deleteError}</p>}
     </li>
   );
 }
@@ -133,29 +133,29 @@ export default function PromptsPage() {
   const userTemplates = templates.filter((t) => !t.is_builtin);
 
   return (
-    <div>
-      <h2 className="mb-6 text-xl font-semibold">Prompts</h2>
+    <div className="mx-auto max-w-5xl">
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">Prompts</h1>
 
-      {loading && <p className="text-sm text-gray-400">Loading templates…</p>}
-      {fetchError && <p className="text-sm text-red-400">{fetchError}</p>}
+      {loading && <p className="text-sm text-body">Loading templates…</p>}
+      {fetchError && <p className="text-sm text-status-error">{fetchError}</p>}
 
       {!loading && !fetchError && (
         <>
           <section className="mb-8">
-            <h3 className="mb-3 text-sm font-semibold text-gray-300">
-              Built-in templates <span className="font-normal text-gray-500">(read-only, use as /name)</span>
-            </h3>
+            <h2 className="mb-3 text-sm font-semibold text-ink">
+              Built-in templates <span className="font-normal text-muted">(read-only, use as /name)</span>
+            </h2>
             {builtins.length === 0 ? (
-              <p className="text-sm text-gray-500">No built-in templates.</p>
+              <p className="text-sm text-muted">No built-in templates.</p>
             ) : (
               <ul className="space-y-2">
                 {builtins.map((t) => (
-                  <li key={t.name} className="flex items-start gap-3 rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3">
+                  <li key={t.name} className="flex items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <span className="font-mono text-sm font-semibold text-gray-200">/{t.name}</span>
-                      {t.description && <span className="ml-2 text-sm text-gray-400">{t.description}</span>}
+                      <span className="font-mono text-sm font-semibold text-ink">/{t.name}</span>
+                      {t.description && <span className="ml-2 text-sm text-body">{t.description}</span>}
                     </div>
-                    <span className="shrink-0 rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-400">built-in</span>
+                    <span className="shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider text-muted">built-in</span>
                   </li>
                 ))}
               </ul>
@@ -163,15 +163,15 @@ export default function PromptsPage() {
           </section>
 
           <section>
-            <h3 className="mb-3 text-sm font-semibold text-gray-300">
-              Your templates <span className="font-normal text-gray-500">(use as -name &lt;url&gt; in Telegram)</span>
-            </h3>
-            <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
-              <h4 className="mb-3 text-sm font-medium text-gray-200">Create template</h4>
+            <h2 className="mb-3 text-sm font-semibold text-ink">
+              Your templates <span className="font-normal text-muted">(use as -name &lt;url&gt; in Telegram)</span>
+            </h2>
+            <div className="mb-4 rounded-lg border border-line bg-surface p-4">
+              <h3 className="mb-3 text-sm font-medium text-ink">Create template</h3>
               <CreateForm onCreated={createTemplate} />
             </div>
             {userTemplates.length === 0 ? (
-              <p className="text-sm text-gray-500">No custom templates yet. Create one above.</p>
+              <p className="text-sm text-muted">No custom templates yet. Create one above.</p>
             ) : (
               <ul className="space-y-2">
                 {userTemplates.map((t) => (

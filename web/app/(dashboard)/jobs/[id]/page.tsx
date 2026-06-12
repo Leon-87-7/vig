@@ -22,22 +22,29 @@ import {
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   ssr: false,
   loading: () => (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4 text-xs text-gray-500">
+    <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">
       Loading editor…
     </div>
   ),
 });
 
+// Two-Dialect Badge Rule (DESIGN.md): statuses FILLED (tint + hue), types OUTLINED (hairline + hue).
 const STATUS_STYLES: Record<string, string> = {
-  done: "bg-green-900 text-green-300",
-  processing: "bg-blue-900 text-blue-300",
-  queued: "bg-yellow-900 text-yellow-300",
-  error: "bg-red-900 text-red-300",
+  done: "bg-status-done-tint text-status-done",
+  pending: "bg-status-pending-tint text-status-pending",
+  queued: "bg-status-pending-tint text-status-pending",
+  processing: "bg-status-processing-tint text-status-processing",
+  transcript_done: "bg-status-enriching-tint text-status-enriching",
+  enriching: "bg-status-enriching-tint text-status-enriching",
+  error: "bg-status-error-tint text-status-error",
+  cancelled: "bg-status-cancelled-tint text-status-cancelled",
 };
 
 const CONTENT_TYPE_STYLES: Record<string, string> = {
-  short: "bg-purple-900 text-purple-300",
-  long: "bg-indigo-900 text-indigo-300",
+  short: "border border-line text-type-short",
+  long: "border border-line text-type-long",
+  article: "border border-line text-type-article",
+  repo: "border border-line text-type-repo",
 };
 
 // --- Icons ---
@@ -63,19 +70,19 @@ function CheckIcon({ className }: { className?: string }) {
 function JsonValue({ value }: { value: unknown }): JSX.Element | null {
   if (isEmpty(value)) return null;
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return <p className="whitespace-pre-wrap break-words text-sm text-gray-100">{String(value)}</p>;
+    return <p className="whitespace-pre-wrap break-words text-sm text-ink">{String(value)}</p>;
   }
   if (Array.isArray(value)) {
     const allScalar = value.every((v) => typeof v !== "object" || v === null);
     if (allScalar) {
       return (
-        <ul className="list-disc space-y-1 pl-5 text-sm text-gray-100">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
           {value.filter((v) => !isEmpty(v)).map((v, i) => <li key={i}>{String(v)}</li>)}
         </ul>
       );
     }
     return (
-      <ol className="list-decimal space-y-2 pl-5 text-sm text-gray-100">
+      <ol className="list-decimal space-y-2 pl-5 text-sm text-ink">
         {value.map((v, i) => <li key={i}><JsonValue value={v} /></li>)}
       </ol>
     );
@@ -92,14 +99,14 @@ function JsonObject({ obj, nested = false }: { obj: Record<string, unknown>; nes
         const scalar = typeof value === "string" || typeof value === "number" || typeof value === "boolean";
         if (nested && scalar) {
           return (
-            <p key={key} className="text-sm text-gray-100">
-              <span className="font-medium text-gray-300">{humanizeKey(key)}:</span>{" "}{String(value)}
+            <p key={key} className="text-sm text-ink">
+              <span className="font-medium text-body">{humanizeKey(key)}:</span>{" "}{String(value)}
             </p>
           );
         }
         return (
           <div key={key} className="space-y-1">
-            <h3 className={nested ? "text-xs font-medium text-gray-400" : "text-sm font-semibold text-gray-200"}>
+            <h3 className={nested ? "text-xs font-medium text-muted" : "text-sm font-semibold text-ink"}>
               {humanizeKey(key)}
             </h3>
             <JsonValue value={value} />
@@ -113,7 +120,7 @@ function JsonObject({ obj, nested = false }: { obj: Record<string, unknown>; nes
 function TemplateAnalysis({ raw }: { raw: string }) {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch {
-    return <p className="whitespace-pre-wrap break-words text-sm text-gray-100">{raw}</p>;
+    return <p className="whitespace-pre-wrap break-words text-sm text-ink">{raw}</p>;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return <JsonValue value={parsed} />;
   return <JsonObject obj={parsed as Record<string, unknown>} />;
@@ -122,7 +129,7 @@ function TemplateAnalysis({ raw }: { raw: string }) {
 // --- UI pieces ---
 
 function Badge({ label, styleClass }: { label: string; styleClass: string }) {
-  return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${styleClass}`}>{label}</span>;
+  return <span className={`inline-block rounded px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider ${styleClass}`}>{label}</span>;
 }
 
 function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: string; label?: string }) {
@@ -131,7 +138,7 @@ function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: str
     try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   };
   return (
-    <button onClick={handleCopy} aria-label={ariaLabel} title={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-gray-600 px-2 py-1 text-xs text-gray-400 transition-colors hover:border-gray-400 hover:text-white">
+    <button onClick={handleCopy} aria-label={ariaLabel} title={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-colors duration-150 ease-out-quart hover:border-line-strong hover:bg-raised hover:text-ink">
       {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
       {label && <span>{copied ? "Copied!" : label}</span>}
     </button>
@@ -141,18 +148,18 @@ function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: str
 function FieldBody({ value, render }: { value: string; render: RenderType }) {
   if (render === "list") {
     const items = splitPipes(value);
-    if (items.length === 0) return <p className="text-sm text-gray-100">{value}</p>;
-    return <ul className="list-disc space-y-1 pl-5 text-sm text-gray-100">{items.map((item, i) => <li key={i}>{item}</li>)}</ul>;
+    if (items.length === 0) return <p className="text-sm text-ink">{value}</p>;
+    return <ul className="list-disc space-y-1 pl-5 text-sm text-ink">{items.map((item, i) => <li key={i}>{item}</li>)}</ul>;
   }
   if (render === "json") return <TemplateAnalysis raw={value} />;
-  return <p className="whitespace-pre-wrap break-words text-sm text-gray-100">{value}</p>;
+  return <p className="whitespace-pre-wrap break-words text-sm text-ink">{value}</p>;
 }
 
 function FieldCard({ label, value, render }: { label: string; value: string; render: RenderType }) {
   return (
-    <div className="rounded-lg border border-gray-700 bg-gray-800 p-4">
+    <div className="rounded-lg border border-line bg-surface p-4">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+        <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted">{label}</span>
         <CopyButton value={fieldCopyText(value, render)} ariaLabel={`Copy ${label}`} />
       </div>
       <FieldBody value={value} render={render} />
@@ -162,24 +169,24 @@ function FieldCard({ label, value, render }: { label: string; value: string; ren
 
 function JobHeader({ job }: { job: JobDetail }) {
   const displayTitle = job.title ?? job.url;
-  const statusStyle = STATUS_STYLES[job.status] ?? "bg-gray-700 text-gray-300";
-  const contentTypeStyle = CONTENT_TYPE_STYLES[job.content_type] ?? "bg-gray-700 text-gray-300";
+  const statusStyle = STATUS_STYLES[job.status] ?? "bg-status-cancelled-tint text-status-cancelled";
+  const contentTypeStyle = CONTENT_TYPE_STYLES[job.content_type] ?? "border border-line text-body";
   return (
     <div>
-      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300">
+      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-ink">
         <span aria-hidden="true">&#8592;</span> Back to feed
       </Link>
       <div className="flex flex-wrap items-start gap-3">
-        <h1 className="flex-1 text-xl font-semibold leading-snug break-all">{displayTitle}</h1>
+        <h1 className="flex-1 break-all text-xl font-semibold leading-snug text-ink">{displayTitle}</h1>
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
           <Badge label={job.content_type} styleClass={contentTypeStyle} />
           <Badge label={job.status} styleClass={statusStyle} />
         </div>
       </div>
       {/^https?:\/\//i.test(job.url) ? (
-        <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-xs text-gray-500 break-all hover:text-blue-400 hover:underline">{job.url}</a>
+        <a href={job.url} target="_blank" rel="noopener noreferrer" className="mt-1 block break-all font-mono text-xs text-muted transition-colors duration-150 ease-out-quart hover:text-signal hover:underline">{job.url}</a>
       ) : (
-        <p className="mt-1 text-xs text-gray-500 break-all">{job.url}</p>
+        <p className="mt-1 break-all font-mono text-xs text-muted">{job.url}</p>
       )}
     </div>
   );
@@ -190,7 +197,7 @@ function JobActionsBar({ job, hasFields }: { job: JobDetail; hasFields: boolean 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {job.drive_url && /^https?:\/\//i.test(job.drive_url) ? (
-        <a href={job.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-gray-600 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-gray-400 hover:text-white">
+        <a href={job.drive_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-[13px] font-medium text-ink transition-colors duration-150 ease-out-quart hover:bg-raised">
           Open in Drive &#8599;
         </a>
       ) : <span />}
@@ -206,15 +213,15 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   if (fetchState === "loading") {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-white" />
+      <div className="flex items-center gap-2 text-sm text-body">
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
         Loading…
       </div>
     );
   }
-  if (fetchState === "not_found") return <div className="text-sm text-gray-400">Job not found. <Link href="/" className="text-blue-400 hover:underline">Back to feed</Link></div>;
-  if (fetchState === "forbidden") return <div className="text-sm text-gray-400">Access denied. <Link href="/" className="text-blue-400 hover:underline">Back to feed</Link></div>;
-  if (fetchState === "error" || !job) return <div className="text-sm text-gray-400">Failed to load job. <Link href="/" className="text-blue-400 hover:underline">Back to feed</Link></div>;
+  if (fetchState === "not_found") return <div className="text-sm text-body">Job not found. <Link href="/" className="text-signal hover:underline">Back to feed</Link></div>;
+  if (fetchState === "forbidden") return <div className="text-sm text-body">Access denied. <Link href="/" className="text-signal hover:underline">Back to feed</Link></div>;
+  if (fetchState === "error" || !job) return <div className="text-sm text-body">Failed to load job. <Link href="/" className="text-signal hover:underline">Back to feed</Link></div>;
 
   const presentFields = ENRICHMENT_FIELDS.filter(({ key }) => {
     const value = job[key];
@@ -226,7 +233,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
       <JobHeader job={job} />
 
       {job.status === "error" && job.error_msg && (
-        <div className="rounded-lg border border-red-700 bg-red-950 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-lg border border-line bg-status-error-tint px-4 py-3 text-sm text-status-error">
           <span className="font-semibold">Error: </span>{job.error_msg}
         </div>
       )}

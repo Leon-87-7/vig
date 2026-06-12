@@ -53,8 +53,8 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
-        <h1 className="mb-2 text-3xl font-bold tracking-tight">vig</h1>
-        <p className="mb-8 text-sm text-gray-400">
+        <h1 className="mb-2 text-3xl font-semibold tracking-tight text-ink">vig</h1>
+        <p className="mb-8 text-sm text-body">
           Video Intelligence Gateway
         </p>
         <div id="tg-login-container" />
