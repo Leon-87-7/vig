@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-10T00:00:00Z",
+  "title": "Design System: vig — Video Intelligence Gateway",
+  "extensions": {
+    "colorMeta": {
+      "canvas": { "role": "neutral", "displayName": "Console Floor", "canonical": "#0b0c0f", "tonalRamp": ["#0b0c0f", "#14161a", "#1c1f25", "#262a31", "#343a44", "#5a6170", "#8a919e", "#f5f6f8"] },
+      "surface": { "role": "neutral", "displayName": "Working Plate", "canonical": "#14161a", "tonalRamp": ["#0b0c0f", "#14161a", "#1c1f25", "#262a31", "#343a44", "#5a6170", "#8a919e", "#f5f6f8"] },
+      "surface-raised": { "role": "neutral", "displayName": "Raised Plate", "canonical": "#1c1f25", "tonalRamp": ["#0b0c0f", "#14161a", "#1c1f25", "#262a31", "#343a44", "#5a6170", "#8a919e", "#f5f6f8"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "#262a31", "tonalRamp": ["#0b0c0f", "#14161a", "#1c1f25", "#262a31", "#343a44", "#5a6170", "#8a919e", "#f5f6f8"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#f5f6f8", "tonalRamp": ["#0b0c0f", "#1c1f25", "#343a44", "#5a6170", "#8a919e", "#b3b9c4", "#dfe2e7", "#f5f6f8"] },
+      "body": { "role": "neutral", "displayName": "Body Gray", "canonical": "#b3b9c4", "tonalRamp": ["#0b0c0f", "#1c1f25", "#343a44", "#5a6170", "#8a919e", "#b3b9c4", "#dfe2e7", "#f5f6f8"] },
+      "muted": { "role": "neutral", "displayName": "Muted Meta", "canonical": "#8a919e", "tonalRamp": ["#0b0c0f", "#1c1f25", "#343a44", "#5a6170", "#8a919e", "#b3b9c4", "#dfe2e7", "#f5f6f8"] },
+      "signal": { "role": "primary", "displayName": "Signal Orange", "canonical": "#f6921e", "tonalRamp": ["#2e1b03", "#4d2d05", "#7e4a08", "#b96a06", "#d97f10", "#f6921e", "#ffa83d", "#ffd9a8"] },
+      "on-signal": { "role": "neutral", "displayName": "On Signal", "canonical": "#16100a", "tonalRamp": ["#16100a", "#2e1b03", "#4d2d05", "#7e4a08", "#b96a06", "#f6921e", "#ffa83d", "#ffd9a8"] },
+      "status-done": { "role": "semantic", "displayName": "Done Green", "canonical": "#4ade80", "tonalRamp": ["#0a1f12", "#122b1c", "#14532d", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#bbf7d0"] },
+      "status-pending": { "role": "semantic", "displayName": "Pending Yellow", "canonical": "#eab308", "tonalRamp": ["#1f1a06", "#2b240e", "#713f12", "#a16207", "#ca8a04", "#eab308", "#facc15", "#fef08a"] },
+      "status-processing": { "role": "semantic", "displayName": "Processing Blue", "canonical": "#60a5fa", "tonalRamp": ["#0c1626", "#14233b", "#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#bfdbfe"] },
+      "status-enriching": { "role": "semantic", "displayName": "Enriching Violet", "canonical": "#a78bfa", "tonalRamp": ["#150f26", "#221a3d", "#4c1d95", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#ddd6fe"] },
+      "status-error": { "role": "semantic", "displayName": "Error Red", "canonical": "#f87171", "tonalRamp": ["#220d0d", "#371717", "#7f1d1d", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fecaca"] },
+      "status-cancelled": { "role": "semantic", "displayName": "Cancelled Gray", "canonical": "#9aa1ad", "tonalRamp": ["#16181c", "#23262c", "#343a44", "#4b515c", "#646b78", "#7e8694", "#9aa1ad", "#d4d8de"] },
+      "type-short": { "role": "semantic", "displayName": "Short Violet", "canonical": "#c084fc", "tonalRamp": ["#1a1026", "#2e1a47", "#581c87", "#7e22ce", "#9333ea", "#a855f7", "#c084fc", "#e9d5ff"] },
+      "type-long": { "role": "semantic", "displayName": "Long Sky", "canonical": "#38bdf8", "tonalRamp": ["#0a1822", "#0c2436", "#075985", "#0369a1", "#0284c7", "#0ea5e9", "#38bdf8", "#bae6fd"] },
+      "type-article": { "role": "semantic", "displayName": "Article Teal", "canonical": "#2dd4bf", "tonalRamp": ["#081c19", "#0b2e29", "#115e59", "#0f766e", "#0d9488", "#14b8a6", "#2dd4bf", "#99f6e4"] },
+      "type-repo": { "role": "semantic", "displayName": "Repo Rose", "canonical": "#fb7185", "tonalRamp": ["#26090d", "#3e1019", "#881337", "#be123c", "#e11d48", "#f43f5e", "#fb7185", "#fecdd3"] },
+      "gradient-brain-start": { "role": "secondary", "displayName": "Brain Violet", "canonical": "#7c3aed", "tonalRamp": ["#150f26", "#2e1a47", "#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#a78bfa", "#ddd6fe"] },
+      "gradient-brain-end": { "role": "secondary", "displayName": "Brain Cyan", "canonical": "#22d3ee", "tonalRamp": ["#081a1f", "#0c2a33", "#155e75", "#0e7490", "#0891b2", "#06b6d4", "#22d3ee", "#a5f3fc"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles — one per screen, gently negative tracking." },
+      "headline": { "displayName": "Headline", "purpose": "Section heads inside a page." },
+      "title": { "displayName": "Title", "purpose": "Card/panel titles, job titles." },
+      "body": { "displayName": "Body", "purpose": "Default UI text; prose capped 65–75ch." },
+      "stat-value": { "displayName": "Stat Value", "purpose": "Overview tiles — always tabular-nums." },
+      "mono-meta": { "displayName": "Mono Meta", "purpose": "Machine facts: job IDs, timestamps, URLs (The Mono Voice Rule)." },
+      "mono-label": { "displayName": "Mono Label", "purpose": "Badge text and table headers only — the machine's silkscreen voice." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "0px 2px 4px rgba(0,0,0,0.4), 0px 12px 24px -8px rgba(0,0,0,0.5)", "purpose": "Modals, dropdowns, toasts — the only shadow in the system (The Plate Rule)." }
+    ],
+    "motion": [
+      { "name": "ease-console", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Ease-out-quart default for state transitions, 150–250ms." },
+      { "name": "duration-state", "value": "150ms", "purpose": "Hover/focus/active state changes." },
+      { "name": "duration-reveal", "value": "250ms", "purpose": "Panel/disclosure reveals. All motion freezes under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Signal Button",
+      "kind": "button",
+      "refersTo": "button-signal",
+      "description": "The primary action — signal orange with near-black text; at most one or two per screen.",
+      "html": "<button class=\"ds-btn-signal\">Run Gemini</button>",
+      "css": ".ds-btn-signal { background: #f6921e; color: #16100a; font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; height: 32px; padding: 0 14px; border: none; border-radius: 6px; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-signal:hover { background: #ffa83d; } .ds-btn-signal:active { background: #b96a06; } .ds-btn-signal:focus-visible { outline: 2px solid #f6921e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The workhorse secondary — transparent plate with hairline border.",
+      "html": "<button class=\"ds-btn-ghost\">Export</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #f5f6f8; font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; height: 32px; padding: 0 14px; border: 1px solid #262a31; border-radius: 6px; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-btn-ghost:hover { background: #1c1f25; } .ds-btn-ghost:focus-visible { outline: 2px solid #f6921e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Filter Chips",
+      "kind": "chip",
+      "refersTo": "filter-chip",
+      "description": "Filter row — active selection earns the signal.",
+      "html": "<div class=\"ds-chip-row\"><button class=\"ds-chip ds-chip-active\">All</button><button class=\"ds-chip\">Short</button><button class=\"ds-chip\">Long</button></div>",
+      "css": ".ds-chip-row { display: flex; gap: 8px; } .ds-chip { background: #14161a; color: #b3b9c4; font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 500; height: 28px; padding: 0 12px; border: 1px solid #262a31; border-radius: 6px; cursor: pointer; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-chip:hover { background: #1c1f25; color: #f5f6f8; } .ds-chip:focus-visible { outline: 2px solid #f6921e; outline-offset: 2px; } .ds-chip-active { background: #f6921e; color: #16100a; border-color: #f6921e; } .ds-chip-active:hover { background: #ffa83d; color: #16100a; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-status",
+      "description": "Filled dialect — tint background + hue text + mono label. Status is the loudest layer.",
+      "html": "<span class=\"ds-badge-status\">done</span>",
+      "css": ".ds-badge-status { display: inline-block; background: #122b1c; color: #4ade80; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.4px; padding: 2px 6px; border-radius: 4px; }"
+    },
+    {
+      "name": "Content-Type Badge",
+      "kind": "chip",
+      "refersTo": "badge-type",
+      "description": "Outlined dialect — transparent + hairline + hue text. Never mixes with the filled status dialect.",
+      "html": "<span class=\"ds-badge-type\">short</span>",
+      "css": ".ds-badge-type { display: inline-block; background: transparent; color: #c084fc; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.4px; padding: 2px 6px; border: 1px solid #262a31; border-radius: 4px; }"
+    },
+    {
+      "name": "Job Row",
+      "kind": "card",
+      "refersTo": "job-row",
+      "description": "The feed's core unit — surface plate, hairline, hover raise; mono timestamp.",
+      "html": "<a class=\"ds-job-row\" href=\"#\"><div class=\"ds-job-row-top\"><span class=\"ds-job-title\">How attention actually works in transformers</span><span class=\"ds-badge-type\" style=\"color:#38bdf8\">long</span><span class=\"ds-badge-status\">done</span></div><span class=\"ds-job-meta\">20260610_142233_8841 · 2026-06-10 14:22</span></a>",
+      "css": ".ds-job-row { display: block; background: #14161a; border: 1px solid #262a31; border-radius: 8px; padding: 12px 16px; text-decoration: none; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-job-row:hover { background: #1c1f25; } .ds-job-row:focus-visible { outline: 2px solid #f6921e; outline-offset: 2px; } .ds-job-row-top { display: flex; align-items: center; gap: 8px; } .ds-job-title { flex: 1; color: #f5f6f8; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-job-meta { display: block; margin-top: 4px; color: #8a919e; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; }"
+    },
+    {
+      "name": "Stat Tile",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "State at a glance — mono caption over tabular-nums value. Never the hero-metric template.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-label\">PROCESSING</span><span class=\"ds-stat-value\">12</span></div>",
+      "css": ".ds-stat { display: flex; flex-direction: column; gap: 4px; background: #14161a; border: 1px solid #262a31; border-radius: 8px; padding: 12px 16px; } .ds-stat-label { color: #8a919e; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.4px; } .ds-stat-value { color: #f5f6f8; font-family: Inter, system-ui, sans-serif; font-size: 28px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "text-input",
+      "description": "Inset to the console floor — one step below the plates; focus = signal border.",
+      "html": "<input class=\"ds-input\" type=\"search\" placeholder=\"Search by title or URL…\" />",
+      "css": ".ds-input { background: #0b0c0f; color: #f5f6f8; font-family: Inter, system-ui, sans-serif; font-size: 14px; height: 36px; padding: 0 12px; border: 1px solid #262a31; border-radius: 6px; width: 100%; transition: border-color 150ms cubic-bezier(0.25,1,0.5,1); } .ds-input::placeholder { color: #8a919e; } .ds-input:hover { border-color: #343a44; } .ds-input:focus { border-color: #f6921e; outline: none; }"
+    },
+    {
+      "name": "Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar navigation — active state earns signal text on a raised plate.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\">Feed</a><a class=\"ds-nav-item\" href=\"#\">Brain</a><a class=\"ds-nav-item\" href=\"#\">Spaces</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 4px; background: #14161a; padding: 12px; border-radius: 8px; width: 184px; } .ds-nav-item { color: #b3b9c4; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 6px; text-decoration: none; transition: background 150ms cubic-bezier(0.25,1,0.5,1); } .ds-nav-item:hover { background: #1c1f25; color: #f5f6f8; } .ds-nav-item:focus-visible { outline: 2px solid #f6921e; outline-offset: 2px; } .ds-nav-item-active { background: #1c1f25; color: #f6921e; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operator's Console",
+    "overview": "The vig dashboard is the faceplate of a machine you command. Every panel is a control surface; every glow is a state. The system synthesizes three lineages into one dark console: Vercel's stark ink discipline supplies the chassis — cool near-black surfaces, hairline borders, negative-tracked display type, and a monospace voice for everything the machine says; Nintendo 2001's signal doctrine supplies the energy — warm color is rationed strictly to mean *act here*, and never decorates; Expo's restraint supplies the ceiling — weights stop at 600, depth stays at hairlines and plates, and decoration is spent on exactly one signature moment (the Brain gradient).\n\nThe result is bold through commitment, not noise. The chassis is so disciplined — cool, dark, quiet — that the rationed orange signal and the semantic status hues become the loudest things on screen, which is exactly the point: PRODUCT.md's first principle is state at a glance. This system explicitly rejects its two failure modes: the cluttered enterprise admin (gray-on-gray density with no hierarchy) and the toy / consumer-cute (rounded-everything, bouncy, jokey).",
+    "keyCharacteristics": [
+      "Cool near-black plate ladder (#0b0c0f → #14161a → #1c1f25) with 1px hairlines — depth is structural, not floating.",
+      "One warm signal: orange #f6921e appears only on things the operator can act on (primary actions, active selections, focus, active nav).",
+      "Status is the loudest layer: filled tint badges in semantic hues, always paired with a text label.",
+      "Two voices: Inter (human language) and JetBrains Mono (machine facts — job IDs, timestamps, URLs, statuses, counts).",
+      "Flat by default; shadows exist only for overlays (modals, dropdowns, toasts).",
+      "One decorative moment in the whole product: the violet→cyan Brain gradient, hero-scale, /brain only.",
+      "Density is welcome — the console is an information tool — but every element must earn its place."
+    ],
+    "rules": [
+      { "name": "The Signal Rule", "body": "Signal orange means the operator can act here — nothing else. It is forbidden in status badges, decorative fills, illustrations, and inactive states. Pending-yellow, its nearest hue, is forbidden on interactive controls. The two never trade places.", "section": "colors" },
+      { "name": "The Two-Dialect Badge Rule", "body": "Statuses are filled (tint background + hue text); content types are outlined (transparent + hairline + hue text). Hues may repeat across the two dialects because the fill style disambiguates at a glance — and every badge always carries its text label.", "section": "colors" },
+      { "name": "The One Gradient Rule", "body": "The Brain gradient is the product's entire decoration budget. One surface, hero scale, full stops. Everywhere else the console is chassis and signal.", "section": "colors" },
+      { "name": "The Mono Voice Rule", "body": "If the machine produced it — an ID, a timestamp, a URL, a status word, a count — it renders in JetBrains Mono. If a human wrote it or reads it as language, it renders in Inter.", "section": "typography" },
+      { "name": "The 600 Ceiling", "body": "No weight above 600 anywhere. Boldness comes from the dark chassis and rationed color, not from heavier type.", "section": "typography" },
+      { "name": "The Plate Rule", "body": "Depth is stacked plates and hairlines. If a card at rest has a shadow, it's wrong. If a modal doesn't, it's wrong. There is no third case.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reserve signal orange (#f6921e) for actionable elements: primary buttons, active selections, focus rings, active nav. One or two signal elements per screen, maximum.",
+      "Do render every machine fact — job IDs, timestamps, URLs, statuses, counts — in JetBrains Mono (The Mono Voice Rule).",
+      "Do keep the two badge dialects distinct: statuses filled with tints, content types outlined with hairlines, every badge labeled with text.",
+      "Do build depth from the plate ladder (#0b0c0f → #14161a → #1c1f25) + 1px hairlines; reserve the one overlay shadow for modals, dropdowns, toasts.",
+      "Do use tabular-nums on every count and stat so numbers align as they tick.",
+      "Do hold meta text at #8a919e or lighter-on-dark — ≥4.5:1 always (WCAG AA per PRODUCT.md).",
+      "Do give every interactive component its full state set: default, hover, focus (2px signal ring), active, disabled, loading — skeleton plates for loading, not spinners in content.",
+      "Do provide a prefers-reduced-motion: reduce fallback for every animation; transitions run 150–250ms ease-out."
+    ],
+    "donts": [
+      "Don't drift into the cluttered enterprise admin PRODUCT.md names: gray-on-gray noise, toolbars stuffed with controls, everything visible at once. Density must have hierarchy — chassis quiet, signal loud.",
+      "Don't go toy / consumer-cute: no mascots, no rounded-everything (radius caps at 12px), no bouncy or elastic motion, no jokey copy.",
+      "Don't use signal orange decoratively, on inactive states, or in status badges — and don't put pending-yellow on anything clickable (The Signal Rule).",
+      "Don't use gradient text (background-clip: text) anywhere; the Brain gradient is a backdrop, never a text fill or icon (The One Gradient Rule).",
+      "Don't ship the hero-metric template: no big-number-with-trend-arrow-and-gradient-accent stat cards. Stat tiles are label + number, nothing else.",
+      "Don't use side-stripe borders (border-left > 1px as a colored accent) on cards, rows, or alerts — status is carried by badges, not stripes.",
+      "Don't lay out identical icon+heading+text card grids; vary structure by content or don't use cards.",
+      "Don't put a tracked-uppercase eyebrow above sections. Uppercase mono is permitted only inside badges and table headers — the machine's voice, not section scaffolding.",
+      "Don't exceed weight 600, use display type in UI labels, or float resting cards on shadows.",
+      "Don't reach for a modal as the first thought — exhaust inline and progressive disclosure first (the operator stays in flow).",
+      "Don't reintroduce the dead gray-750 hovers or gray-500 meta text from the legacy shell; both are retired by this spec's tokens."
+    ]
+  }
+}
