@@ -155,6 +155,7 @@ export function Sidebar() {
               item={item}
               pathname={pathname}
               collapsed
+              tabbable={!open}
             />
           ))}
         </nav>
