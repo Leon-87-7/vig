@@ -36,6 +36,8 @@ services:
     command: python -m src.worker
     networks:
       - vig-network
+    healthcheck:
+      disable: true
 
   transcript-service:
     build:
