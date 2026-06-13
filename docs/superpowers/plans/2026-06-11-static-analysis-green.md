@@ -10,17 +10,18 @@
 
 **Baseline (2026-06-11 run):**
 
-| Gate | Current | Target |
-|---|---|---|
-| pyscn Health | 60 (C) | ≥ 85 |
-| pyscn Complexity | 50 ❌ (avg 8.5, 26 medium fns) | ≥ 75 |
-| pyscn Duplication | 0 ❌ (10.0%, 49 groups; 17 touch src) | ≥ 70 |
-| pyscn Architecture | 57 ❌ (107 violations, mostly layer-config noise) | ≥ 90 |
-| fallow dead-code | 8 issues | 0 |
-| fallow dupes | 3 clone groups | 0 |
-| fallow health | 23 above threshold | 0 (with coverage data) |
+| Gate               | Current                                           | Target                 |
+| ------------------ | ------------------------------------------------- | ---------------------- |
+| pyscn Health       | 60 (C)                                            | ≥ 85                   |
+| pyscn Complexity   | 50 ❌ (avg 8.5, 26 medium fns)                    | ≥ 75                   |
+| pyscn Duplication  | 0 ❌ (10.0%, 49 groups; 17 touch src)             | ≥ 70                   |
+| pyscn Architecture | 57 ❌ (107 violations, mostly layer-config noise) | ≥ 90                   |
+| fallow dead-code   | 8 issues                                          | 0                      |
+| fallow dupes       | 3 clone groups                                    | 0                      |
+| fallow health      | 23 above threshold                                | 0 (with coverage data) |
 
 **Hard constraints:**
+
 - `src/telegram/webhook.py` must NOT be split into modules (ADR-0015 closed wontfix; #130 already did in-file CC reduction). All webhook refactors stay in-file.
 - Never merge to main; work on a branch, PR at the end.
 - No Claude attribution footers in commits.
@@ -61,6 +62,7 @@ The 57% architecture score is mostly tool misclassification: 66 of 107 violation
 Tests and one-off `scripts/` are excluded from analysis: quality gates target production code, and 32 of 49 clone groups are idiomatic arrange-act-assert test repetition with low fix ROI.
 
 **Files:**
+
 - Create: `.pyscn.toml` (repo root)
 
 - [ ] **Step 1: Write `.pyscn.toml`**
@@ -164,6 +166,7 @@ Expected: same three failing gates (dead-code 8, dupes 3, health 23) but without
 Write the safety net BEFORE touching the hooks. All tests stub `fetch` directly (no msw needed for unit hooks).
 
 **Files:**
+
 - Create: `web/lib/hooks/useFeedData.test.ts`
 - Create: `web/lib/hooks/useJobDetail.test.ts`
 - Create: `web/lib/hooks/useTagList.test.ts`
@@ -176,23 +179,34 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useFeedData } from './useFeedData';
 
-const STATS = { total: 2, by_status: { done: 2 }, by_content_type: { short: 2 } };
+const STATS = {
+  total: 2,
+  by_status: { done: 2 },
+  by_content_type: { short: 2 },
+};
 const JOBS = { items: [{ id: 'j1' }, { id: 'j2' }], total: 2 };
 
-function stubFetch(impl: (url: string) => { ok: boolean; body?: unknown }) {
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-    const { ok, body } = impl(String(input));
-    return { ok, json: async () => body } as Response;
-  }));
+function stubFetch(
+  impl: (url: string) => { ok: boolean; body?: unknown },
+) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const { ok, body } = impl(String(input));
+      return { ok, json: async () => body } as Response;
+    }),
+  );
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('useFeedData', () => {
   it('loads stats and jobs on mount', async () => {
-    stubFetch((url) => url.includes('/stats')
-      ? { ok: true, body: STATS }
-      : { ok: true, body: JOBS });
+    stubFetch((url) =>
+      url.includes('/stats')
+        ? { ok: true, body: STATS }
+        : { ok: true, body: JOBS },
+    );
 
     const { result } = renderHook(() => useFeedData());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -204,9 +218,11 @@ describe('useFeedData', () => {
   });
 
   it('surfaces an error when the jobs request fails', async () => {
-    stubFetch((url) => url.includes('/stats')
-      ? { ok: true, body: STATS }
-      : { ok: false });
+    stubFetch((url) =>
+      url.includes('/stats')
+        ? { ok: true, body: STATS }
+        : { ok: false },
+    );
 
     const { result } = renderHook(() => useFeedData());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -215,9 +231,11 @@ describe('useFeedData', () => {
   });
 
   it('refetches with content_type param when the filter changes', async () => {
-    stubFetch((url) => url.includes('/stats')
-      ? { ok: true, body: STATS }
-      : { ok: true, body: JOBS });
+    stubFetch((url) =>
+      url.includes('/stats')
+        ? { ok: true, body: STATS }
+        : { ok: true, body: JOBS },
+    );
 
     const { result } = renderHook(() => useFeedData());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -225,8 +243,12 @@ describe('useFeedData', () => {
     act(() => result.current.setCtFilter('short'));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
-    expect(calls.some((u) => u.includes('content_type=short'))).toBe(true);
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => String(c[0]),
+    );
+    expect(calls.some((u) => u.includes('content_type=short'))).toBe(
+      true,
+    );
   });
 });
 ```
@@ -244,8 +266,17 @@ afterEach(() => vi.unstubAllGlobals());
 describe('useJobDetail', () => {
   it('returns the job and ok state on 200', async () => {
     const job = { id: 'j1', url: 'https://x', status: 'done' };
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: true, status: 200, json: async () => job }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            json: async () => job,
+          }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useJobDetail('j1'));
     await waitFor(() => expect(result.current.fetchState).toBe('ok'));
@@ -257,11 +288,18 @@ describe('useJobDetail', () => {
     [403, 'forbidden'],
     [500, 'error'],
   ])('maps HTTP %i to fetchState %s', async (status, expected) => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: false, status, json: async () => ({}) }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({ ok: false, status, json: async () => ({}) }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useJobDetail('j1'));
-    await waitFor(() => expect(result.current.fetchState).toBe(expected));
+    await waitFor(() =>
+      expect(result.current.fetchState).toBe(expected),
+    );
     expect(result.current.job).toBeNull();
   });
 });
@@ -275,14 +313,25 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useTagList } from './useTagList';
 
-const TAGS = [{ id: 't1', name: 'alpha', meaning: '', color: '#fff' }];
+const TAGS = [
+  { id: 't1', name: 'alpha', meaning: '', color: '#fff' },
+];
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe('useTagList', () => {
   it('loads tags on mount', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: true, status: 200, json: async () => TAGS }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            status: 200,
+            json: async () => TAGS,
+          }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useTagList());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -290,38 +339,91 @@ describe('useTagList', () => {
   });
 
   it('createTag throws the 409 message on name collision', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
-      init?.method === 'POST'
-        ? ({ ok: false, status: 409, json: async () => ({ detail: 'dup' }) }) as Response
-        : ({ ok: true, status: 200, json: async () => TAGS }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'POST'
+          ? ({
+              ok: false,
+              status: 409,
+              json: async () => ({ detail: 'dup' }),
+            } as Response)
+          : ({
+              ok: true,
+              status: 200,
+              json: async () => TAGS,
+            } as Response),
+      ),
+    );
 
     const { result } = renderHook(() => useTagList());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await expect(
-      act(() => result.current.createTag({ name: 'alpha', meaning: '', color: '#fff' })),
+      act(() =>
+        result.current.createTag({
+          name: 'alpha',
+          meaning: '',
+          color: '#fff',
+        }),
+      ),
     ).rejects.toThrow('Tag name already exists');
   });
 
   it('updateTag merges the server row into state', async () => {
-    const updated = { id: 't1', name: 'beta', meaning: 'm', color: '#000' };
-    vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
-      init?.method === 'PUT'
-        ? ({ ok: true, status: 200, json: async () => updated }) as Response
-        : ({ ok: true, status: 200, json: async () => TAGS }) as Response));
+    const updated = {
+      id: 't1',
+      name: 'beta',
+      meaning: 'm',
+      color: '#000',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'PUT'
+          ? ({
+              ok: true,
+              status: 200,
+              json: async () => updated,
+            } as Response)
+          : ({
+              ok: true,
+              status: 200,
+              json: async () => TAGS,
+            } as Response),
+      ),
+    );
 
     const { result } = renderHook(() => useTagList());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    await act(() => result.current.updateTag('t1', { name: 'beta', meaning: 'm', color: '#000' }));
+    await act(() =>
+      result.current.updateTag('t1', {
+        name: 'beta',
+        meaning: 'm',
+        color: '#000',
+      }),
+    );
     expect(result.current.tags[0].name).toBe('beta');
   });
 
   it('deleteTag removes the tag on 204', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
-      init?.method === 'DELETE'
-        ? ({ ok: true, status: 204, json: async () => ({}) }) as Response
-        : ({ ok: true, status: 200, json: async () => TAGS }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+        init?.method === 'DELETE'
+          ? ({
+              ok: true,
+              status: 204,
+              json: async () => ({}),
+            } as Response)
+          : ({
+              ok: true,
+              status: 200,
+              json: async () => TAGS,
+            } as Response),
+      ),
+    );
 
     const { result } = renderHook(() => useTagList());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -347,6 +449,7 @@ git commit -m "test(web): characterize feed/job-detail/tag-list hooks before ref
 ### Task 5: Extend `fetch-utils` with the shared primitives; un-export `mapFetchState`
 
 **Files:**
+
 - Modify: `web/lib/fetch-utils.ts`
 
 - [ ] **Step 1: Edit `web/lib/fetch-utils.ts`**
@@ -365,12 +468,16 @@ export function useFetchDetail<T>(url: string) {
     const controller = new AbortController();
     fetchJson<T>(url, { signal: controller.signal })
       .then((result) => {
-        if (!result.ok) { setFetchState(result.state); return; }
+        if (!result.ok) {
+          setFetchState(result.state);
+          return;
+        }
         setData(result.data);
         setFetchState('ok');
       })
       .catch((err) => {
-        if ((err as Error).name !== 'AbortError') setFetchState('error');
+        if ((err as Error).name !== 'AbortError')
+          setFetchState('error');
       });
     return () => controller.abort();
   }, [url]);
@@ -379,7 +486,11 @@ export function useFetchDetail<T>(url: string) {
 }
 
 /** PUT JSON; resolve with the parsed row or throw the server's detail message. */
-export async function apiPut<T>(url: string, body: unknown, fallback = 'Save failed'): Promise<T> {
+export async function apiPut<T>(
+  url: string,
+  body: unknown,
+  fallback = 'Save failed',
+): Promise<T> {
   const res = await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -393,7 +504,10 @@ export async function apiPut<T>(url: string, body: unknown, fallback = 'Save fai
 }
 
 /** DELETE; throw the server's detail message unless 2xx/204. */
-export async function apiDelete(url: string, fallback = 'Delete failed'): Promise<void> {
+export async function apiDelete(
+  url: string,
+  fallback = 'Delete failed',
+): Promise<void> {
   const res = await fetch(url, { method: 'DELETE' });
   if (res.ok || res.status === 204) return;
   const data = await res.json().catch(() => ({}));
@@ -416,6 +530,7 @@ git commit -m "feat(web): add useFetchDetail/apiPut/apiDelete primitives; un-exp
 ### Task 6: Dedupe the detail hooks (`useJobDetail` / `useSpaceDetail`) — fallow clone `7692c858`
 
 **Files:**
+
 - Modify: `web/lib/hooks/useJobDetail.ts:28-49`
 - Modify: `web/lib/hooks/useSpaceDetail.ts:16-37`
 
@@ -423,7 +538,9 @@ git commit -m "feat(web): add useFetchDetail/apiPut/apiDelete primitives; un-exp
 
 ```ts
 export function useJobDetail(jobId: string) {
-  const { data: job, fetchState } = useFetchDetail<JobDetail>(`/api/jobs/${jobId}`);
+  const { data: job, fetchState } = useFetchDetail<JobDetail>(
+    `/api/jobs/${jobId}`,
+  );
   return { job, fetchState };
 }
 ```
@@ -440,7 +557,11 @@ import { useFetchDetail } from '@/lib/fetch-utils';
 
 ```ts
 export function useSpaceDetail(spaceId: string) {
-  const { data: space, setData: setSpace, fetchState } = useFetchDetail<SpaceDetail>(`/api/spaces/${spaceId}`);
+  const {
+    data: space,
+    setData: setSpace,
+    fetchState,
+  } = useFetchDetail<SpaceDetail>(`/api/spaces/${spaceId}`);
   return { space, setSpace, fetchState };
 }
 ```
@@ -460,35 +581,65 @@ git commit -m "refactor(web): job/space detail hooks share useFetchDetail"
 ### Task 7: Dedupe `useTagList` / `useTemplateList` mutations — fallow clone `ddef06c1`
 
 **Files:**
+
 - Modify: `web/lib/hooks/useTagList.ts:31-50`
 - Modify: `web/lib/hooks/useTemplateList.ts:38-59`
 
 - [ ] **Step 1: In `useTagList.ts`**, import `apiDelete, apiPut` from `@/lib/fetch-utils` and replace `deleteTag`/`updateTag`:
 
 ```ts
-  const deleteTag = useCallback(async (id: string): Promise<void> => {
+const deleteTag = useCallback(
+  async (id: string): Promise<void> => {
     await apiDelete(`/api/controls/tags/${id}`);
     setTags((prev) => prev.filter((t) => t.id !== id));
-  }, [setTags]);
+  },
+  [setTags],
+);
 
-  const updateTag = useCallback(async (id: string, values: TagFormState): Promise<void> => {
-    const updated = await apiPut<Tag>(`/api/controls/tags/${id}`, values, 'Update failed');
-    setTags((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated } : t)).sort((a, b) => a.name.localeCompare(b.name)));
-  }, [setTags]);
+const updateTag = useCallback(
+  async (id: string, values: TagFormState): Promise<void> => {
+    const updated = await apiPut<Tag>(
+      `/api/controls/tags/${id}`,
+      values,
+      'Update failed',
+    );
+    setTags((prev) =>
+      prev
+        .map((t) => (t.id === id ? { ...t, ...updated } : t))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  },
+  [setTags],
+);
 ```
 
 - [ ] **Step 2: In `useTemplateList.ts`**, same treatment:
 
 ```ts
-  const deleteTemplate = useCallback(async (name: string): Promise<void> => {
+const deleteTemplate = useCallback(
+  async (name: string): Promise<void> => {
     await apiDelete(`/api/templates/${name}`);
     setTemplates((prev) => prev.filter((t) => t.name !== name));
-  }, [setTemplates]);
+  },
+  [setTemplates],
+);
 
-  const updateTemplate = useCallback(async (name: string, values: Partial<TemplateFormState>): Promise<void> => {
-    const updated = await apiPut<Template>(`/api/templates/${name}`, values, 'Save failed');
-    setTemplates((prev) => prev.map((t) => (t.name === name ? { ...t, ...updated } : t)));
-  }, [setTemplates]);
+const updateTemplate = useCallback(
+  async (
+    name: string,
+    values: Partial<TemplateFormState>,
+  ): Promise<void> => {
+    const updated = await apiPut<Template>(
+      `/api/templates/${name}`,
+      values,
+      'Save failed',
+    );
+    setTemplates((prev) =>
+      prev.map((t) => (t.name === name ? { ...t, ...updated } : t)),
+    );
+  },
+  [setTemplates],
+);
 ```
 
 - [ ] **Step 3: Verify + commit**
@@ -504,12 +655,16 @@ git commit -m "refactor(web): tag/template list hooks share apiPut/apiDelete"
 ### Task 8: Dedupe `useFeedData` load/reload — fallow clone `6869ab01`
 
 **Files:**
+
 - Modify: `web/lib/hooks/useFeedData.ts:26-80`
 
 - [ ] **Step 1: Add a module-level fetcher above `useFeedData` and rewrite `load`/`reload` to share it:**
 
 ```ts
-async function fetchFeed(ct: string, st: string): Promise<{ stats: Stats; jobs: JobSummary[]; total: number }> {
+async function fetchFeed(
+  ct: string,
+  st: string,
+): Promise<{ stats: Stats; jobs: JobSummary[]; total: number }> {
   const params = new URLSearchParams();
   if (ct) params.set('content_type', ct);
   if (st) params.set('status', st);
@@ -529,33 +684,36 @@ async function fetchFeed(ct: string, st: string): Promise<{ stats: Stats; jobs: 
 ```
 
 ```ts
-  const load = useCallback(async (ct: string, st: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { stats, jobs, total } = await fetchFeed(ct, st);
-      setStats(stats);
-      setJobs(jobs);
-      setTotal(total);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+const load = useCallback(async (ct: string, st: string) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const { stats, jobs, total } = await fetchFeed(ct, st);
+    setStats(stats);
+    setJobs(jobs);
+    setTotal(total);
+  } catch (e) {
+    setError(e instanceof Error ? e.message : 'Unknown error');
+  } finally {
+    setLoading(false);
+  }
+}, []);
 ```
 
 ```ts
-  const reload = useCallback(async () => {
-    try {
-      const { stats, jobs, total } = await fetchFeed(ctRef.current, stRef.current);
-      setStats(stats);
-      setJobs(jobs);
-      setTotal(total);
-    } catch {
-      // swallow during background polling
-    }
-  }, []);
+const reload = useCallback(async () => {
+  try {
+    const { stats, jobs, total } = await fetchFeed(
+      ctRef.current,
+      stRef.current,
+    );
+    setStats(stats);
+    setJobs(jobs);
+    setTotal(total);
+  } catch {
+    // swallow during background polling
+  }
+}, []);
 ```
 
 Behavior note: `reload` previously returned silently on non-ok responses instead of throwing; with `fetchFeed` the throw is caught by the same swallow-all `catch`, so observable behavior is identical.
@@ -574,15 +732,15 @@ git commit -m "refactor(web): useFeedData load/reload share fetchFeed"
 
 fallow found these `export type`/`export interface` declarations with zero external consumers. Remove only the `export` keyword (the types stay, used in-file). Exact list from the run:
 
-| File | Line | Symbol |
-|---|---|---|
-| `web/lib/hooks/useFeedData.ts` | 6 | `Stats` |
-| `web/lib/hooks/useGdocExport.ts` | 5 | `ExportStatus` |
-| `web/lib/hooks/useJobAnnotation.ts` | 6 | `Annotation` |
-| `web/lib/hooks/useJobTags.ts` | 6 | `TagSummary` |
-| `web/lib/hooks/useSemanticSearch.ts` | 12 | `SearchState` |
-| `web/lib/hooks/useSpaceContext.ts` | 6 | `ContextBlob` |
-| `web/lib/hooks/useSpaceUrls.ts` | 7 | `SpaceUrl` |
+| File                                 | Line | Symbol         |
+| ------------------------------------ | ---- | -------------- |
+| `web/lib/hooks/useFeedData.ts`       | 6    | `Stats`        |
+| `web/lib/hooks/useGdocExport.ts`     | 5    | `ExportStatus` |
+| `web/lib/hooks/useJobAnnotation.ts`  | 6    | `Annotation`   |
+| `web/lib/hooks/useJobTags.ts`        | 6    | `TagSummary`   |
+| `web/lib/hooks/useSemanticSearch.ts` | 12   | `SearchState`  |
+| `web/lib/hooks/useSpaceContext.ts`   | 6    | `ContextBlob`  |
+| `web/lib/hooks/useSpaceUrls.ts`      | 7    | `SpaceUrl`     |
 
 - [ ] **Step 1: For each row, change `export interface X` → `interface X` (or `export type X` → `type X`)**
 
@@ -594,7 +752,7 @@ Expected: clean.
 - [ ] **Step 3: Run fallow — dead-code and dupes gates must now pass**
 
 Run: `cd web && rtk proxy npx fallow`
-Expected: `dead-code` ✓ 0 issues, `dupes` ✓ 0 clone groups. `health` still fails (Phase 2).
+Expected: `dead-code` ✅-Done 0 issues, `dupes` ✅-Done 0 clone groups. `health` still fails (Phase 2).
 
 - [ ] **Step 4: Commit**
 
@@ -607,11 +765,12 @@ git commit -m "refactor(web): drop 7 unused type exports flagged by fallow"
 
 ## Phase 2 — web: complexity + coverage (fallow `health` gate → 0)
 
-The 23 health findings split into: 1 real complexity hotspot (`FeedPage`, cyclomatic 28 / cognitive 33) and 22 CRAP≈30 estimates — functions with modest CC that fallow *assumes* are untested because no coverage file is provided. Fix the first by refactoring, the rest by actually testing the hooks and feeding `coverage-final.json` to fallow.
+The 23 health findings split into: 1 real complexity hotspot (`FeedPage`, cyclomatic 28 / cognitive 33) and 22 CRAP≈30 estimates — functions with modest CC that fallow _assumes_ are untested because no coverage file is provided. Fix the first by refactoring, the rest by actually testing the hooks and feeding `coverage-final.json` to fallow.
 
 ### Task 10: Split `FeedPage` into feed components
 
 **Files:**
+
 - Create: `web/components/feed/stats-overview.tsx`
 - Create: `web/components/feed/filter-bar.tsx`
 - Create: `web/components/feed/feed-states.tsx`
@@ -622,7 +781,7 @@ Move JSX verbatim — classNames and structure must not change (DESIGN.md tokens
 - [ ] **Step 1: Create `web/components/feed/stats-overview.tsx`** — move the stats `<section>` (page.tsx:71-92) plus its data shape:
 
 ```tsx
-import { StatCard } from "@/components/stat-card";
+import { StatCard } from '@/components/stat-card';
 
 export interface FeedStats {
   total: number;
@@ -633,23 +792,56 @@ export interface FeedStats {
 export function StatsOverview({ stats }: { stats: FeedStats }) {
   return (
     <section className="mt-6">
-      <h2 className="mb-3 text-base font-semibold text-ink">Overview</h2>
+      <h2 className="mb-3 text-base font-semibold text-ink">
+        Overview
+      </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Total" value={stats.total} />
-        <StatCard label="Done" value={stats.by_status.done ?? 0} valueClass="text-status-done" />
-        <StatCard label="Pending" value={stats.by_status.pending ?? 0} valueClass="text-status-pending" />
-        <StatCard label="Error" value={stats.by_status.error ?? 0} valueClass="text-status-error" />
+        <StatCard
+          label="Total"
+          value={stats.total}
+        />
+        <StatCard
+          label="Done"
+          value={stats.by_status.done ?? 0}
+          valueClass="text-status-done"
+        />
+        <StatCard
+          label="Pending"
+          value={stats.by_status.pending ?? 0}
+          valueClass="text-status-pending"
+        />
+        <StatCard
+          label="Error"
+          value={stats.by_status.error ?? 0}
+          valueClass="text-status-error"
+        />
         <StatCard
           label="Processing"
-          value={(stats.by_status.processing ?? 0) + (stats.by_status.enriching ?? 0) + (stats.by_status.transcript_done ?? 0)}
+          value={
+            (stats.by_status.processing ?? 0) +
+            (stats.by_status.enriching ?? 0) +
+            (stats.by_status.transcript_done ?? 0)
+          }
           valueClass="text-status-processing"
         />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Short" value={stats.by_content_type.short ?? 0} />
-        <StatCard label="Long" value={stats.by_content_type.long ?? 0} />
-        <StatCard label="Article" value={stats.by_content_type.article ?? 0} />
-        <StatCard label="Repo" value={stats.by_content_type.repo ?? 0} />
+        <StatCard
+          label="Short"
+          value={stats.by_content_type.short ?? 0}
+        />
+        <StatCard
+          label="Long"
+          value={stats.by_content_type.long ?? 0}
+        />
+        <StatCard
+          label="Article"
+          value={stats.by_content_type.article ?? 0}
+        />
+        <StatCard
+          label="Repo"
+          value={stats.by_content_type.repo ?? 0}
+        />
       </div>
     </section>
   );
@@ -660,32 +852,40 @@ export function StatsOverview({ stats }: { stats: FeedStats }) {
 
 ```tsx
 const CONTENT_TYPE_FILTERS = [
-  { label: "All", value: "" },
-  { label: "Short", value: "short" },
-  { label: "Long", value: "long" },
-  { label: "Article", value: "article" },
-  { label: "Repo", value: "repo" },
+  { label: 'All', value: '' },
+  { label: 'Short', value: 'short' },
+  { label: 'Long', value: 'long' },
+  { label: 'Article', value: 'article' },
+  { label: 'Repo', value: 'repo' },
 ];
 
 const STATUS_FILTERS = [
-  { label: "All", value: "" },
-  { label: "Done", value: "done" },
-  { label: "Pending", value: "pending" },
-  { label: "Processing", value: "processing" },
-  { label: "Error", value: "error" },
+  { label: 'All', value: '' },
+  { label: 'Done', value: 'done' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Processing', value: 'processing' },
+  { label: 'Error', value: 'error' },
 ];
 
 // The Signal Rule (DESIGN.md): an active filter is a selection — an act —
 // so it earns the signal fill. Inactive chips stay on the plate ladder.
-function FilterButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function FilterButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
       className={`h-7 rounded-md px-3 text-[13px] font-medium transition-colors duration-150 ease-out-quart ${
         active
-          ? "bg-signal text-onsignal hover:bg-signal-bright"
-          : "border border-line bg-surface text-body hover:bg-raised hover:text-ink"
+          ? 'bg-signal text-onsignal hover:bg-signal-bright'
+          : 'border border-line bg-surface text-body hover:bg-raised hover:text-ink'
       }`}
     >
       {label}
@@ -693,7 +893,14 @@ function FilterButton({ label, active, onClick }: { label: string; active: boole
   );
 }
 
-export function FilterBar({ query, setQuery, ctFilter, setCtFilter, stFilter, setStFilter }: {
+export function FilterBar({
+  query,
+  setQuery,
+  ctFilter,
+  setCtFilter,
+  stFilter,
+  setStFilter,
+}: {
   query: string;
   setQuery: (q: string) => void;
   ctFilter: string;
@@ -702,7 +909,10 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, stFilter, se
   setStFilter: (v: string) => void;
 }) {
   return (
-    <section className="mt-8 flex flex-col gap-2" aria-label="Search and filters">
+    <section
+      className="mt-8 flex flex-col gap-2"
+      aria-label="Search and filters"
+    >
       <input
         type="search"
         value={query}
@@ -712,11 +922,24 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, stFilter, se
       />
       <div className="flex flex-wrap items-center gap-1">
         {CONTENT_TYPE_FILTERS.map(({ label, value }) => (
-          <FilterButton key={value} label={label} active={ctFilter === value} onClick={() => setCtFilter(value)} />
+          <FilterButton
+            key={value}
+            label={label}
+            active={ctFilter === value}
+            onClick={() => setCtFilter(value)}
+          />
         ))}
-        <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+        <span
+          className="mx-1 h-5 w-px bg-line"
+          aria-hidden="true"
+        />
         {STATUS_FILTERS.map(({ label, value }) => (
-          <FilterButton key={value} label={label} active={stFilter === value} onClick={() => setStFilter(value)} />
+          <FilterButton
+            key={value}
+            label={label}
+            active={stFilter === value}
+            onClick={() => setStFilter(value)}
+          />
         ))}
       </div>
     </section>
@@ -744,13 +967,26 @@ function SkeletonRow() {
 
 export function SkeletonList() {
   return (
-    <div className="space-y-2" aria-hidden="true">
-      <SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow />
+    <div
+      className="space-y-2"
+      aria-hidden="true"
+    >
+      <SkeletonRow />
+      <SkeletonRow />
+      <SkeletonRow />
+      <SkeletonRow />
+      <SkeletonRow />
     </div>
   );
 }
 
-export function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+export function ErrorBanner({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-line bg-status-error-tint px-4 py-3">
       <p className="text-sm text-status-error">{message}</p>
@@ -764,12 +1000,20 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry: ()
   );
 }
 
-export function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
+export function EmptyState({
+  hasFilters,
+  onClear,
+}: {
+  hasFilters: boolean;
+  onClear: () => void;
+}) {
   return (
     <div className="rounded-lg border border-line bg-surface px-6 py-10 text-center">
       {hasFilters ? (
         <>
-          <p className="text-sm font-medium text-ink">No jobs match these filters</p>
+          <p className="text-sm font-medium text-ink">
+            No jobs match these filters
+          </p>
           <p className="mt-1 text-sm text-body">
             Try widening the search, or clear everything below.
           </p>
@@ -784,7 +1028,8 @@ export function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onCle
         <>
           <p className="text-sm font-medium text-ink">No jobs yet</p>
           <p className="mt-1 text-sm text-body">
-            Send a video, article, or repo URL to the Telegram bot — it will land here as it processes.
+            Send a video, article, or repo URL to the Telegram bot —
+            it will land here as it processes.
           </p>
         </>
       )}
@@ -796,18 +1041,33 @@ export function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onCle
 - [ ] **Step 4: Rewrite `web/app/(dashboard)/page.tsx` as composition:**
 
 ```tsx
-"use client";
+'use client';
 
-import { useFeedData } from "@/lib/hooks/useFeedData";
-import { useFuseSearch } from "@/lib/hooks/useFuseSearch";
-import { useInFlightPolling } from "@/lib/hooks/useInFlightPolling";
-import { JobCard } from "@/components/job-card";
-import { StatsOverview } from "@/components/feed/stats-overview";
-import { FilterBar } from "@/components/feed/filter-bar";
-import { SkeletonList, ErrorBanner, EmptyState } from "@/components/feed/feed-states";
+import { useFeedData } from '@/lib/hooks/useFeedData';
+import { useFuseSearch } from '@/lib/hooks/useFuseSearch';
+import { useInFlightPolling } from '@/lib/hooks/useInFlightPolling';
+import { JobCard } from '@/components/job-card';
+import { StatsOverview } from '@/components/feed/stats-overview';
+import { FilterBar } from '@/components/feed/filter-bar';
+import {
+  SkeletonList,
+  ErrorBanner,
+  EmptyState,
+} from '@/components/feed/feed-states';
 
 export default function FeedPage() {
-  const { ctFilter, setCtFilter, stFilter, setStFilter, stats, jobs, total, loading, error, reload } = useFeedData();
+  const {
+    ctFilter,
+    setCtFilter,
+    stFilter,
+    setStFilter,
+    stats,
+    jobs,
+    total,
+    loading,
+    error,
+    reload,
+  } = useFeedData();
   const { query, setQuery, displayedJobs } = useFuseSearch(jobs);
   useInFlightPolling(jobs, reload);
 
@@ -816,29 +1076,34 @@ export default function FeedPage() {
   const empty = !loading && !error && displayedJobs.length === 0;
 
   const countLabel = firstLoad
-    ? "loading…"
+    ? 'loading…'
     : loading
-    ? "syncing…"
-    : query.trim()
-      ? `${displayedJobs.length} result${displayedJobs.length === 1 ? "" : "s"}`
-      : `${total} job${total === 1 ? "" : "s"}`;
+      ? 'syncing…'
+      : query.trim()
+        ? `${displayedJobs.length} result${displayedJobs.length === 1 ? '' : 's'}`
+        : `${total} job${total === 1 ? '' : 's'}`;
 
   const clearAll = () => {
-    setCtFilter("");
-    setStFilter("");
-    setQuery("");
+    setCtFilter('');
+    setStFilter('');
+    setQuery('');
   };
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Feed</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">
+        Feed
+      </h1>
 
       {stats && <StatsOverview stats={stats} />}
 
       <FilterBar
-        query={query} setQuery={setQuery}
-        ctFilter={ctFilter} setCtFilter={setCtFilter}
-        stFilter={stFilter} setStFilter={setStFilter}
+        query={query}
+        setQuery={setQuery}
+        ctFilter={ctFilter}
+        setCtFilter={setCtFilter}
+        stFilter={stFilter}
+        setStFilter={setStFilter}
       />
 
       <section className="mt-8">
@@ -852,14 +1117,27 @@ export default function FeedPage() {
           </span>
         </div>
 
-        {error && <ErrorBanner message={error} onRetry={() => reload()} />}
+        {error && (
+          <ErrorBanner
+            message={error}
+            onRetry={() => reload()}
+          />
+        )}
         {firstLoad && <SkeletonList />}
-        {empty && <EmptyState hasFilters={hasFilters} onClear={clearAll} />}
+        {empty && (
+          <EmptyState
+            hasFilters={hasFilters}
+            onClear={clearAll}
+          />
+        )}
 
         {!firstLoad && (
           <div className="space-y-2">
             {displayedJobs.map((job) => (
-              <JobCard key={job.id} job={job} />
+              <JobCard
+                key={job.id}
+                job={job}
+              />
             ))}
           </div>
         )}
@@ -897,31 +1175,67 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('useGdocExport', () => {
   it('stores the result url on success', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: true, json: async () => ({ url: 'https://docs.google.com/d/1' }) }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            json: async () => ({
+              url: 'https://docs.google.com/d/1',
+            }),
+          }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useGdocExport('s1'));
-    act(() => { void result.current.trigger(); });
+    act(() => {
+      void result.current.trigger();
+    });
     await waitFor(() => expect(result.current.status).toBe('done'));
-    expect(result.current.resultUrl).toBe('https://docs.google.com/d/1');
+    expect(result.current.resultUrl).toBe(
+      'https://docs.google.com/d/1',
+    );
   });
 
   it('maps drive_not_configured to a friendly error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: false, json: async () => ({ error: 'drive_not_configured' }) }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: false,
+            json: async () => ({ error: 'drive_not_configured' }),
+          }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useGdocExport('s1'));
-    act(() => { void result.current.trigger(); });
+    act(() => {
+      void result.current.trigger();
+    });
     await waitFor(() => expect(result.current.status).toBe('error'));
-    expect(result.current.error).toContain('Google Drive is not configured');
+    expect(result.current.error).toContain(
+      'Google Drive is not configured',
+    );
   });
 
   it('surfaces the server detail on other failures', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () =>
-      ({ ok: false, json: async () => ({ detail: 'boom' }) }) as Response));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: false,
+            json: async () => ({ detail: 'boom' }),
+          }) as Response,
+      ),
+    );
 
     const { result } = renderHook(() => useGdocExport('s1'));
-    act(() => { void result.current.trigger(); });
+    act(() => {
+      void result.current.trigger();
+    });
     await waitFor(() => expect(result.current.status).toBe('error'));
     expect(result.current.error).toBe('boom');
   });
@@ -936,6 +1250,7 @@ Expected: the CRAP-30 estimates collapse for covered files. Record what remains 
 - [ ] **Step 3: Iterate to zero**
 
 For each file still above threshold, the fix is one of:
+
 1. **Untested hook** → add a test exercising its success + error paths, following exactly the stub-fetch pattern of `useGdocExport.test.ts` above (same imports, same `vi.stubGlobal('fetch', ...)` shape, asserting on the hook's returned state). Candidates from the baseline run: `useSpaceEdit` (`web/lib/hooks/useSpaceEdit.ts:6`), `useSemanticSearch`, `useSpaceContext`, `useJobAnnotation`, `useJobTags`, `useSpaceUrls`, `useCreateSpace`.
 2. **Untested page/component with CC ≥ 5** (`ContextTab.tsx:16`, `UrlsTab.tsx:22`, `ExportModal.tsx:36`) → render-test the component states (loading/error/content) with `@testing-library/react`, stubbing fetch the same way.
 3. **Genuine complexity** → extract sub-components as in Task 10.
@@ -958,6 +1273,7 @@ After Task 2's config, only the 17 production clone groups count. Each task belo
 ### Task 12: Shared Google credentials — clone group 17 (`drive.py:20-37` ≈ `sheets.py:93-108`)
 
 **Files:**
+
 - Create: `src/services/google_auth.py`
 - Modify: `src/services/drive.py:20-37`, `src/services/sheets.py:93-108`
 - Test: `tests/test_drive.py`, `tests/test_sheets.py` (existing — they mock `_build_service`, which keeps its name)
@@ -1027,6 +1343,7 @@ git commit -m "refactor(services): extract shared Google service builder"
 ### Task 13: `database.py` insert-returning + batch-IN helpers — groups 25, 29, 47, 6, 56
 
 **Files:**
+
 - Modify: `src/database.py` (regions 339-436, 844-854, 1077-1094, 1110-1155, 1177-1191, 1277-1295)
 - Test: `tests/test_database.py` (existing)
 
@@ -1158,6 +1475,7 @@ git commit -m "refactor(db): extract _insert_returning and _fetch_in helpers"
 ### Task 14: API ownership guard — clone group 24 (14 fragments across `jobs.py`/`spaces.py`/`templates.py`/`controls.py`)
 
 **Files:**
+
 - Create: `src/api/deps.py`
 - Modify: `src/api/jobs.py:115-225`, `src/api/templates.py:89-122`
 - Test: `tests/test_jobs_api.py` / `tests/test_webhook.py` / whichever existing test files cover these routes (find with `grep -rl "annotations" tests/`)
@@ -1225,6 +1543,7 @@ git commit -m "refactor(api): extract get_owned_job guard and builtin-template g
 ### Task 15: Telegram sender post-and-check helper — clone group 18 (7 fragments, `sender.py:69-220`)
 
 **Files:**
+
 - Modify: `src/telegram/sender.py:69-220`
 - Test: `tests/test_sender.py` (or wherever sender is covered: `grep -rl "send_message" tests/ | head`)
 
@@ -1305,13 +1624,13 @@ async def send_document(
 
 Mapping for the rest:
 
-| Function | method | error_event | success_event | extra log_fields |
-|---|---|---|---|---|
-| `send_photo` | sendPhoto | telegram_photo_failed | telegram_photo_sent | — |
-| `send_inline_keyboard` | sendMessage | telegram_keyboard_failed | telegram_keyboard_sent | — |
-| `send_force_reply` | sendMessage | telegram_force_reply_failed | telegram_force_reply_sent | — |
-| `forward_message` | forwardMessage | telegram_forward_failed | telegram_message_forwarded | message_id=message_id |
-| `edit_message_text` | editMessageText | telegram_edit_failed | telegram_message_edited | message_id=message_id (returns None — call helper, discard result) |
+| Function               | method          | error_event                 | success_event              | extra log_fields                                                   |
+| ---------------------- | --------------- | --------------------------- | -------------------------- | ------------------------------------------------------------------ |
+| `send_photo`           | sendPhoto       | telegram_photo_failed       | telegram_photo_sent        | —                                                                  |
+| `send_inline_keyboard` | sendMessage     | telegram_keyboard_failed    | telegram_keyboard_sent     | —                                                                  |
+| `send_force_reply`     | sendMessage     | telegram_force_reply_failed | telegram_force_reply_sent  | —                                                                  |
+| `forward_message`      | forwardMessage  | telegram_forward_failed     | telegram_message_forwarded | message_id=message_id                                              |
+| `edit_message_text`    | editMessageText | telegram_edit_failed        | telegram_message_edited    | message_id=message_id (returns None — call helper, discard result) |
 
 Caveat for `_raise_for_status` differences: `send_photo`/`send_document`/keyboard/force-reply/forward/edit previously did NOT pass `parse_mode` to `_raise_for_status`; passing `parse_mode=None` is equivalent. `RuntimeError` message strings change slightly for keyboard/force-reply (`"Telegram sendMessage failed"` instead of `"... (keyboard) failed"`) — grep tests for those strings first (`grep -rn "keyboard) failed" tests/`); if asserted, add an `error_label` parameter to format the message exactly as before.
 
@@ -1327,6 +1646,7 @@ git commit -m "refactor(telegram): senders share _post_and_parse tail"
 ### Task 16: `webhook.py` in-file dedup — groups 4, 21, 59 (no module split — ADR-0015)
 
 **Files:**
+
 - Modify: `src/telegram/webhook.py` (regions 80-138, 691-778, 1070-1101)
 - Test: `tests/test_webhook.py`
 
@@ -1463,6 +1783,7 @@ git commit -m "refactor(webhook): dedupe photo-links report, enqueue arms, domai
 ### Task 17: `prd.py` reapers + prompt builders — groups 55, 34
 
 **Files:**
+
 - Modify: `src/processors/prd.py:223-279`
 - Test: `tests/test_prd.py`
 
@@ -1538,6 +1859,7 @@ git commit -m "refactor(prd): parametrize reapers and prompt builders"
 `_compute_related` already exists (used at brain.py:230); the new-link path (:311-322) and `_refresh_one_link` (:629-643) re-inline the same top-3 cosine ranking.
 
 **Files:**
+
 - Modify: `src/brain.py:311-322`, `src/brain.py:628-643`, `src/brain.py:341-354`, `src/brain.py:660-680`
 - Test: `tests/test_brain.py`
 
@@ -1588,6 +1910,7 @@ git commit -m "refactor(brain): reuse _compute_related/_fetch_related_titles; ex
 ### Task 19: `sheets.py` append/update wrapper pair — group 14 (`sheets.py:71-80` vs `:254-267`)
 
 **Files:**
+
 - Modify: `src/services/sheets.py`
 - Test: `tests/test_sheets.py`
 
@@ -1639,22 +1962,23 @@ Expected: Duplication ≥ 70 (production groups resolved; remaining src groups s
 
 pyscn's complexity average only counts functions with CC ≥ 5, so splitting a CC-19 function into a CC-4 orchestrator + CC-3 helpers removes it from the denominator entirely. Targets, from the baseline report (production code only):
 
-| CC | Function | Location |
-|---|---|---|
-| 19 | `run` | `src/processors/short_video.py:124` |
-| 18 | `detect_pipeline` | `src/utils/validators.py:41` |
-| 18 | `ingest_links` | `src/brain.py:177` |
-| 17 | `run_prd` | `src/processors/prd.py:347` |
-| 16 | `build_prd_markdown` | `src/processors/prd.py:39` |
-| 15 | `_route_url` | `src/telegram/webhook.py:1046` |
-| 15 | `_refresh_one_link` | `src/brain.py:599` |
-| 15 | `get_transcript` | `transcript_server.py:121` |
-| 14 | `enrich_github_links` | `src/services/github.py:267` |
-| 14 | `_build_enrichment_message` | `src/processors/article.py:115` |
+| CC  | Function                    | Location                            |
+| --- | --------------------------- | ----------------------------------- |
+| 19  | `run`                       | `src/processors/short_video.py:124` |
+| 18  | `detect_pipeline`           | `src/utils/validators.py:41`        |
+| 18  | `ingest_links`              | `src/brain.py:177`                  |
+| 17  | `run_prd`                   | `src/processors/prd.py:347`         |
+| 16  | `build_prd_markdown`        | `src/processors/prd.py:39`          |
+| 15  | `_route_url`                | `src/telegram/webhook.py:1046`      |
+| 15  | `_refresh_one_link`         | `src/brain.py:599`                  |
+| 15  | `get_transcript`            | `transcript_server.py:121`          |
+| 14  | `enrich_github_links`       | `src/services/github.py:267`        |
+| 14  | `_build_enrichment_message` | `src/processors/article.py:115`     |
 
 ### Task 21: `detect_pipeline` → per-platform matchers (CC 18 → ~6)
 
 **Files:**
+
 - Modify: `src/utils/validators.py:41-119`
 - Test: `tests/test_validators.py` (existing — URL routing rules are fully covered; rely on them)
 
@@ -1739,6 +2063,7 @@ git commit -m "refactor(validators): split detect_pipeline into per-platform mat
 ### Task 22: `_route_url` → per-pipeline handlers, in-file (CC 15 → ~5)
 
 **Files:**
+
 - Modify: `src/telegram/webhook.py:1046-1126` (builds on Task 16's `_enqueue_simple_job`)
 - Test: `tests/test_webhook.py`
 
@@ -1825,6 +2150,7 @@ git commit -m "refactor(webhook): split _route_url into per-pipeline handlers (i
 ### Task 23: `brain.py` — split `ingest_links` (CC 18) and slim `_refresh_one_link` (CC 15)
 
 **Files:**
+
 - Modify: `src/brain.py:177-358`, `src/brain.py:599-690`
 - Test: `tests/test_brain.py`
 
@@ -1872,6 +2198,7 @@ git commit -m "refactor(brain): split ingest_links into touch/new-link helpers"
 ### Task 24: `prd.py` — split `run_prd` (CC 17) and `build_prd_markdown` (CC 16)
 
 **Files:**
+
 - Modify: `src/processors/prd.py:39-150`, `src/processors/prd.py:347-~470`
 - Test: `tests/test_prd.py`
 
@@ -1948,6 +2275,7 @@ git commit -m "refactor(prd): section builders for markdown; extract lock/failur
 ### Task 25: `short_video.run` → stage helpers (CC 19)
 
 **Files:**
+
 - Modify: `src/processors/short_video.py:124-~310`
 - Test: `tests/test_short_video.py`
 
@@ -2013,6 +2341,7 @@ git commit -m "refactor(short_video): split run into stage helpers"
 ### Task 26: `transcript_server.get_transcript` → per-source helpers (CC 15, also clears clone group 38)
 
 **Files:**
+
 - Modify: `transcript_server.py:121-200`
 - Test: `tests/test_transcript_server.py`
 
@@ -2116,17 +2445,17 @@ Expected: Complexity ≥ 75. The Phase 3 dedup already trimmed several mid-tier 
 
 - [ ] **Step 2: If still below 75, work down the remaining list with the same recipe** (read the function → extract the most cohesive block as one helper → run that module's tests → commit). Remaining baseline offenders, in priority order:
 
-| CC | Function | File | Likely seam |
-|---|---|---|---|
-| 14 | `enrich_github_links` | `src/services/github.py:267` | per-link enrichment body → `_enrich_one(link)` |
-| 14 | `_build_enrichment_message` | `src/processors/article.py:115` | per-section formatting, same shape as Task 24 Step 1 |
-| 13 | `_handle_spec` | `src/telegram/webhook.py:911` | validation guards → early-return helper |
-| 13 | `compose_space_export` | `src/services/space_export.py:16` | per-block renderers |
-| 13 | `rebuild_graph` | `src/brain.py:479` | reuse Task 18 helpers |
-| 13 | `get_short_frames` | `transcript_server.py:252` | same split shape as Task 26 |
-| 12 | `webhook` | `src/telegram/webhook.py:1130` | update-type dispatch table |
-| 12 | `run` | `src/processors/long_video.py:32` | stage split, same shape as Task 25 |
-| 10 | `_cmd_force`, `extract_description_links`, `article.run`, `resolve_tool_urls`, `_format_template_analysis`, `_dispatch`, `repo.run` | various | guard clauses / one extraction each |
+| CC  | Function                                                                                                                            | File                              | Likely seam                                          |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------- |
+| 14  | `enrich_github_links`                                                                                                               | `src/services/github.py:267`      | per-link enrichment body → `_enrich_one(link)`       |
+| 14  | `_build_enrichment_message`                                                                                                         | `src/processors/article.py:115`   | per-section formatting, same shape as Task 24 Step 1 |
+| 13  | `_handle_spec`                                                                                                                      | `src/telegram/webhook.py:911`     | validation guards → early-return helper              |
+| 13  | `compose_space_export`                                                                                                              | `src/services/space_export.py:16` | per-block renderers                                  |
+| 13  | `rebuild_graph`                                                                                                                     | `src/brain.py:479`                | reuse Task 18 helpers                                |
+| 13  | `get_short_frames`                                                                                                                  | `transcript_server.py:252`        | same split shape as Task 26                          |
+| 12  | `webhook`                                                                                                                           | `src/telegram/webhook.py:1130`    | update-type dispatch table                           |
+| 12  | `run`                                                                                                                               | `src/processors/long_video.py:32` | stage split, same shape as Task 25                   |
+| 10  | `_cmd_force`, `extract_description_links`, `article.run`, `resolve_tool_urls`, `_format_template_analysis`, `_dispatch`, `repo.run` | various                           | guard clauses / one extraction each                  |
 
 One commit per function: `refactor(<module>): reduce <function> complexity via <helper>`.
 

@@ -7,9 +7,9 @@ description: On-demand reconcile of the project's ISSUE_KANBAN.md board against 
 
 > **No external prerequisite.** Unlike the two wrappers, this skill has no source flow — it depends only on the bundled `kanban-sync.md` and `gh`, so it works on a fresh clone.
 
-Unlike `to-issue-kanban` / `triage-kanban` — which know exactly which issues they touched and hand that set to the sync helper — `/update-kanban` is handed **nothing**. It *discovers* the delta by diffing the whole board against GitHub, then applies it through the same shared helper. Use it when something changed on GitHub outside the normal flow (issues closed manually, labels edited, PRs merged) or when you just want a fresh sync.
+Unlike `to-issue-kanban` / `triage-kanban` — which know exactly which issues they touched and hand that set to the sync helper — `/update-kanban` is handed **nothing**. It _discovers_ the delta by diffing the whole board against GitHub, then applies it through the same shared helper. Use it when something changed on GitHub outside the normal flow (issues closed manually, labels edited, PRs merged) or when you just want a fresh sync.
 
-**GitHub Issues is authoritative; the board is a snapshot.** This reconciles the board *toward* GitHub. Hand-curated content (Done Notes, the Dependency Map, manual Ready-for-Agent ordering) is preserved — see `kanban-sync.md` §4–§5. The PR section is the one fully-derived block and is rebuilt every run.
+**GitHub Issues is authoritative; the board is a snapshot.** This reconciles the board _toward_ GitHub. Hand-curated content (Done Notes, the Dependency Map, manual Ready-for-Agent ordering) is preserved — see `kanban-sync.md` §4–§5. The PR section is the one fully-derived block and is rebuilt every run.
 
 ## 1. Build the picture
 
@@ -20,22 +20,22 @@ Unlike `to-issue-kanban` / `triage-kanban` — which know exactly which issues t
 
 Classify each issue by comparing GitHub state against the board. Column targets follow `kanban-sync.md` §2.
 
-| Situation | Action |
-| --- | --- |
-| Open on GH, **not** on board | **add** to the column its triage label maps to (§2) |
-| Open on GH, on board, **wrong** column (label changed) | **move** (remove old row + insert — §4) |
-| Open on GH, on board, correct column | no-op |
-| Open on GH, **no triage label** | **add/move → Needs Triage** (the untriaged bucket) |
-| Closed-completed, on board but not Done | **move → Done** + ` ✓` on its dep-map node (§5); fill Notes from the close event / linked PR |
-| Closed-completed, **not** on board | **backfill → Done** with Notes |
-| Closed-as-`wontfix` | **remove the row** (§2) |
-| On board but `#N` **absent from `gh issue list`** entirely (deleted/transferred) | **orphan** — **move → Needs Triage and flag loudly** in the report; never silently delete |
+| Situation                                                                        | Action                                                                                             |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Open on GH, **not** on board                                                     | **add** to the column its triage label maps to (§2)                                                |
+| Open on GH, on board, **wrong** column (label changed)                           | **move** (remove old row + insert — §4)                                                            |
+| Open on GH, on board, correct column                                             | no-op                                                                                              |
+| Open on GH, **no triage label**                                                  | **add/move → Needs Triage** (the untriaged bucket)                                                 |
+| Closed-completed, on board but not Done                                          | **move → Done** + ` ✅-Done` on its dep-map node (§5); fill Notes from the close event / linked PR |
+| Closed-completed, **not** on board                                               | **backfill → Done** with Notes                                                                     |
+| Closed-as-`wontfix`                                                              | **remove the row** (§2)                                                                            |
+| On board but `#N` **absent from `gh issue list`** entirely (deleted/transferred) | **orphan** — **move → Needs Triage and flag loudly** in the report; never silently delete          |
 
 Derive **Area** silently (§3); carry **Depends On** over unchanged.
 
 ## 3. Dry-run preview → confirm
 
-Reconcile is bulk and runs precisely when you're unsure what drifted, so **preview before writing.** Print the §6-style diff summary *first*, with these two buckets called out explicitly (not just counted):
+Reconcile is bulk and runs precisely when you're unsure what drifted, so **preview before writing.** Print the §6-style diff summary _first_, with these two buckets called out explicitly (not just counted):
 
 - **🗑 wontfix removals** — list each `#N` that will be removed.
 - **🔺 Needs Triage additions** — list each `#N` landing in Needs Triage, marking which are **orphans** (`⚠ #82 — not found on GitHub, moved here`) vs genuinely untriaged.

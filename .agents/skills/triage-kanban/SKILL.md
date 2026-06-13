@@ -21,11 +21,12 @@ After the triage outcome is applied, apply the shared sync procedure in
 [`kanban-sync.md`](../kanban-sync.md).
 
 For this skill specifically:
+
 - **Move** the affected issue's `#N` row to the column matching its new state (§2): `needs-info` → Needs Triage; `wontfix` → remove the row; otherwise the column named for the state.
 - A move is **remove old row + insert in new column** — never leave a duplicate (§4).
 - Derive **Area** silently (§3); carry **Depends On** over unchanged.
 - When triaging touches an **already-closed** issue, sync it into **Done**: closed-as-completed → Done with Notes (PR #/commit/`closed on GH`); closed-as-`wontfix` → remove the row (§2).
-- **Dependency Map:** the only edit is appending ` ✓` to the issue's existing `#N` node **when moving it to Done** (idempotent) (§5). Never restructure.
+- **Dependency Map:** the only edit is appending ` ✅-Done` to the issue's existing `#N` node **when moving it to Done** (idempotent) (§5). Never restructure.
 - Auto-write, then print the diff summary (§6). The disclaimer does **not** apply to the board file.
 
 If no `ISSUE_KANBAN.md` exists, §1 of the sync doc handles bootstrap.

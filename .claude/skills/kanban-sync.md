@@ -20,14 +20,14 @@ Glob `**/ISSUE_KANBAN.md` from the repo root:
 
 ## 2. Column mapping
 
-| Triage state | Board column |
-|---|---|
-| `needs-triage` | **Needs Triage** |
-| `needs-info` | **Needs Triage** (stays / returns here) |
-| `ready-for-agent` | **Ready for Agent** |
-| `ready-for-human` | **Ready for Human** |
-| `wontfix` | **remove the row** (closed, not actioned) |
-| closed-as-completed | **Done** |
+| Triage state        | Board column                              |
+| ------------------- | ----------------------------------------- |
+| `needs-triage`      | **Needs Triage**                          |
+| `needs-info`        | **Needs Triage** (stays / returns here)   |
+| `ready-for-agent`   | **Ready for Agent**                       |
+| `ready-for-human`   | **Ready for Human**                       |
+| `wontfix`           | **remove the row** (closed, not actioned) |
+| closed-as-completed | **Done**                                  |
 
 `triage-kanban` also **syncs already-closed issues into Done** whenever it encounters one. Distinguish closed-as-completed (→ Done) from closed-as-`wontfix` (→ remove row). For Done Notes, pull PR #/commit/`closed on GH` from the close event + linked PR via `gh`.
 
@@ -44,13 +44,13 @@ Columns differ: Needs Triage / Ready for Agent carry **Depends On**; Ready for H
 - **Primary key = issue `#N`.** Never produce a duplicate `#N` row.
   - **Add:** append only if no `#N` row exists anywhere on the board.
   - **Move:** remove the existing `#N` row from its old column, insert into the new column.
-- **Placement:** append to the bottom of the target column. **Ready for Agent** is *"unblocked-first, then dependency chain"* — if a moved issue has **no** Depends On, note in the report that it may belong higher, and leave final ordering to the human.
+- **Placement:** append to the bottom of the target column. **Ready for Agent** is _"unblocked-first, then dependency chain"_ — if a moved issue has **no** Depends On, note in the report that it may belong higher, and leave final ordering to the human.
 - **Repair on touch:** if a table you're editing is malformed (orphaned rows outside the table, stray blank lines splitting it), repair its structure while you're there so it stays parseable.
 
 ## 5. Dependency Map
 
 - **`to-issue-kanban`:** append a **new labeled block** for the plan/spec/PRD being broken down, matching the existing `Feature (source: path)` style, with the slice tree drawn from the blocked-by edges. When a new slice is blocked by an issue that **already exists** elsewhere in the map, add an inbound cross-ref (`◄── also #N`) rather than redrawing that tree. Emit a `Critical path:` line if the slice graph is linear enough. Do not touch other blocks.
-- **`triage-kanban`:** the only dep-map edit is appending ` ✓` to an existing `#N` node **when moving it to Done** (idempotent — skip if already present). Never restructure.
+- **`triage-kanban`:** the only dep-map edit is appending ` ✅-Done` to an existing `#N` node **when moving it to Done** (idempotent — skip if already present). Never restructure.
 
 ## 6. Write & report
 
@@ -59,7 +59,7 @@ Write the file, then print a concise diff summary, e.g.:
 ```
 ISSUE_KANBAN.md updated:
   + #96–#99 → Needs Triage
-  ~ #82 moved Ready for Agent → Done (✓ in dep map; Notes: PR #91)
+  ~ #82 moved Ready for Agent → Done (✅-Done in dep map; Notes: PR #91)
   + dep-map block "Spaces export feature (docs/.../spaces.md)"
   ! repaired malformed Needs Triage table
 ```
@@ -75,12 +75,12 @@ It lives **after the Dependency Map**, as two tables:
 ```markdown
 ## Open PRs
 
-| # | Title | Branch→Base | Linked Issue | Status |
+|   # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
 
 ## Closed PRs
 
-| # | Title | Branch→Base | Linked Issue | Status |
+|   # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
 ```
 
@@ -100,14 +100,14 @@ It lives **after the Dependency Map**, as two tables:
 
 ## Done
 
-| # | Title | Area | Notes |
+|   # | Title | Area | Notes |
 | --: | ----- | ---- | ----- |
 
 ---
 
 ## Needs Triage
 
-| # | Title | Area | Depends On |
+|   # | Title | Area | Depends On |
 | --: | ----- | ---- | ---------- |
 
 ---
@@ -116,14 +116,14 @@ It lives **after the Dependency Map**, as two tables:
 
 Ordered by unblocked-first, then dependency chain.
 
-| # | Title | Area | Depends On |
+|   # | Title | Area | Depends On |
 | --: | ----- | ---- | ---------- |
 
 ---
 
 ## Ready for Human
 
-| # | Title | Area | Notes |
+|   # | Title | Area | Notes |
 | --: | ----- | ---- | ----- |
 
 ---
@@ -138,12 +138,12 @@ Critical path: (seeded on bootstrap; grows as to-issue-kanban runs)
 
 ## Open PRs
 
-| # | Title | Branch→Base | Linked Issue | Status |
+|   # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
 
 ## Closed PRs
 
-| # | Title | Branch→Base | Linked Issue | Status |
+|   # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
 ```
 
