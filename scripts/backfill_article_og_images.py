@@ -67,10 +67,13 @@ async def backfill(*, dry_run: bool = False, limit: int | None = None) -> Summar
             if dry_run:
                 summary.would_update += 1
                 print(f"dry-run {job['id']}: {og_image_url}")
-            else:
-                await database.update_job_status(job["id"], "done", og_image_url=og_image_url)
+            elif await database.backfill_og_image_url(job["id"], og_image_url):
                 summary.updated += 1
                 print(f"updated {job['id']}: {og_image_url}")
+            else:
+                # Job was reset/changed between scan and write — leave it alone.
+                summary.missing += 1
+                print(f"skipped {job['id']}: no longer eligible")
 
     return summary
 

@@ -808,6 +808,24 @@ async def update_job_status(job_id: str, status: str, **fields: Any) -> None:
     log.info("job_status_updated", job_id=job_id, status=status)
 
 
+async def backfill_og_image_url(job_id: str, og_image_url: str) -> bool:
+    """Set og_image_url for a still-completed article without touching status.
+
+    Idempotent and race-safe: only writes when the job is still ``done`` and the
+    column is still empty, so a job reset to pending between scan and write is
+    never forced back to ``done``. Returns True iff a row was updated.
+    """
+    rowcount = await _execute_rowcount(
+        """
+        UPDATE jobs
+        SET og_image_url = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND status = 'done' AND og_image_url IS NULL
+        """,
+        (og_image_url, job_id),
+    )
+    return rowcount > 0
+
+
 # Image MIME types we are willing to persist and later serve to browsers.
 # Anything else (e.g. a stray ``text/html`` from the vision model) is coerced
 # to ``image/jpeg`` so stored bytes can never be interpreted as active content.

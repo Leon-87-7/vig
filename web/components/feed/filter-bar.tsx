@@ -14,13 +14,13 @@ const STATUS_FILTERS = [
   { label: "Error", value: "error" },
 ];
 
-interface ContentTypeTab {
+interface ContentTypeTabData {
   label: string;
   value: string;
   count: number;
 }
 
-function ContentTypeTab({ label, value, count, active, onClick }: ContentTypeTab & { active: boolean; onClick: () => void }) {
+function ContentTypeTab({ label, value, count, active, onClick }: ContentTypeTabData & { active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
