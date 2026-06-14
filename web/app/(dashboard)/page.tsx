@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFeedData } from "@/lib/hooks/useFeedData";
 import { useFuseSearch } from "@/lib/hooks/useFuseSearch";
@@ -24,7 +24,7 @@ function normalizeContentType(value: string | null): string {
   return value && CONTENT_TYPES.has(value) ? value : "";
 }
 
-export default function FeedPage() {
+function FeedPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -104,5 +104,13 @@ export default function FeedPage() {
         )}
       </section>
     </div>
+  );
+}
+
+export default function FeedPage() {
+  return (
+    <Suspense fallback={null}>
+      <FeedPageContent />
+    </Suspense>
   );
 }
