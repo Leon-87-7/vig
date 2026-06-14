@@ -16,6 +16,7 @@ from src.processors.article import _extract_og_image_url
 class Summary:
     scanned: int = 0
     updated: int = 0
+    would_update: int = 0
     missing: int = 0
     failed: int = 0
 
@@ -64,11 +65,12 @@ async def backfill(*, dry_run: bool = False, limit: int | None = None) -> Summar
                 continue
 
             if dry_run:
+                summary.would_update += 1
                 print(f"dry-run {job['id']}: {og_image_url}")
             else:
                 await database.update_job_status(job["id"], "done", og_image_url=og_image_url)
+                summary.updated += 1
                 print(f"updated {job['id']}: {og_image_url}")
-            summary.updated += 1
 
     return summary
 
@@ -87,6 +89,7 @@ async def _main() -> None:
     print(
         "summary: "
         f"scanned={summary.scanned} updated={summary.updated} "
+        f"would_update={summary.would_update} "
         f"missing={summary.missing} failed={summary.failed}"
     )
 

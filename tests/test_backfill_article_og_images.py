@@ -47,6 +47,7 @@ async def test_backfill_dry_run_reports_without_writing(monkeypatch, capsys) -> 
     summary = await backfill.backfill(dry_run=True)
 
     assert summary.scanned == 1
-    assert summary.updated == 1
+    assert summary.updated == 0
+    assert summary.would_update == 1
     update_job_status.assert_not_awaited()
     assert "dry-run job1" in capsys.readouterr().out
