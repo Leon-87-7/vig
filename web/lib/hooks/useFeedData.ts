@@ -73,13 +73,6 @@ export function useFeedData(initialContentType = '') {
   }, []);
 
   useEffect(() => {
-    load(initialContentType, '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const isFirst = useRef(true);
-  useEffect(() => {
-    if (isFirst.current) { isFirst.current = false; return; }
     load(ctFilter, stFilter);
   }, [ctFilter, stFilter, load]);
 

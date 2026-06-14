@@ -781,6 +781,7 @@ async def reset_job(job_id: str) -> None:
             """,
             (job_id,),
         )
+        await conn.execute("DELETE FROM job_thumbnails WHERE job_id = ?", (job_id,))
         await conn.commit()
     log.info("job_reset", job_id=job_id)
 
