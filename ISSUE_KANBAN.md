@@ -110,6 +110,15 @@
 |                                                   # | Title                                                                 | Area         | Depends On |
 | --------------------------------------------------: | --------------------------------------------------------------------- | ------------ | ---------- |
 | [#117](https://github.com/Leon-87-7/vig/issues/117) | ExportModal: restore PDF fallback when Google Drive is not configured | Web / Spaces | —          |
+| [#150](https://github.com/Leon-87-7/vig/issues/150) | feat(storage): add GCS-backed content-addressed storage seam          | Platform / Storage | — |
+| [#151](https://github.com/Leon-87-7/vig/issues/151) | feat(document): ingest Telegram file uploads into document jobs       | Telegram / Document | #150 |
+| [#152](https://github.com/Leon-87-7/vig/issues/152) | feat(document): route direct document URLs before article allowlist   | Routing / Document | #150 |
+| [#153](https://github.com/Leon-87-7/vig/issues/153) | feat(document): add vig-document liteparse sidecar                    | Document / Sidecar | #150 |
+| [#154](https://github.com/Leon-87-7/vig/issues/154) | feat(document): parse cache and automatic Gemini enrichment           | Document Pipeline | #151, #152, #153 |
+| [#155](https://github.com/Leon-87-7/vig/issues/155) | feat(document): deliver plain text and enrichment summary in Telegram | Telegram / Document | #154 |
+| [#156](https://github.com/Leon-87-7/vig/issues/156) | feat(document): render Markdown on demand from cached plain text      | Document / Markdown | #154, #155 |
+| [#157](https://github.com/Leon-87-7/vig/issues/157) | feat(document): support Freestyle re-runs from cached parse           | Document / Templates | #154, #155 |
+| [#158](https://github.com/Leon-87-7/vig/issues/158) | feat(exports): add opt-in Document Analysis export hook               | Exports / Sheets | #154 |
 
 ---
 
@@ -294,6 +303,18 @@ Phase 1 (frontend + thin backend resolver, no migration):
         └── #148 one-shot og:image backfill script
 #145 brand-icon badges in All-tab feed rows ◄── #142 (independent of #143–#144)
 Critical path: #142/#143 → #144 → #146/#147 → #148
+
+Document pipeline (ADR-0023: docs/adr/0023-liteparse-document-pipeline.md + docs/roadmap.md)
+#150 GCS content-addressed storage seam (root — unblocked)
+├── #151 Telegram file upload ingestion
+├── #152 Direct document URL routing
+└── #153 vig-document liteparse sidecar
+    └── #154 parse cache + automatic Gemini enrichment ◄── also #151, #152
+        ├── #155 plain text + enrichment Telegram delivery
+        │   ├── #156 on-demand Markdown rendering ◄── also #154
+        │   └── #157 Freestyle re-runs from cached parse ◄── also #154
+        └── #158 opt-in Document Analysis export hook
+Critical path: #150 → {#151, #152, #153} → #154 → #155 → {#156, #157}; #158 can follow #154 in parallel
 ```
 
 ---
