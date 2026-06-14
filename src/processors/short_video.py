@@ -175,13 +175,16 @@ async def _persist_best_frame_thumbnail(
         log.warning("short_thumbnail_decode_failed", job_id=job_id, error=str(exc)[:120])
         return
 
-    await database.save_thumbnail(
-        job_id,
-        best_frame_bytes,
-        mime=frame.get("mime_type", "image/jpeg"),
-        width=frame.get("width"),
-        height=frame.get("height"),
-    )
+    try:
+        await database.save_thumbnail(
+            job_id,
+            best_frame_bytes,
+            mime=frame.get("mime_type", "image/jpeg"),
+            width=frame.get("width"),
+            height=frame.get("height"),
+        )
+    except Exception as exc:
+        log.warning("short_thumbnail_save_failed", job_id=job_id, error=str(exc)[:120])
 
 
 async def run(job: dict) -> None:

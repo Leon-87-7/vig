@@ -848,6 +848,14 @@ async def has_thumbnail(job_id: str) -> bool:
     return row is not None
 
 
+async def get_thumbnail_job_ids(job_ids: list[str]) -> set[str]:
+    """Return the subset of *job_ids* that have a stored thumbnail (single query)."""
+    rows = await _fetch_in(
+        "SELECT job_id FROM job_thumbnails WHERE job_id IN ({placeholders})", job_ids
+    )
+    return {row["job_id"] for row in rows}
+
+
 async def set_prd_slot_status(job_id: str, slot: Literal["auto", "intent"], status: str) -> None:
     """Set prd_auto_status or prd_intent_status without leaking column names to callers."""
     col = "prd_auto_status" if slot == "auto" else "prd_intent_status"

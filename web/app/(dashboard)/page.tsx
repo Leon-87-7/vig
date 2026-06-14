@@ -34,10 +34,8 @@ export default function FeedPage() {
   useInFlightPolling(jobs, reload);
 
   useEffect(() => {
-    if (urlContentType !== ctFilter) {
-      setCtFilter(urlContentType);
-    }
-  }, [ctFilter, setCtFilter, urlContentType]);
+    setCtFilter(urlContentType);
+  }, [urlContentType, setCtFilter]);
 
   const setContentType = useCallback((value: string) => {
     const params = new URLSearchParams(searchParams.toString());

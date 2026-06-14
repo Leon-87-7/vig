@@ -92,7 +92,9 @@ def _is_persistable_short_platform(url: str) -> bool:
     return host.endswith("instagram.com") or host.endswith("tiktok.com")
 
 
-async def _resolve_thumbnail(job: dict) -> tuple[str | None, ThumbnailKind | None]:
+async def _resolve_thumbnail(
+    job: dict, stored_ids: set[str] | None = None
+) -> tuple[str | None, ThumbnailKind | None]:
     """Return the server-resolved thumbnail URL and aspect hint for a list item."""
     url = job["url"]
     content_type = job["content_type"]
@@ -114,8 +116,14 @@ async def _resolve_thumbnail(job: dict) -> tuple[str | None, ThumbnailKind | Non
         video_id = _youtube_video_id(url)
         if video_id:
             return f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg", "portrait"
-        if _is_persistable_short_platform(url) and await database.has_thumbnail(job["id"]):
-            return _stored_thumbnail_url(job["id"]), "portrait"
+        if _is_persistable_short_platform(url):
+            has_stored = (
+                job["id"] in stored_ids
+                if stored_ids is not None
+                else await database.has_thumbnail(job["id"])
+            )
+            if has_stored:
+                return _stored_thumbnail_url(job["id"]), "portrait"
 
     return None, None
 
@@ -162,10 +170,15 @@ async def list_jobs(
             [*params, limit, offset],
         )
         rows = await cur_items.fetchall()
+        short_ids = [
+            r["id"] for r in rows
+            if r["content_type"] == "short" and _is_persistable_short_platform(r["url"])
+        ]
+        stored_ids = await database.get_thumbnail_job_ids(short_ids)
         items = []
         for row in rows:
             item = dict(row)
-            item["thumbnail_url"], item["thumbnail_kind"] = await _resolve_thumbnail(item)
+            item["thumbnail_url"], item["thumbnail_kind"] = await _resolve_thumbnail(item, stored_ids)
             items.append(item)
 
     return {

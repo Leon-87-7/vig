@@ -220,7 +220,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     status_msg_id: int | None = status_result.get("message_id")
 
     # 1. Markdown cache lookup
-    og_image_url = await _fetch_og_image_url(url)
+    og_image_url = job.get("og_image_url") or await _fetch_og_image_url(url)
 
     cached = await database.get_markdown_cache(url)
     if cached:
