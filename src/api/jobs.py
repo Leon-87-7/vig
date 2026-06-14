@@ -170,16 +170,18 @@ async def list_jobs(
             [*params, limit, offset],
         )
         rows = await cur_items.fetchall()
-        short_ids = [
-            r["id"] for r in rows
-            if r["content_type"] == "short" and _is_persistable_short_platform(r["url"])
-        ]
-        stored_ids = await database.get_thumbnail_job_ids(short_ids)
-        items = []
-        for row in rows:
-            item = dict(row)
-            item["thumbnail_url"], item["thumbnail_kind"] = await _resolve_thumbnail(item, stored_ids)
-            items.append(item)
+
+    # First connection released; resolve thumbnails with a single follow-up query.
+    short_ids = [
+        r["id"] for r in rows
+        if r["content_type"] == "short" and _is_persistable_short_platform(r["url"])
+    ]
+    stored_ids = await database.get_thumbnail_job_ids(short_ids)
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["thumbnail_url"], item["thumbnail_kind"] = await _resolve_thumbnail(item, stored_ids)
+        items.append(item)
 
     return {
         "items": items,
