@@ -9,14 +9,6 @@ interface PreviewCardProps {
   platformGlyph?: ReactNode;
 }
 
-function sourceLabel(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
 function Thumbnail({ job }: { job: JobSummary }) {
   const [failed, setFailed] = useState(false);
   const display = job.title?.trim() || job.url;
@@ -48,7 +40,6 @@ function Thumbnail({ job }: { job: JobSummary }) {
 
 export function PreviewCard({ job, platformGlyph }: PreviewCardProps) {
   const display = job.title?.trim() || job.url;
-  const source = sourceLabel(job.url);
   const glyph = platformGlyph ?? (
     job.content_type === "short"
       ? <PlatformGlyph url={job.url} contentType={job.content_type} size={16} className="text-muted" />
@@ -75,7 +66,7 @@ export function PreviewCard({ job, platformGlyph }: PreviewCardProps) {
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-3">
-          <span className="truncate font-mono text-xs text-muted" title={source}>
+          <span className="truncate font-mono text-xs text-muted" title={job.created_at}>
             {new Date(job.created_at).toLocaleString()}
           </span>
           <StatusBadge label={job.status} />
