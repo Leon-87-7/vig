@@ -11,9 +11,9 @@ import {
   SlidersHorizontal,
   ChevronRight,
   ChevronLeft,
-  Github,
   type LucideIcon,
 } from 'lucide-react';
+import { siGithub } from 'simple-icons';
 
 interface NavItem {
   href: string;
@@ -157,6 +157,22 @@ function LogoMark({ className }: { className?: string }) {
   );
 }
 
+// GitHub mark from simple-icons (lucide-react dropped its brand icons).
+// Renders the raw path with currentColor so it inherits hover/active tints.
+function GithubIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={siGithub.path} />
+    </svg>
+  );
+}
+
 function isActive(pathname: string, href: string): boolean {
   if (href === '/')
     return pathname === '/' || pathname.startsWith('/jobs');
@@ -292,11 +308,7 @@ export function Sidebar() {
             tabIndex={open ? -1 : undefined}
             className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
           >
-            <Github
-              className="h-[18px] w-[18px]"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
+            <GithubIcon className="h-[18px] w-[18px]" />
           </a>
           <button
             type="button"
@@ -376,11 +388,7 @@ export function Sidebar() {
             tabIndex={open ? undefined : -1}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
           >
-            <Github
-              className="h-[18px] w-[18px] shrink-0"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
+            <GithubIcon className="h-[18px] w-[18px] shrink-0" />
             GitHub
           </a>
           <form
