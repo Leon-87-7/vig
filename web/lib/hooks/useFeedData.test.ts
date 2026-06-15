@@ -180,5 +180,7 @@ describe('useFeedData', () => {
     // Only the 2 short items should be exposed; the 'long' item is dropped.
     expect(result.current.jobs).toHaveLength(2);
     expect(result.current.jobs.every((j) => j.content_type === 'short')).toBe(true);
+    // total reflects the SERVER-reported count, not the client-filtered list length.
+    expect(result.current.total).toBe(3);
   });
 });

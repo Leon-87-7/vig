@@ -52,10 +52,6 @@ export function useFeedData(initialContentType = '') {
   const load = useCallback(async (ct: string, st: string) => {
     const reqId = ++reqIdRef.current;
 
-    // Clear the stale list immediately on a user-initiated filter change so
-    // mismatched cards from the previous filter are never visible during the
-    // in-flight fetch.
-    setJobs([]);
     setLoading(true);
     setError(null);
 
@@ -110,6 +106,7 @@ export function useFeedData(initialContentType = '') {
   }, []);
 
   useEffect(() => {
+    setJobs([]);        // clear synchronously on filter change so stale-type cards don't linger
     load(ctFilter, stFilter);
   }, [ctFilter, stFilter, load]);
 
