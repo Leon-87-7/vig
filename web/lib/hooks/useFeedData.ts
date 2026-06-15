@@ -14,7 +14,10 @@ interface JobsResponse {
   total: number;
 }
 
-async function fetchFeed(ct: string, st: string): Promise<{ stats: FeedStats; jobs: JobSummary[]; total: number }> {
+async function fetchFeed(
+  ct: string,
+  st: string,
+): Promise<{ stats: FeedStats; jobs: JobSummary[]; total: number }> {
   const params = new URLSearchParams();
   if (ct) params.set('content_type', ct);
   if (st) params.set('status', st);
@@ -41,18 +44,42 @@ export function useFeedData(initialContentType = '') {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Monotonic request-id counter. Every dispatch (load + reload) increments
+  // this before the await; after the await, the response is discarded unless
+  // the captured id still matches the latest.
+  const reqIdRef = useRef(0);
+
   const load = useCallback(async (ct: string, st: string) => {
+    const reqId = ++reqIdRef.current;
+
+    // Clear the stale list immediately on a user-initiated filter change so
+    // mismatched cards from the previous filter are never visible during the
+    // in-flight fetch.
+    setJobs([]);
     setLoading(true);
     setError(null);
+
     try {
       const { stats, jobs, total } = await fetchFeed(ct, st);
+
+      // Discard if a newer request has been dispatched while we were awaiting.
+      if (reqId !== reqIdRef.current) return;
+
+      // Defensive: drop items whose content_type doesn't match the filter that
+      // was active when this request was dispatched. This catches server-side
+      // bugs and further neutralises any residual race at the item level.
+      const filtered = ct ? jobs.filter((j) => j.content_type === ct) : jobs;
+
       setStats(stats);
-      setJobs(jobs);
+      setJobs(filtered);
       setTotal(total);
     } catch (e) {
+      if (reqId !== reqIdRef.current) return;
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      // Only clear loading for the latest request to avoid a flicker where a
+      // stale response sets loading=false before the current one finishes.
+      if (reqId === reqIdRef.current) setLoading(false);
     }
   }, []);
 
@@ -62,10 +89,20 @@ export function useFeedData(initialContentType = '') {
   stRef.current = stFilter;
 
   const reload = useCallback(async () => {
+    // Background poll: increment the req-id so a concurrent load() dispatched
+    // after this poll does not get clobbered by a slow poll response.
+    const reqId = ++reqIdRef.current;
+
     try {
       const { stats, jobs, total } = await fetchFeed(ctRef.current, stRef.current);
+
+      if (reqId !== reqIdRef.current) return;
+
+      const ct = ctRef.current;
+      const filtered = ct ? jobs.filter((j) => j.content_type === ct) : jobs;
+
       setStats(stats);
-      setJobs(jobs);
+      setJobs(filtered);
       setTotal(total);
     } catch {
       // swallow during background polling
@@ -76,5 +113,16 @@ export function useFeedData(initialContentType = '') {
     load(ctFilter, stFilter);
   }, [ctFilter, stFilter, load]);
 
-  return { ctFilter, setCtFilter, stFilter, setStFilter, stats, jobs, total, loading, error, reload };
+  return {
+    ctFilter,
+    setCtFilter,
+    stFilter,
+    setStFilter,
+    stats,
+    jobs,
+    total,
+    loading,
+    error,
+    reload,
+  };
 }
