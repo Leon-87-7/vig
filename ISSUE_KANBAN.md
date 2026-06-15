@@ -135,6 +135,10 @@ Ordered by unblocked-first, then dependency chain.
 | [#146](https://github.com/Leon-87-7/vig/issues/146) | feat(short): persist best frame as job thumbnail (Phase 2) | Pipeline / Short   | #144       |
 | [#147](https://github.com/Leon-87-7/vig/issues/147) | feat(article): scrape og:image as job thumbnail (Phase 2)  | Pipeline / Article | #144       |
 | [#148](https://github.com/Leon-87-7/vig/issues/148) | chore(article): one-shot og:image backfill script          | Pipeline / Article | #147       |
+| [#159](https://github.com/Leon-87-7/vig/issues/159) | Backfill short thumbnails: core script (happy path)        | Pipeline / Short   | —          |
+| [#160](https://github.com/Leon-87-7/vig/issues/160) | ADR-0025 follow-up note: historical short thumbs re-derivable | Docs / ADR      | —          |
+| [#161](https://github.com/Leon-87-7/vig/issues/161) | Backfill short thumbnails: frame-selection strategies      | Pipeline / Short   | #159       |
+| [#162](https://github.com/Leon-87-7/vig/issues/162) | Backfill short thumbnails: --overwrite-existing flag       | Pipeline / Short   | #159       |
 
 ---
 
@@ -315,6 +319,13 @@ Document pipeline (ADR-0023: docs/adr/0023-liteparse-document-pipeline.md + docs
         │   └── #157 Freestyle re-runs from cached parse ◄── also #154
         └── #158 opt-in Document Analysis export hook
 Critical path: #150 → {#151, #152, #153} → #154 → #155 → {#156, #157}; #158 can follow #154 in parallel
+
+Short-thumbnail backfill (docs/backfill_agreed_plan.md — ADR-0025 Phase-2 follow-up)
+#159 core script (happy path) (root — unblocked)
+├── #161 frame-selection strategies (rerun-vision, fallbacks)
+└── #162 --overwrite-existing clobber-safety flag
+#160 ADR-0025 follow-up note (independent — doc only)
+Critical path: #159 → {#161, #162}; #160 parallel
 ```
 
 ---

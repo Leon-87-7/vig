@@ -76,7 +76,10 @@ def _extract_og_image_url(markup: str, base_url: str | None = None) -> str | Non
         key = (attrs.get("property") or attrs.get("name") or "").lower()
         content = attrs.get("content", "").strip()
         if key == "og:image" and content:
-            return urljoin(base_url, content) if base_url else content
+            resolved = urljoin(base_url, content) if base_url else content
+            if urlparse(resolved).scheme in ("http", "https"):
+                return resolved
+            return None
     return None
 
 

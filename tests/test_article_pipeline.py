@@ -96,6 +96,18 @@ def test_extract_og_image_url_absolute_and_relative() -> None:
     ) == "https://example.com/images/og.jpg"
 
 
+def test_extract_og_image_url_rejects_non_http_schemes() -> None:
+    from src.processors.article import _extract_og_image_url
+
+    assert (
+        _extract_og_image_url('<meta property="og:image" content="data:image/png;base64,AAAA">')
+        is None
+    )
+    assert (
+        _extract_og_image_url('<meta property="og:image" content="javascript:void(0)">') is None
+    )
+
+
 @pytest.mark.asyncio
 async def test_article_run_cache_hit_does_not_call_jina(temp_db, monkeypatch) -> None:
     """On a cache hit, Jina is never called and the document is still sent."""
