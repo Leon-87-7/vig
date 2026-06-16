@@ -121,11 +121,12 @@ async def test_retry_pending_claims_rows_so_repeat_calls_do_not_double_enqueue(
 
 
 @pytest.mark.asyncio
-async def test_retry_pending_restores_claim_when_enqueue_fails(
+async def test_retry_pending_restores_whole_batch_when_enqueue_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await _init_tmp_db(tmp_path, monkeypatch)
-    await _insert_job("short_stale", content_type="short", status="pending", age_minutes=20)
+    await _insert_job("short_stale_1", content_type="short", status="pending", age_minutes=20)
+    await _insert_job("short_stale_2", content_type="short", status="pending", age_minutes=20)
 
     async def boom(_task: dict) -> None:
         raise RuntimeError("queue unavailable")
@@ -135,9 +136,10 @@ async def test_retry_pending_restores_claim_when_enqueue_fails(
     with pytest.raises(RuntimeError):
         await job_recovery.retry_pending(1, "short")
 
-    # The failed enqueue must not strand the row: it stays stale-pending so the
-    # dashboard keeps offering it instead of hiding it for the stale window.
-    assert (await job_recovery.recovery_summary(1, "short"))["stale_pending"] == 1
+    # The claim bumped updated_at on both rows. A failure on the first enqueue must
+    # restore the failed row AND the untouched tail, so neither is hidden from the
+    # recovery panel for the stale window.
+    assert (await job_recovery.recovery_summary(1, "short"))["stale_pending"] == 2
 
 
 @pytest.mark.asyncio

@@ -112,19 +112,30 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
 
     enqueued = 0
     skipped_non_retryable = 0
-    for row in claimed:
-        task = _task_for(row["content_type"])
-        if task is None:
-            skipped_non_retryable += 1
-            continue
-        try:
+    # Every claimed row carries a bumped updated_at. Until a row is enqueued (or found
+    # non-retryable) it must be restorable, or a mid-loop queue failure would hide the
+    # whole tail from recovery for the stale window.
+    unprocessed = {row["id"]: row for row in claimed}
+    try:
+        for row in claimed:
+            task = _task_for(row["content_type"])
+            if task is None:
+                skipped_non_retryable += 1
+                del unprocessed[row["id"]]
+                continue
             await queue.enqueue({"task": task, "job_id": row["id"]})
-        except Exception:
-            # Restore the pre-claim timestamp so the row stays stale-pending and the
-            # dashboard keeps offering it, mirroring retry_error's per-row revert.
-            await _restore_updated_at(row["id"], row["updated_at"])
-            raise
-        enqueued += 1
+            enqueued += 1
+            del unprocessed[row["id"]]
+    except Exception:
+        # Restore the pre-claim timestamp for the failed row and the untouched tail so
+        # they stay stale-pending and the dashboard keeps offering them. Best-effort
+        # per row: one restore failure must not strand the others.
+        for leftover in unprocessed.values():
+            try:
+                await _restore_updated_at(leftover["id"], leftover["updated_at"])
+            except Exception:
+                log.exception("dashboard_recovery.restore_failed", job_id=leftover["id"])
+        raise
 
     return {
         "scanned": skipped_fresh + len(claimed),
@@ -271,8 +282,13 @@ async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str
             replaced += 1
             del unprocessed[row["id"]]
     except Exception:
+        # Best-effort restore per row: a DB failure on one row must not abort the
+        # restore pass and strand the remaining rows in 'cancelled'.
         for leftover in unprocessed.values():
-            await database.update_job_status(leftover["id"], "error")
+            try:
+                await database.update_job_status(leftover["id"], "error")
+            except Exception:
+                log.exception("dashboard_recovery.restore_failed", job_id=leftover["id"])
         raise
 
     return {
