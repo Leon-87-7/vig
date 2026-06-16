@@ -230,7 +230,14 @@ async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str
             # user can retry again; never cancel the original before the new job is queued.
             await database.update_job_status(new_job_id, "cancelled")
             raise
-        await database.update_job_status(row["id"], "cancelled")
+        try:
+            await database.update_job_status(row["id"], "cancelled")
+        except Exception:
+            # The replacement is already queued. Cancel it to avoid a duplicate
+            # in-flight job for the same URL; leave the original in 'error' so the
+            # user can retry cleanly on the next attempt.
+            await database.update_job_status(new_job_id, "cancelled")
+            raise
         replaced += 1
 
     return {
