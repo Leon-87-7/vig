@@ -1,6 +1,9 @@
 /**
  * startPolling — calls fetchFn on a fixed interval.
  * Automatically stops when isIdleFn() returns true.
+ * Skips the tick (but keeps scheduling) when the document is hidden, so all
+ * polling pauses while the tab is not visible and resumes on the next natural
+ * tick once it becomes visible again.
  * Returns a cancel function that stops polling immediately.
  */
 export function startPolling(
@@ -10,12 +13,19 @@ export function startPolling(
 ): () => void {
   let cancelled = false;
 
+  const isHidden = () =>
+    typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
   const tick = async () => {
     if (cancelled || isIdleFn()) return;
-    try {
-      await fetchFn();
-    } catch {
-      // swallow fetch errors — caller handles UI state
+    // Skip the fetch when the tab is hidden; schedule the next tick anyway so
+    // polling picks back up on the next interval after the tab becomes visible.
+    if (!isHidden()) {
+      try {
+        await fetchFn();
+      } catch {
+        // swallow fetch errors — caller handles UI state
+      }
     }
     if (!cancelled && !isIdleFn()) {
       setTimeout(tick, intervalMs);

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFeedData } from "@/lib/hooks/useFeedData";
 import { useFuseSearch } from "@/lib/hooks/useFuseSearch";
 import { useInFlightPolling } from "@/lib/hooks/useInFlightPolling";
+import { useBackgroundFreshness } from "@/lib/hooks/useBackgroundFreshness";
 import { JobCard } from "@/components/job-card";
 import { StatsOverview } from "@/components/feed/stats-overview";
 import { FilterBar } from "@/components/feed/filter-bar";
@@ -32,6 +33,7 @@ function FeedPageContent() {
   const { ctFilter, setCtFilter, stFilter, setStFilter, stats, jobs, total, loading, error, reload } = useFeedData(urlContentType);
   const { query, setQuery, displayedJobs } = useFuseSearch(jobs);
   useInFlightPolling(jobs, reload);
+  useBackgroundFreshness(reload);
 
   useEffect(() => {
     setCtFilter(urlContentType);
