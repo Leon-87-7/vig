@@ -183,4 +183,58 @@ describe('useFeedData', () => {
     // total reflects the SERVER-reported count, not the client-filtered list length.
     expect(result.current.total).toBe(3);
   });
+
+  it('does not strand loading=true when a background reload() fires while a load() is in flight', async () => {
+    // Regression: load and reload share reqIdRef for data-staleness, but the
+    // loading flag must be keyed off a load-only counter. Otherwise a reload
+    // bumping reqIdRef mid-load makes load's finally skip setLoading(false).
+    let callIndex = 0;
+    const resolvers: Array<(value: { ok: boolean; body: unknown }) => void> = [];
+
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      const idx = callIndex++;
+      const result = await new Promise<{ ok: boolean; body: unknown }>((resolve) => {
+        resolvers[idx] = resolve;
+      });
+      return { ok: result.ok, json: async () => result.body } as Response;
+    }));
+
+    const stats = { total: 1, by_status: {}, by_content_type: { short: 1 } };
+    const jobs = { items: [{ id: 's1', content_type: 'short' }], total: 1 };
+
+    // Initial mount load: fetches 0 (stats) + 1 (jobs).
+    const { result } = renderHook(() => useFeedData());
+    await waitFor(() => expect(resolvers.length).toBeGreaterThanOrEqual(2));
+    act(() => {
+      resolvers[0]({ ok: true, body: stats });
+      resolvers[1]({ ok: true, body: jobs });
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Filter change → second load (fetches 2 + 3), loading goes true.
+    act(() => result.current.setCtFilter('short'));
+    await waitFor(() => expect(resolvers.length).toBeGreaterThanOrEqual(4));
+    expect(result.current.loading).toBe(true);
+
+    // Background reload() fires while that load is still in flight (fetches 4 + 5).
+    // This bumps the shared reqIdRef, superseding the in-flight load's data.
+    act(() => { void result.current.reload(); });
+    await waitFor(() => expect(resolvers.length).toBeGreaterThanOrEqual(6));
+
+    // Resolve the LOAD (2 + 3). Its data is discarded (reload superseded reqIdRef),
+    // but its finally must still clear loading via the load-only counter.
+    act(() => {
+      resolvers[2]({ ok: true, body: stats });
+      resolvers[3]({ ok: true, body: jobs });
+    });
+
+    // loading must end up false — not stranded at true.
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Clean up the still-pending reload fetches.
+    act(() => {
+      resolvers[4]({ ok: true, body: stats });
+      resolvers[5]({ ok: true, body: jobs });
+    });
+  });
 });

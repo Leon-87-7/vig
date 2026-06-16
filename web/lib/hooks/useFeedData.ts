@@ -49,8 +49,15 @@ export function useFeedData(initialContentType = '') {
   // the captured id still matches the latest.
   const reqIdRef = useRef(0);
 
+  // Separate counter that only load() bumps, used solely to gate the loading
+  // flag. reload() (the background poll) must not touch this — otherwise a poll
+  // firing mid-load would advance reqIdRef and strand loading=true forever,
+  // since load's finally would see its reqId superseded and skip setLoading(false).
+  const loadIdRef = useRef(0);
+
   const load = useCallback(async (ct: string, st: string) => {
     const reqId = ++reqIdRef.current;
+    const loadId = ++loadIdRef.current;
 
     setLoading(true);
     setError(null);
@@ -73,9 +80,11 @@ export function useFeedData(initialContentType = '') {
       if (reqId !== reqIdRef.current) return;
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
-      // Only clear loading for the latest request to avoid a flicker where a
-      // stale response sets loading=false before the current one finishes.
-      if (reqId === reqIdRef.current) setLoading(false);
+      // Gate the loading flag on loadId (bumped only by load), not reqId. A
+      // background reload() advances reqIdRef but not loadIdRef, so a poll
+      // firing mid-load can't strand loading=true; only a newer load() clears
+      // this one's right to flip the flag.
+      if (loadId === loadIdRef.current) setLoading(false);
     }
   }, []);
 
@@ -106,7 +115,10 @@ export function useFeedData(initialContentType = '') {
   }, []);
 
   useEffect(() => {
-    setJobs([]);        // clear synchronously on filter change so stale-type cards don't linger
+    // Clear synchronously on filter change so neither stale-type cards nor the
+    // previous tab's counts linger while the new request is in flight.
+    setJobs([]);
+    setStats(null);
     load(ctFilter, stFilter);
   }, [ctFilter, stFilter, load]);
 
