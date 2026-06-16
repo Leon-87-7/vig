@@ -71,7 +71,19 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
     where, params = _scope_where(chat_id, content_type)
     modifier = f"-{STALE_MINUTES} minutes"
     async with database.connection() as conn:
-        # Count fresh pending rows (left untouched) before claiming, for reporting parity.
+        # Snapshot the stale pending rows (with their pre-claim updated_at) so a failed
+        # enqueue can be rolled back to its original still-stale state rather than left
+        # invisible to recovery for the stale window.
+        snapshot_cur = await conn.execute(
+            f"""
+            SELECT id, content_type, updated_at
+            FROM jobs
+            WHERE {where} AND status = 'pending' AND updated_at < datetime('now', ?)
+            """,
+            (*params, modifier),
+        )
+        candidates = {row["id"]: dict(row) for row in await snapshot_cur.fetchall()}
+        # Count fresh pending rows (left untouched) for reporting parity.
         fresh_cur = await conn.execute(
             f"""
             SELECT COUNT(*) AS fresh
@@ -91,11 +103,11 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
             UPDATE jobs
             SET updated_at = CURRENT_TIMESTAMP
             WHERE {where} AND status = 'pending' AND updated_at < datetime('now', ?)
-            RETURNING id, content_type
+            RETURNING id
             """,
             (*params, modifier),
         )
-        claimed = [dict(row) for row in await claim_cur.fetchall()]
+        claimed = [candidates[row["id"]] for row in await claim_cur.fetchall() if row["id"] in candidates]
         await conn.commit()
 
     enqueued = 0
@@ -105,7 +117,13 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
         if task is None:
             skipped_non_retryable += 1
             continue
-        await queue.enqueue({"task": task, "job_id": row["id"]})
+        try:
+            await queue.enqueue({"task": task, "job_id": row["id"]})
+        except Exception:
+            # Restore the pre-claim timestamp so the row stays stale-pending and the
+            # dashboard keeps offering it, mirroring retry_error's per-row revert.
+            await _restore_updated_at(row["id"], row["updated_at"])
+            raise
         enqueued += 1
 
     return {
@@ -114,6 +132,15 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
         "skipped_fresh": skipped_fresh,
         "skipped_non_retryable": skipped_non_retryable,
     }
+
+
+async def _restore_updated_at(job_id: str, updated_at: str) -> None:
+    async with database.connection() as conn:
+        await conn.execute(
+            "UPDATE jobs SET updated_at = ? WHERE id = ?",
+            (updated_at, job_id),
+        )
+        await conn.commit()
 
 
 async def clear_failed(chat_id: int, content_type: str | None = None) -> dict[str, int]:
