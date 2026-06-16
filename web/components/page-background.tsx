@@ -3,11 +3,11 @@
 import { usePathname } from 'next/navigation';
 
 const PAGE_BACKGROUNDS = {
-  feed: '/backgrounds/feed.png',
-  brain: '/backgrounds/brain.png',
-  spaces: '/backgrounds/spaces.png',
-  prompts: '/backgrounds/prompts.png',
-  controls: '/backgrounds/controls.png',
+  feed: '/backgrounds/webp/feed.webp',
+  brain: '/backgrounds/webp/brain.webp',
+  spaces: '/backgrounds/webp/spaces.webp',
+  prompts: '/backgrounds/webp/prompts.webp',
+  controls: '/backgrounds/webp/controls.webp',
 } as const;
 
 function getBackgroundForPath(pathname: string): string {
