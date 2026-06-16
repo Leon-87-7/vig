@@ -49,19 +49,28 @@ export function useRecovery(contentType: string, onRecovered: () => Promise<void
     };
   }, []);
 
+  // Tracks the tab currently rendered. A load started for an earlier tab (e.g. the
+  // reload inside act() after switching content type) must not overwrite the new
+  // tab's summary once it resolves.
+  const contentTypeRef = useRef(contentType);
+  useEffect(() => {
+    contentTypeRef.current = contentType;
+  }, [contentType]);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
+    const isStale = () => signal?.aborted || !mountedRef.current || contentTypeRef.current !== contentType;
     try {
       const next = await fetchSummary(contentType, signal);
-      if (signal?.aborted || !mountedRef.current) return;
+      if (isStale()) return;
       setSummary(next);
     } catch (err) {
-      if (signal?.aborted || !mountedRef.current || (err instanceof DOMException && err.name === 'AbortError')) return;
+      if (isStale() || (err instanceof DOMException && err.name === 'AbortError')) return;
       setError(err instanceof Error ? err.message : 'Failed to load recovery summary');
       setSummary(EMPTY_SUMMARY);
     } finally {
-      if (!signal?.aborted && mountedRef.current) setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [contentType]);
 

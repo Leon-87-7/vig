@@ -217,12 +217,16 @@ function RecoveryTab() {
         if (!res.ok) throw new Error('Failed to load recovery settings');
         return res.json() as Promise<{ telegram_notifications: boolean }>;
       })
-      .then((data) => setEnabled(data.telegram_notifications))
+      .then((data) => {
+        if (!controller.signal.aborted) setEnabled(data.telegram_notifications);
+      })
       .catch((err) => {
-        if (err instanceof Error && err.name === 'AbortError') return;
+        if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) return;
         setError(err instanceof Error ? err.message : 'Failed to load recovery settings');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
     return () => controller.abort();
   }, []);
 

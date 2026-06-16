@@ -192,12 +192,22 @@ async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str
         row_content_type = row["content_type"]
         if row_content_type == "article":
             await database.update_job_status(row["id"], "pending")
-            await queue.enqueue({"task": "article", "job_id": row["id"], "skip_document": True})
+            try:
+                await queue.enqueue({"task": "article", "job_id": row["id"], "skip_document": True})
+            except Exception:
+                # Keep persisted state aligned with the queue: revert so the row stays
+                # retryable instead of being stranded in 'pending' with nothing queued.
+                await database.update_job_status(row["id"], "error")
+                raise
             retried_same += 1
             continue
         if row_content_type == "long" and row.get("transcript"):
             await database.update_job_status(row["id"], "enriching")
-            await queue.enqueue({"task": "enrichment", "job_id": row["id"]})
+            try:
+                await queue.enqueue({"task": "enrichment", "job_id": row["id"]})
+            except Exception:
+                await database.update_job_status(row["id"], "error")
+                raise
             retried_same += 1
             continue
 
@@ -213,7 +223,13 @@ async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str
             template=row.get("template"),
             freestyle_prompt=row.get("freestyle_prompt"),
         )
-        await queue.enqueue({"task": task, "job_id": new_job_id})
+        try:
+            await queue.enqueue({"task": task, "job_id": new_job_id})
+        except Exception:
+            # Cancel the orphan replacement and leave the original in 'error' so the
+            # user can retry again; never cancel the original before the new job is queued.
+            await database.update_job_status(new_job_id, "cancelled")
+            raise
         await database.update_job_status(row["id"], "cancelled")
         replaced += 1
 
