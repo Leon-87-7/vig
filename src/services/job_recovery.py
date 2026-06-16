@@ -1,0 +1,213 @@
+"""Dashboard-triggered job recovery orchestration."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from src import database, queue
+from src.utils.logger import get_logger
+
+ContentType = Literal["short", "long", "article", "repo"]
+
+STALE_MINUTES = 10
+_CONTENT_TYPES = {"short", "long", "article", "repo"}
+
+log = get_logger(__name__)
+
+
+def _validate_content_type(content_type: str | None) -> str | None:
+    if content_type in (None, ""):
+        return None
+    if content_type not in _CONTENT_TYPES:
+        raise ValueError("content_type must be one of short, long, article, repo")
+    return content_type
+
+
+def _task_for(content_type: str) -> str | None:
+    if content_type in {"short", "long"}:
+        return "video"
+    if content_type in {"article", "repo"}:
+        return content_type
+    return None
+
+
+def _scope_where(chat_id: int, content_type: str | None) -> tuple[str, list[Any]]:
+    conditions = ["chat_id = ?"]
+    params: list[Any] = [chat_id]
+    if content_type:
+        conditions.append("content_type = ?")
+        params.append(content_type)
+    return " AND ".join(conditions), params
+
+
+async def recovery_summary(chat_id: int, content_type: str | None = None) -> dict[str, int]:
+    content_type = _validate_content_type(content_type)
+    where, params = _scope_where(chat_id, content_type)
+    modifier = f"-{STALE_MINUTES} minutes"
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            f"""
+            SELECT
+                COALESCE(SUM(CASE WHEN status = 'pending'
+                    AND updated_at < datetime('now', ?) THEN 1 ELSE 0 END), 0) AS stale_pending,
+                COALESCE(SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END), 0) AS error_jobs,
+                COALESCE(SUM(CASE WHEN status IN ('processing', 'enriching')
+                    AND updated_at < datetime('now', ?) THEN 1 ELSE 0 END), 0) AS stale_in_flight
+            FROM jobs
+            WHERE {where}
+            """,
+            (modifier, modifier, *params),
+        )
+        row = await cur.fetchone()
+    return {
+        "stale_pending": int(row["stale_pending"] if row else 0),
+        "error_jobs": int(row["error_jobs"] if row else 0),
+        "stale_in_flight": int(row["stale_in_flight"] if row else 0),
+    }
+
+
+async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[str, int]:
+    content_type = _validate_content_type(content_type)
+    where, params = _scope_where(chat_id, content_type)
+    modifier = f"-{STALE_MINUTES} minutes"
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            f"""
+            SELECT id, content_type, updated_at < datetime('now', ?) AS is_stale
+            FROM jobs
+            WHERE {where} AND status = 'pending'
+            """,
+            (modifier, *params),
+        )
+        rows = [dict(row) for row in await cur.fetchall()]
+
+    enqueued = 0
+    skipped_fresh = 0
+    skipped_non_retryable = 0
+    for row in rows:
+        if not row["is_stale"]:
+            skipped_fresh += 1
+            continue
+        task = _task_for(row["content_type"])
+        if task is None:
+            skipped_non_retryable += 1
+            continue
+        await queue.enqueue({"task": task, "job_id": row["id"]})
+        enqueued += 1
+
+    return {
+        "scanned": len(rows),
+        "enqueued": enqueued,
+        "skipped_fresh": skipped_fresh,
+        "skipped_non_retryable": skipped_non_retryable,
+    }
+
+
+async def clear_failed(chat_id: int, content_type: str | None = None) -> dict[str, int]:
+    content_type = _validate_content_type(content_type)
+    where, params = _scope_where(chat_id, content_type)
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            f"""
+            UPDATE jobs
+            SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+            WHERE {where} AND status = 'error'
+            """,
+            tuple(params),
+        )
+        await conn.commit()
+        cancelled = cur.rowcount
+    return {"cancelled": cancelled}
+
+
+async def _notify_reaped_jobs(rows: list[dict[str, Any]], chat_id: int) -> int:
+    if not rows or not await database.get_recovery_telegram_notifications_enabled(chat_id):
+        return 0
+
+    from src.telegram.sender import send_inline_keyboard
+
+    sent = 0
+    for row in rows:
+        job_id = row["id"]
+        tag = f"job_{job_id[-4:]}:"
+        try:
+            if row["status"] == "enriching":
+                await send_inline_keyboard(
+                    chat_id,
+                    f"{tag}\n⚠️ Enrichment was interrupted by a restart.",
+                    buttons=[[{"text": "🔄 Retry", "callback_data": f"enrichment_retry:{job_id}"}]],
+                )
+            else:
+                await send_inline_keyboard(
+                    chat_id,
+                    f"{tag}\n⚠️ Processing was interrupted by a restart.",
+                    buttons=[[{"text": "🔄 Retry", "callback_data": f"reprocess:{job_id}"}]],
+                )
+            sent += 1
+        except Exception:
+            log.exception("dashboard_recovery.notify_failed", job_id=job_id)
+    return sent
+
+
+async def _error_rows(chat_id: int, content_type: str | None) -> list[dict[str, Any]]:
+    where, params = _scope_where(chat_id, content_type)
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            f"""
+            SELECT id, chat_id, message_id, url, content_type, template, freestyle_prompt, transcript
+            FROM jobs
+            WHERE {where} AND status = 'error'
+            ORDER BY updated_at DESC
+            """,
+            tuple(params),
+        )
+        return [dict(row) for row in await cur.fetchall()]
+
+
+async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str, int]:
+    content_type = _validate_content_type(content_type)
+    reaped = await database.fetch_and_mark_stale_jobs(
+        STALE_MINUTES, chat_id=chat_id, content_type=content_type
+    )
+    notifications_sent = await _notify_reaped_jobs(reaped, chat_id)
+    rows = await _error_rows(chat_id, content_type)
+
+    retried_same = 0
+    replaced = 0
+    skipped = 0
+    for row in rows:
+        row_content_type = row["content_type"]
+        if row_content_type == "article":
+            await database.update_job_status(row["id"], "pending")
+            await queue.enqueue({"task": "article", "job_id": row["id"], "skip_document": True})
+            retried_same += 1
+            continue
+        if row_content_type == "long" and row.get("transcript"):
+            await database.update_job_status(row["id"], "enriching")
+            await queue.enqueue({"task": "enrichment", "job_id": row["id"]})
+            retried_same += 1
+            continue
+
+        task = _task_for(row_content_type)
+        if task is None:
+            skipped += 1
+            continue
+        new_job_id = await database.create_job(
+            chat_id=chat_id,
+            url=row["url"],
+            content_type=row_content_type,
+            message_id=row.get("message_id"),
+            template=row.get("template"),
+            freestyle_prompt=row.get("freestyle_prompt"),
+        )
+        await queue.enqueue({"task": task, "job_id": new_job_id})
+        await database.update_job_status(row["id"], "cancelled")
+        replaced += 1
+
+    return {
+        "reaped": len(reaped),
+        "notifications_sent": notifications_sent,
+        "retried_same": retried_same,
+        "replaced": replaced,
+        "skipped": skipped,
+    }
