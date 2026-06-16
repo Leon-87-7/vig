@@ -221,57 +221,59 @@ async def retry_error(chat_id: int, content_type: str | None = None) -> dict[str
     )
     notifications_sent = await _notify_reaped_jobs(reaped, chat_id)
     rows = await _claim_error_rows(chat_id, content_type)
+    # Every claimed row is currently 'cancelled'. Track those not yet given a final
+    # disposition so a mid-batch queue failure can restore the whole tail to 'error'
+    # — otherwise rows after the failure point would be stranded in 'cancelled',
+    # invisible to recovery with no self-healing path.
+    unprocessed = {row["id"]: row for row in rows}
 
     retried_same = 0
     replaced = 0
     skipped = 0
-    for row in rows:
-        row_content_type = row["content_type"]
-        if row_content_type == "article":
-            await database.update_job_status(row["id"], "pending")
-            try:
+    try:
+        for row in rows:
+            row_content_type = row["content_type"]
+            if row_content_type == "article":
+                await database.update_job_status(row["id"], "pending")
                 await queue.enqueue({"task": "article", "job_id": row["id"], "skip_document": True})
-            except Exception:
-                # Keep persisted state aligned with the queue: revert so the row stays
-                # retryable instead of being stranded in 'pending' with nothing queued.
-                await database.update_job_status(row["id"], "error")
-                raise
-            retried_same += 1
-            continue
-        if row_content_type == "long" and row.get("transcript"):
-            await database.update_job_status(row["id"], "enriching")
-            try:
+                retried_same += 1
+                del unprocessed[row["id"]]
+                continue
+            if row_content_type == "long" and row.get("transcript"):
+                await database.update_job_status(row["id"], "enriching")
                 await queue.enqueue({"task": "enrichment", "job_id": row["id"]})
-            except Exception:
-                await database.update_job_status(row["id"], "error")
-                raise
-            retried_same += 1
-            continue
+                retried_same += 1
+                del unprocessed[row["id"]]
+                continue
 
-        task = _task_for(row_content_type)
-        if task is None:
-            # Nothing to retry — undo the claim so the row isn't silently cancelled.
-            await database.update_job_status(row["id"], "error")
-            skipped += 1
-            continue
-        new_job_id = await database.create_job(
-            chat_id=chat_id,
-            url=row["url"],
-            content_type=row_content_type,
-            message_id=row.get("message_id"),
-            template=row.get("template"),
-            freestyle_prompt=row.get("freestyle_prompt"),
-        )
-        try:
-            await queue.enqueue({"task": task, "job_id": new_job_id})
-        except Exception:
-            # Roll back: cancel the orphan replacement and restore the original to
-            # 'error' so the user can retry cleanly. The original was already cancelled
-            # by the atomic claim, so there is no separate post-enqueue cancel to guard.
-            await database.update_job_status(new_job_id, "cancelled")
-            await database.update_job_status(row["id"], "error")
-            raise
-        replaced += 1
+            task = _task_for(row_content_type)
+            if task is None:
+                # Nothing to retry — leave it as a failed job the user still sees.
+                await database.update_job_status(row["id"], "error")
+                skipped += 1
+                del unprocessed[row["id"]]
+                continue
+            new_job_id = await database.create_job(
+                chat_id=chat_id,
+                url=row["url"],
+                content_type=row_content_type,
+                message_id=row.get("message_id"),
+                template=row.get("template"),
+                freestyle_prompt=row.get("freestyle_prompt"),
+            )
+            try:
+                await queue.enqueue({"task": task, "job_id": new_job_id})
+            except Exception:
+                # Cancel the orphan replacement before the batch rollback restores the
+                # original (still in `unprocessed`) to 'error'.
+                await database.update_job_status(new_job_id, "cancelled")
+                raise
+            replaced += 1
+            del unprocessed[row["id"]]
+    except Exception:
+        for leftover in unprocessed.values():
+            await database.update_job_status(leftover["id"], "error")
+        raise
 
     return {
         "reaped": len(reaped),

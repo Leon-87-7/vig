@@ -214,6 +214,28 @@ async def test_retry_error_claims_rows_so_repeat_calls_do_not_double_process(
 
 
 @pytest.mark.asyncio
+async def test_retry_error_restores_whole_batch_when_enqueue_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _init_tmp_db(tmp_path, monkeypatch)
+    await _insert_job("short_error_1", content_type="short", status="error")
+    await _insert_job("short_error_2", content_type="short", status="error")
+
+    async def boom(_task: dict) -> None:
+        raise RuntimeError("queue unavailable")
+
+    monkeypatch.setattr(job_recovery.queue, "enqueue", boom)
+
+    with pytest.raises(RuntimeError):
+        await job_recovery.retry_error(1, "short")
+
+    # The atomic claim cancelled both rows up front; a mid-batch queue failure must
+    # restore every unprocessed row to 'error' rather than strand the tail in 'cancelled'.
+    assert (await database.get_job("short_error_1"))["status"] == "error"
+    assert (await database.get_job("short_error_2"))["status"] == "error"
+
+
+@pytest.mark.asyncio
 async def test_retry_error_respects_notification_preference(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
