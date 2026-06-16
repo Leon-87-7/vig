@@ -95,6 +95,32 @@ async def test_retry_pending_uses_cutoff_task_mapping_and_scope(
 
 
 @pytest.mark.asyncio
+async def test_retry_pending_claims_rows_so_repeat_calls_do_not_double_enqueue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _init_tmp_db(tmp_path, monkeypatch)
+    await _insert_job("short_stale", content_type="short", status="pending", age_minutes=20)
+
+    enqueued: list[dict] = []
+
+    async def fake_enqueue(task: dict) -> None:
+        enqueued.append(task)
+
+    monkeypatch.setattr(job_recovery.queue, "enqueue", fake_enqueue)
+
+    first = await job_recovery.retry_pending(1, "short")
+    assert first == {"scanned": 1, "enqueued": 1, "skipped_fresh": 0, "skipped_non_retryable": 0}
+
+    # The claim bumped updated_at, so the row is no longer stale: a second call
+    # (concurrent tab, retry-on-error) must not re-enqueue it.
+    second = await job_recovery.retry_pending(1, "short")
+    assert second == {"scanned": 1, "enqueued": 0, "skipped_fresh": 1, "skipped_non_retryable": 0}
+
+    assert enqueued == [{"task": "video", "job_id": "short_stale"}]
+    assert (await job_recovery.recovery_summary(1, "short"))["stale_pending"] == 0
+
+
+@pytest.mark.asyncio
 async def test_retry_error_reaps_filters_retries_and_cancels_replacements(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

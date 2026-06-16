@@ -71,23 +71,36 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
     where, params = _scope_where(chat_id, content_type)
     modifier = f"-{STALE_MINUTES} minutes"
     async with database.connection() as conn:
-        cur = await conn.execute(
+        # Count fresh pending rows (left untouched) before claiming, for reporting parity.
+        fresh_cur = await conn.execute(
             f"""
-            SELECT id, content_type, updated_at < datetime('now', ?) AS is_stale
+            SELECT COUNT(*) AS fresh
             FROM jobs
-            WHERE {where} AND status = 'pending'
+            WHERE {where} AND status = 'pending' AND updated_at >= datetime('now', ?)
             """,
-            (modifier, *params),
+            (*params, modifier),
         )
-        rows = [dict(row) for row in await cur.fetchall()]
+        fresh_row = await fresh_cur.fetchone()
+        skipped_fresh = int(fresh_row["fresh"] if fresh_row else 0)
+        # Atomically claim stale pending rows by bumping updated_at. A concurrent
+        # call — or the immediate summary refresh in useRecovery.act — then no longer
+        # sees them as stale, so the same jobs can't be enqueued twice. Enqueue only
+        # what this statement actually claimed (RETURNING), never a stale snapshot.
+        claim_cur = await conn.execute(
+            f"""
+            UPDATE jobs
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE {where} AND status = 'pending' AND updated_at < datetime('now', ?)
+            RETURNING id, content_type
+            """,
+            (*params, modifier),
+        )
+        claimed = [dict(row) for row in await claim_cur.fetchall()]
+        await conn.commit()
 
     enqueued = 0
-    skipped_fresh = 0
     skipped_non_retryable = 0
-    for row in rows:
-        if not row["is_stale"]:
-            skipped_fresh += 1
-            continue
+    for row in claimed:
         task = _task_for(row["content_type"])
         if task is None:
             skipped_non_retryable += 1
@@ -96,7 +109,7 @@ async def retry_pending(chat_id: int, content_type: str | None = None) -> dict[s
         enqueued += 1
 
     return {
-        "scanned": len(rows),
+        "scanned": skipped_fresh + len(claimed),
         "enqueued": enqueued,
         "skipped_fresh": skipped_fresh,
         "skipped_non_retryable": skipped_non_retryable,

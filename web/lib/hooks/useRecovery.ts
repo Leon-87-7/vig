@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface RecoverySummary {
   stale_pending: number;
@@ -41,19 +41,27 @@ export function useRecovery(contentType: string, onRecovered: () => Promise<void
   const [acting, setActing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const next = await fetchSummary(contentType, signal);
-      if (signal?.aborted) return;
+      if (signal?.aborted || !mountedRef.current) return;
       setSummary(next);
     } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;
+      if (signal?.aborted || !mountedRef.current || (err instanceof DOMException && err.name === 'AbortError')) return;
       setError(err instanceof Error ? err.message : 'Failed to load recovery summary');
       setSummary(EMPTY_SUMMARY);
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && mountedRef.current) setLoading(false);
     }
   }, [contentType]);
 
@@ -69,11 +77,12 @@ export function useRecovery(contentType: string, onRecovered: () => Promise<void
     try {
       await runAction(path, contentType);
       await load();
+      if (!mountedRef.current) return;
       await onRecovered();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Recovery action failed');
+      if (mountedRef.current) setError(err instanceof Error ? err.message : 'Recovery action failed');
     } finally {
-      setActing(null);
+      if (mountedRef.current) setActing(null);
     }
   }, [contentType, load, onRecovered]);
 
