@@ -1,3 +1,4 @@
+import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -218,3 +219,73 @@ async def test_list_jobs_includes_resolved_thumbnail_fields(monkeypatch) -> None
 
     assert response["items"][0]["thumbnail_url"] == "https://img.youtube.com/vi/abc123/hqdefault.jpg"
     assert response["items"][0]["thumbnail_kind"] == "landscape"
+
+
+# ---------------------------------------------------------------------------
+# list_jobs limit cap tests (issue #175 — raised from 50 to 1000)
+# ---------------------------------------------------------------------------
+
+def _get_limit_query_metadata() -> list:
+    """Return the metadata annotations attached to the ``limit`` Query param."""
+    sig = inspect.signature(jobs.list_jobs)
+    return sig.parameters["limit"].default.metadata
+
+
+def test_list_jobs_limit_cap_is_1000() -> None:
+    """The ``limit`` Query parameter must accept up to 1000 (the preload cap)."""
+    metadata = _get_limit_query_metadata()
+    le_constraints = [m for m in metadata if type(m).__name__ == "Le"]
+    assert len(le_constraints) == 1, "Expected exactly one Le constraint on limit"
+    assert le_constraints[0].le == 1000, (
+        f"Expected limit cap to be 1000 (the client-mode preload ceiling), got {le_constraints[0].le}"
+    )
+
+
+def test_list_jobs_limit_ge_is_still_1() -> None:
+    """The lower bound on ``limit`` must remain 1."""
+    metadata = _get_limit_query_metadata()
+    ge_constraints = [m for m in metadata if type(m).__name__ == "Ge"]
+    assert len(ge_constraints) == 1
+    assert ge_constraints[0].ge == 1
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_accepts_limit_1000(monkeypatch) -> None:
+    """Passing limit=1000 to list_jobs must not raise; it is now a valid value."""
+
+    class FakeCursor:
+        async def fetchone(self):
+            return (0,)
+
+        async def fetchall(self):
+            return []
+
+    class FakeConn:
+        async def execute(self, *_args, **_kwargs):
+            return FakeCursor()
+
+    class FakeConnection:
+        async def __aenter__(self):
+            return FakeConn()
+
+        async def __aexit__(self, *_args):
+            return None
+
+    monkeypatch.setattr(jobs.database, "connection", lambda: FakeConnection())
+    async def _fake_get_thumbnail_job_ids(_ids: list) -> set:
+        return set()
+
+    monkeypatch.setattr(
+        jobs.database,
+        "get_thumbnail_job_ids",
+        _fake_get_thumbnail_job_ids,
+    )
+
+    # Must not raise; with no rows the response is an empty list.
+    response = await jobs.list_jobs(
+        SimpleNamespace(state=SimpleNamespace(user={"id": 1})),
+        page=1,
+        limit=1000,
+    )
+    assert response["items"] == []
+    assert response["limit"] == 1000

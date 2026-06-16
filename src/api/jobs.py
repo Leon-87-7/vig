@@ -151,7 +151,7 @@ async def list_jobs(
     content_type: str | None = Query(default=None),
     status: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=50),
+    limit: int = Query(default=20, ge=1, le=1000),
 ) -> dict:
     """List jobs for the authenticated user with optional filters and pagination."""
     chat_id: int = request.state.user["id"]
