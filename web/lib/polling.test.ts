@@ -81,4 +81,62 @@ describe('startPolling tick', () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(fetchFn.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
+
+  // --------------------------------------------------------------------------
+  // Visibility-pause behaviour (all polling pauses when the tab is hidden)
+  // --------------------------------------------------------------------------
+
+  it('does not call fetchFn while the document is hidden', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    });
+
+    const fetchFn = vi.fn(async () => {});
+    const isIdleFn = vi.fn(() => false);
+
+    startPolling(fetchFn, isIdleFn, 1000);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(fetchFn).not.toHaveBeenCalled();
+
+    // Restore for other tests.
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+  });
+
+  it('resumes calling fetchFn after the tab becomes visible again', async () => {
+    // Start hidden.
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    });
+
+    const fetchFn = vi.fn(async () => {});
+    const isIdleFn = vi.fn(() => false);
+
+    startPolling(fetchFn, isIdleFn, 1000);
+
+    // While hidden, two ticks pass — no calls.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(fetchFn).not.toHaveBeenCalled();
+
+    // Tab becomes visible.
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+
+    // Next tick fires.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+
+    // Restore for other tests.
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'visible',
+    });
+  });
 });

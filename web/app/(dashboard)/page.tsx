@@ -5,11 +5,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFeedData } from "@/lib/hooks/useFeedData";
 import { useFuseSearch } from "@/lib/hooks/useFuseSearch";
 import { useInFlightPolling } from "@/lib/hooks/useInFlightPolling";
+import { useBackgroundFreshness } from "@/lib/hooks/useBackgroundFreshness";
 import { JobCard } from "@/components/job-card";
 import { StatsOverview } from "@/components/feed/stats-overview";
 import { FilterBar } from "@/components/feed/filter-bar";
 import { SkeletonGrid, SkeletonList, ErrorBanner, EmptyState } from "@/components/feed/feed-states";
 import { PreviewGrid } from "@/components/feed/preview-grid";
+import { RecoveryPanel } from "@/components/feed/recovery-panel";
 
 const CONTENT_TYPES = new Set(["short", "long", "article", "repo"]);
 
@@ -32,6 +34,11 @@ function FeedPageContent() {
   const { ctFilter, setCtFilter, stFilter, setStFilter, stats, jobs, total, loading, error, reload } = useFeedData(urlContentType);
   const { query, setQuery, displayedJobs } = useFuseSearch(jobs);
   useInFlightPolling(jobs, reload);
+  useBackgroundFreshness(reload);
+
+  const refreshFeed = useCallback(async () => {
+    await reload();
+  }, [reload]);
 
   useEffect(() => {
     setCtFilter(urlContentType);
@@ -74,6 +81,7 @@ function FeedPageContent() {
         ctFilter={ctFilter} setCtFilter={setContentType}
         contentTypeCounts={contentTypeCounts} totalCount={stats?.total ?? 0}
         stFilter={stFilter} setStFilter={setStFilter}
+        recoveryPanel={<RecoveryPanel contentType={ctFilter} onRecovered={refreshFeed} />}
       />
 
       <section className="mt-8">
