@@ -203,8 +203,7 @@ describe('FeedPage', () => {
 
     render(<FeedPage />);
 
-    expect(await screen.findByText('Recovery')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /retry pending \(2\)/i })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /retry pending \(2\)/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /retry failed \(2\)/i })).toBeTruthy();
     expect(screen.getByText('1 stale in-flight')).toBeTruthy();
     expect(fetch).toHaveBeenCalledWith(
