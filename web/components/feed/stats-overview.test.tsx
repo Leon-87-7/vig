@@ -43,8 +43,8 @@ describe('StatsOverview', () => {
     expect(screen.getByText('Processing')).toBeTruthy();
   });
 
-  it('renders overview section heading', () => {
+  it('labels the overview region for assistive tech', () => {
     render(<StatsOverview stats={makeStats()} />);
-    expect(screen.getByText('Overview')).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Overview' })).toBeTruthy();
   });
 });

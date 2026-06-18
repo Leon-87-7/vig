@@ -3,8 +3,7 @@ import type { FeedStats } from "@/lib/hooks/useFeedData";
 
 export function StatsOverview({ stats }: { stats: FeedStats }) {
   return (
-    <section className="mt-6">
-      <h2 className="mb-3 text-base font-semibold text-ink">Overview</h2>
+    <section className="mt-5" aria-label="Overview">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total" value={stats.total} />
         <StatCard label="Done" value={stats.by_status.done ?? 0} valueClass="text-status-done" />

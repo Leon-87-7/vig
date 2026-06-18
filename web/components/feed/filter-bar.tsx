@@ -88,26 +88,29 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, contentTypeC
 
   return (
     <section className="mt-8 flex flex-col gap-3" aria-label="Search and filters">
-      <div className="-mx-1 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Content type">
-        <div className="flex min-w-max items-center gap-1">
-          {tabs.map((tab) => (
-            <ContentTypeTab
-              key={tab.value}
-              {...tab}
-              active={ctFilter === tab.value}
-              onClick={() => setCtFilter(tab.value)}
-            />
-          ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="min-w-0 overflow-x-auto" role="tablist" aria-label="Content type">
+          <div className="flex min-w-max items-center gap-1">
+            {tabs.map((tab) => (
+              <ContentTypeTab
+                key={tab.value}
+                {...tab}
+                active={ctFilter === tab.value}
+                onClick={() => setCtFilter(tab.value)}
+              />
+            ))}
+          </div>
         </div>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search by title or URL"
+          placeholder="Search by title or URL…"
+          className="h-9 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:min-w-0 sm:flex-1"
+        />
       </div>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by title or URL…"
-        className="h-10 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
-      />
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg border border-line bg-surface p-3">
         <div className="flex flex-wrap items-center gap-1">
           {STATUS_FILTERS.map(({ label, value }) => (
             <FilterButton key={value} label={label} active={stFilter === value} onClick={() => setStFilter(value)} />

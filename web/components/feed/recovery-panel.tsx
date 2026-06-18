@@ -20,7 +20,7 @@ function RecoveryButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-medium text-body transition-ui hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:bg-canvas disabled:text-muted"
+      className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-medium text-body shadow-[0_2px_5px_-1px_rgba(0,0,0,0.55)] transition-ui hover:border-line-strong hover:bg-raised hover:text-ink hover:shadow-[0_3px_7px_-1px_rgba(0,0,0,0.6)] active:translate-y-px active:shadow-none disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-muted disabled:shadow-none"
     >
       {children}
     </button>
@@ -52,15 +52,15 @@ export function RecoveryPanel({
     void clearFailed();
   };
 
+  // Fragment (not a display:contents section) so the controls row and the error line
+  // flow as direct children of the parent plate while the group label lives on a real,
+  // reliably-exposed element.
   return (
-    <section aria-label="Recovery" className="rounded-lg border border-line bg-surface p-3">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-ink">Recovery</h2>
+    <>
+      <div role="group" aria-label="Recovery" className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] text-muted">
           {summary.stale_in_flight} stale in-flight
         </span>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <RecoveryButton disabled={disabled || summary.stale_pending === 0} onClick={() => void retryPending()}>
           {acting === 'pending' ? 'Retrying...' : `Retry pending (${summary.stale_pending})`}
         </RecoveryButton>
@@ -71,7 +71,7 @@ export function RecoveryPanel({
           {acting === 'clear' ? 'Clearing...' : `Clear failed (${summary.error_jobs})`}
         </RecoveryButton>
       </div>
-      {error && <p className="mt-2 text-xs text-status-error">{error}</p>}
-    </section>
+      {error && <p className="w-full text-xs text-status-error">{error}</p>}
+    </>
   );
 }
