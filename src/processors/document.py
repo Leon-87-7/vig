@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from src import database
 from src.services import storage
-from src.services.parse import parse_pdf
+from src.services.parse import ParseError, parse_pdf
 from src.telegram.sender import send_document, send_message
 from src.utils.logger import get_logger
 
@@ -157,6 +157,8 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     else:
         pdf_bytes = await storage.download(key)
         text = await parse_pdf(pdf_bytes)  # raises ParseError on failure
+        if not text.strip():  # scanned/image-only PDF: don't cache an empty parse
+            raise ParseError("No text could be extracted — this PDF may be scanned or image-only (OCR not supported)")
         await storage.upload(parsed_key, text.encode("utf-8"), "text/plain")
         log.info("document.parsed", job_id=job_id, sha=sha, chars=len(text))
 

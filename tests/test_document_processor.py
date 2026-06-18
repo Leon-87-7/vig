@@ -127,6 +127,21 @@ async def test_enrichment_failure_propagates(patched):
 
 
 @pytest.mark.asyncio
+async def test_empty_parse_raises_before_cache_upload(patched):
+    """Scanned/image-only PDF parses to whitespace — must raise, not cache an empty .txt."""
+    from src.services.parse import ParseError
+    document, m = patched
+    m["exists"].return_value = False
+    m["parse_pdf"].return_value = "  \n  "
+
+    with pytest.raises(ParseError):
+        await document.run(_job())
+
+    m["upload"].assert_not_called()  # empty parse never cached
+    assert all(c.args[1] != "done" for c in m["update_job_status"].call_args_list)
+
+
+@pytest.mark.asyncio
 async def test_tenant_scoped_ownership_shared_parse(patched):
     """Two chats sending the same PDF share parsed/<sha>.txt but update their own job row."""
     document, m = patched
