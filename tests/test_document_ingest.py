@@ -1,7 +1,8 @@
-"""Unit tests for Telegram PDF upload ingestion (#151)."""
+"""Unit tests for Telegram PDF upload ingestion (#151) + URL routing (#152)."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -97,3 +98,54 @@ async def test_photo_message_does_not_hit_document_handler(monkeypatch):
 
     photo_handler.assert_awaited_once()
     doc_handler.assert_not_called()
+
+
+def _patch_httpx(monkeypatch, webhook, *, content: bytes, raise_exc: Exception | None = None):
+    """Patch webhook.httpx.AsyncClient to return a response with `content`."""
+    resp = MagicMock()
+    resp.content = content
+    resp.raise_for_status = MagicMock()
+    client = MagicMock()
+    client.get = AsyncMock(side_effect=raise_exc) if raise_exc else AsyncMock(return_value=resp)
+
+    @asynccontextmanager
+    async def _fake_client(*a, **k):
+        yield client
+
+    monkeypatch.setattr(webhook.httpx, "AsyncClient", _fake_client)
+
+
+@pytest.mark.asyncio
+async def test_route_document_url_fetches_uploads_enqueues(patched, monkeypatch):
+    webhook, m = patched
+    _patch_httpx(monkeypatch, webhook, content=b"%PDF-1.5 from url")
+
+    await webhook._route_document_url(chat_id=9, url="https://x.tld/a.pdf", message_id=3)
+
+    (key, data, ctype), _ = m["upload"].call_args
+    assert key.startswith("documents/") and key.endswith(".pdf")
+    assert data == b"%PDF-1.5 from url"
+    assert m["create_job"].call_args.kwargs["content_type"] == "document"
+    m["enqueue"].assert_awaited_once_with({"task": "document", "job_id": "20260618_000000_ABCD"})
+
+
+@pytest.mark.asyncio
+async def test_route_document_url_non_pdf_body_rejected(patched, monkeypatch):
+    webhook, m = patched
+    _patch_httpx(monkeypatch, webhook, content=b"<html>not a pdf</html>")
+
+    await webhook._route_document_url(chat_id=9, url="https://x.tld/a.pdf", message_id=3)
+
+    m["create_job"].assert_not_called()
+    assert "didn't return a pdf" in m["send_message"].call_args.args[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_route_document_url_fetch_failure_rejected(patched, monkeypatch):
+    webhook, m = patched
+    _patch_httpx(monkeypatch, webhook, content=b"", raise_exc=RuntimeError("boom"))
+
+    await webhook._route_document_url(chat_id=9, url="https://x.tld/a.pdf", message_id=3)
+
+    m["create_job"].assert_not_called()
+    m["upload"].assert_not_called()

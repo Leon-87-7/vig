@@ -6,6 +6,8 @@ import asyncio
 import hashlib
 import html
 from collections.abc import Awaitable, Callable
+
+import httpx
 from secrets import compare_digest
 from urllib.parse import urlparse
 from dataclasses import dataclass
@@ -1142,6 +1144,9 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
     if pipeline == "rejected":
         await _reject_url(chat_id, text)
         return
+    if pipeline == "document":
+        await _route_document_url(chat_id, text, message_id)
+        return
     if pipeline == "article":
         await _route_article(chat_id, text, message_id, pending_template)
         return
@@ -1149,6 +1154,31 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
         await _route_repo(chat_id, text, message_id, pending_template, client)
         return
     await _route_video(chat_id, text, pipeline, message_id, pending_template)
+
+
+async def _route_document_url(chat_id: int, url: str, message_id: int | None) -> None:
+    """Fetch a .pdf URL, store it content-addressed, and enqueue a document job (#152)."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            data = resp.content
+    except Exception:
+        log.info("document_url_fetch_failed", chat_id=chat_id, url=url)
+        await send_message(chat_id, "📄 Couldn't download that PDF. Check the link and try again.")
+        return
+    if not data.startswith(b"%PDF"):
+        await send_message(chat_id, "📄 That link didn't return a PDF.")
+        log.info("document_url_not_pdf", chat_id=chat_id, url=url)
+        return
+    sha = hashlib.sha256(data).hexdigest()
+    key = storage.object_key("documents", sha, "pdf")
+    await storage.upload(key, data, "application/pdf")
+    job_id = await database.create_job(
+        chat_id=chat_id, url=key, content_type="document", message_id=message_id,
+    )
+    await queue.enqueue({"task": "document", "job_id": job_id})
+    await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
 
 
 @router.post("/webhook")
