@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/badges";
 import { PlatformBadge } from "@/components/platform-icon";
+import { DateTime } from "@/components/date-time";
 
 export interface JobSummary {
   id: string;
@@ -35,7 +36,7 @@ export function JobCard({ job }: JobCardProps) {
         </div>
       </div>
       <p className="mt-1 font-mono text-xs text-muted">
-        {new Date(job.created_at).toLocaleString()}
+        <DateTime iso={job.created_at} />
       </p>
     </Link>
   );

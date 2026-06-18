@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/badges";
+import { DateTime } from "@/components/date-time";
 import type { JobSummary } from "@/components/job-card";
 import { PlatformGlyph } from "@/components/platform-icon";
 
@@ -67,7 +68,7 @@ export function PreviewCard({ job, platformGlyph }: PreviewCardProps) {
 
         <div className="mt-auto flex items-center justify-between gap-3">
           <span className="truncate font-mono text-xs text-muted" title={job.created_at}>
-            {new Date(job.created_at).toLocaleString()}
+            <DateTime iso={job.created_at} />
           </span>
           <StatusBadge label={job.status} />
         </div>

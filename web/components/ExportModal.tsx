@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useGdocExport } from "@/lib/hooks/useGdocExport";
 import { Spinner } from "@/components/ui";
 
@@ -17,7 +17,8 @@ function downloadBlob(content: string, filename: string, mime: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // ponytail: defer — Firefox cancels the download if the URL is revoked synchronously.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function printMarkdown(spaceName: string, markdown: string) {
@@ -38,8 +39,45 @@ export default function ExportModal({ spaceId, spaceName, onClose }: ExportModal
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const { trigger, status: gdocStatus, error: gdocError, errorCode: gdocErrorCode, resultUrl: gdocUrl } = useGdocExport(spaceId);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const safeName = spaceName.replace(/[/\\:*?"<>|]/g, "_");
+
+  // Move focus into the dialog on mount; return it to the trigger on unmount (APG dialog pattern).
+  // Mount-only so a parent re-render (e.g. an inline onClose identity change) can't round-trip focus.
+  useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => previousFocus?.focus();
+  }, []);
+
+  // Close on Escape — kept current with onClose without disturbing focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Trap Tab within the dialog so focus can't escape behind the backdrop (APG dialog pattern).
+  const trapTab = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !dialogRef.current) return;
+    const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/spaces/${spaceId}/export/markdown`)
@@ -55,11 +93,19 @@ export default function ExportModal({ spaceId, spaceName, onClose }: ExportModal
   const loading = markdown === null && !loadError;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-overlay">
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapTab}
+        className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-overlay"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-ink">Export &quot;{spaceName}&quot;</h2>
-          <button onClick={onClose} className="rounded p-1 text-muted transition-ui hover:bg-raised hover:text-ink" aria-label="Close">✕</button>
+          <h2 id="export-modal-title" className="text-base font-semibold text-ink">Export &quot;{spaceName}&quot;</h2>
+          <button ref={closeButtonRef} onClick={onClose} className="rounded p-1 text-muted transition-ui hover:bg-raised hover:text-ink" aria-label="Close">✕</button>
         </div>
 
         {loading ? (

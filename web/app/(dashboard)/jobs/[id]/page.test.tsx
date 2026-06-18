@@ -60,6 +60,9 @@ const JOB = {
   promise_gap: null,
   template: null,
   template_analysis: null,
+  summary: null,
+  transcript: null,
+  key_phrases: null,
 };
 
 function setupMocks(
