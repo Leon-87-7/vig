@@ -5,6 +5,36 @@ status: accepted
 date: 2026-06-08
 ---
 
+## MVP scope (2026-06-18 update)
+
+The first shipping slice (issues #150–#155) is **narrowed to PDF-only**, which
+changes two of the structural decisions below. The full design (Office + image
+formats, the sidecar) remains the accepted target; it is **deferred**, not
+rejected.
+
+- **PDF-only at MVP.** Verified against the package and upstream docs: liteparse
+  parses **PDF with zero native system dependencies** (no LibreOffice, no
+  ImageMagick, no Tesseract). Those binaries are not removable bloat — each maps
+  1:1 to a format family: LibreOffice *is* the DOCX/PPTX/XLSX path, and
+  ImageMagick+Tesseract *is* the image/OCR path. So "lean" is only achievable by
+  narrowing format scope. DOCX/PPTX/XLSX/PNG/JPG/JPEG are deferred until there is
+  real upload demand.
+- **No `vig-document` sidecar at MVP (supersedes Decision #1 and #2 for now).**
+  The sidecar's sole justification was quarantining the ~1GB native-binary
+  stack. PDF-only liteparse is a plain `pip install`, so it runs **inline in
+  `vig-worker`** — `src/processors/document.py` calls `liteparse` in-process.
+  No new always-on container, no HTTP contract, no `src/services/liteparse.py`
+  client. If/when Office+image formats are added, the sidecar (and the GCS
+  reference-in/text-out HTTP contract in Decision #2) returns exactly as
+  specified below.
+- **Unchanged by this narrowing:** the GCS content-addressed cache (Decision #4),
+  tenant isolation (Decision #5), the `content_type="document"` /
+  `{"task":"document"}` / `src/processors/document.py` shape (Decision #6), the
+  document enrichment schema, on-demand Markdown (Decision #3), and the 20MB
+  Telegram rejection (Decision #7). The `📄 Get Markdown` and `✍️ Freestyle`
+  buttons (issues #156/#157) land in a follow-up PR — the MVP slice delivers the
+  `.txt` + enrichment summary without those buttons rather than ship dead UI.
+
 ## Context
 
 vig has four URL-routed pipelines (short video, long video, article, repo).
