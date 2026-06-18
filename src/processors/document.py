@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from src import database
 from src.services import storage
 from src.services.parse import parse_pdf
-from src.telegram.sender import send_message
+from src.telegram.sender import send_document, send_message
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -120,14 +120,26 @@ def _decode_template_analysis(job: dict) -> dict:
         return {}
 
 
-async def _deliver(job: dict, tools: list[dict], references: list[str]) -> None:
-    """Send the enrichment summary. Guarded so a delivery failure never rolls
-    back the already-persisted 'done' state (#155 extends this with the .txt)."""
+def _safe_filename(title: str, max_len: int = 80) -> str:
+    safe = re.sub(r"[^a-zA-Z0-9 \-_]", "", title or "").strip()[:max_len]
+    return safe or "document"
+
+
+async def _deliver(job: dict, text: str, tools: list[dict], references: list[str]) -> None:
+    """Send the parsed .txt (primary portable artifact) then the enrichment
+    summary. Each send is guarded independently so a delivery failure never
+    rolls back the already-persisted 'done' state (#155)."""
+    chat_id = job["chat_id"]
+    filename = _safe_filename(job.get("title")) + ".txt"
+    try:
+        await send_document(chat_id, text.encode("utf-8"), filename)
+    except Exception:
+        log.exception("document.txt_delivery_failed", job_id=job["id"])
     try:
         msg = _build_enrichment_message(job, tools, references)
-        await send_message(job["chat_id"], msg, parse_mode="HTML")
+        await send_message(chat_id, msg, parse_mode="HTML")
     except Exception:
-        log.exception("document.delivery_failed", job_id=job["id"])
+        log.exception("document.summary_delivery_failed", job_id=job["id"])
 
 
 async def run(job: dict, *, skip_document: bool = False) -> None:
@@ -180,5 +192,5 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     )
 
     refreshed = await database.get_job(job_id)
-    await _deliver(refreshed or job, tools, references)
+    await _deliver(refreshed or job, text, tools, references)
     log.info("document_complete", job_id=job_id, title=data.get("title", "")[:80])

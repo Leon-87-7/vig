@@ -29,6 +29,7 @@ def patched(monkeypatch):
         "parse_pdf": AsyncMock(return_value="extracted document text"),
         "update_job_status": AsyncMock(),
         "send_message": AsyncMock(return_value={}),
+        "send_document": AsyncMock(return_value={}),
         "get_job": AsyncMock(side_effect=lambda jid: {"id": jid, "chat_id": 7, "title": "On Widgets",
                                                       "ai_objective": "How widgets work.",
                                                       "ai_action_points": "p1 | p2",
@@ -42,6 +43,7 @@ def patched(monkeypatch):
     monkeypatch.setattr(document.database, "update_job_status", mocks["update_job_status"])
     monkeypatch.setattr(document.database, "get_job", mocks["get_job"])
     monkeypatch.setattr(document, "send_message", mocks["send_message"])
+    monkeypatch.setattr(document, "send_document", mocks["send_document"])
     # gemini_client is imported lazily inside run(); patch the attribute on the module.
     import src.services.gemini as gemini
     monkeypatch.setattr(gemini.gemini_client, "generate", mocks["generate"])
@@ -121,6 +123,24 @@ async def test_tenant_scoped_ownership_shared_parse(patched):
 
     done_ids = [c.args[0] for c in m["update_job_status"].call_args_list if c.args[1] == "done"]
     assert done_ids == ["JOB_A", "JOB_B"]  # each row updated by its own id
+
+
+@pytest.mark.asyncio
+async def test_happy_path_sends_txt_then_summary_no_buttons(patched):
+    document, m = patched
+    m["exists"].return_value = False  # parse → text = "extracted document text"
+
+    await document.run(_job())
+
+    # primary artifact: the parsed .txt named after the title
+    (chat_id, body, filename), _ = m["send_document"].call_args
+    assert filename == "On Widgets.txt"
+    assert body == b"extracted document text"
+    # enrichment summary sent as HTML (status msg + summary = 2 send_message calls)
+    assert m["send_message"].await_count == 2
+    assert m["send_message"].call_args.kwargs.get("parse_mode") == "HTML"
+    # buttons deferred: the processor never imports/sends an inline keyboard
+    assert not hasattr(document, "send_inline_keyboard")
 
 
 @pytest.mark.asyncio
