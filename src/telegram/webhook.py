@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import html
+import ipaddress
+import socket
 from collections.abc import Awaitable, Callable
 
 import httpx
@@ -1156,14 +1158,56 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
     await _route_video(chat_id, text, pipeline, message_id, pending_template)
 
 
+def _is_public_host(host: str) -> bool:
+    """True only when every resolved address for *host* is a public, routable IP.
+
+    Blocks SSRF to loopback / private / link-local (incl. 169.254.169.254 cloud
+    metadata) / reserved ranges. ponytail: validates via getaddrinfo, not pinned
+    to the socket — a DNS-rebinding attacker could still race the resolution;
+    upgrade to an IP-pinned httpx transport if that threat becomes real.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
+async def _safe_get_pdf(url: str) -> bytes | None:
+    """GET a user-supplied URL with SSRF guards. Returns body bytes or None.
+
+    Redirects are followed manually so each hop's host is re-validated (httpx's
+    own follow_redirects would skip the check on subsequent hops).
+    """
+    for _ in range(5):  # redirect cap
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return None
+        if not _is_public_host(parsed.hostname):
+            log.warning("document_url_blocked_ssrf", host=parsed.hostname)
+            return None
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
+            resp = await client.get(url)
+        if resp.is_redirect and resp.next_request is not None:
+            url = str(resp.next_request.url)
+            continue
+        resp.raise_for_status()
+        return resp.content
+    return None  # too many redirects
+
+
 async def _route_document_url(chat_id: int, url: str, message_id: int | None) -> None:
     """Fetch a .pdf URL, store it content-addressed, and enqueue a document job (#152)."""
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.content
+        data = await _safe_get_pdf(url)
     except Exception:
+        data = None
+    if data is None:
         log.info("document_url_fetch_failed", chat_id=chat_id, url=url)
         await send_message(chat_id, "📄 Couldn't download that PDF. Check the link and try again.")
         return

@@ -101,9 +101,12 @@ async def test_photo_message_does_not_hit_document_handler(monkeypatch):
 
 
 def _patch_httpx(monkeypatch, webhook, *, content: bytes, raise_exc: Exception | None = None):
-    """Patch webhook.httpx.AsyncClient to return a response with `content`."""
+    """Patch the SSRF host check + httpx.AsyncClient to return `content` (no redirect)."""
+    monkeypatch.setattr(webhook, "_is_public_host", lambda host: True)
     resp = MagicMock()
     resp.content = content
+    resp.is_redirect = False
+    resp.next_request = None
     resp.raise_for_status = MagicMock()
     client = MagicMock()
     client.get = AsyncMock(side_effect=raise_exc) if raise_exc else AsyncMock(return_value=resp)
@@ -149,3 +152,30 @@ async def test_route_document_url_fetch_failure_rejected(patched, monkeypatch):
 
     m["create_job"].assert_not_called()
     m["upload"].assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url", [
+    "http://127.0.0.1/secret.pdf",
+    "http://169.254.169.254/latest/meta-data/x.pdf",  # cloud metadata
+    "http://[::1]/x.pdf",
+    "file:///etc/passwd.pdf",
+])
+async def test_route_document_url_blocks_ssrf(patched, monkeypatch, url):
+    """Internal/loopback/metadata/non-http targets are blocked before any fetch."""
+    webhook, m = patched
+    # Real _is_public_host (not patched); ensure no network even if it slipped through.
+    called = {"got": False}
+
+    @asynccontextmanager
+    async def _boom(*a, **k):
+        called["got"] = True
+        yield MagicMock()
+
+    monkeypatch.setattr(webhook.httpx, "AsyncClient", _boom)
+
+    await webhook._route_document_url(chat_id=9, url=url, message_id=3)
+
+    m["upload"].assert_not_called()
+    m["create_job"].assert_not_called()
+    assert called["got"] is False  # never opened a client for a blocked literal IP
