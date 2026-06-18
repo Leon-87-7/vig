@@ -118,6 +118,14 @@
 | [#165](https://github.com/Leon-87-7/vig/issues/165) | fix(web/feed): guard feed fetch race so tabs only show their content type                                  | Web / Feed               | Merged; PR #173; closed on GH                                                              |
 | [#166](https://github.com/Leon-87-7/vig/issues/166) | fix(web/feed): scope Overview stat cards to the active content-type tab                                    | Web / Feed               | Merged; PR #173; closed on GH                                                              |
 | [#94](https://github.com/Leon-87-7/vig/issues/94)   | web(S12): Deploy — docker-compose 'web' service + Dockerfile + app./api. subdomains \[HITL]                | Web / Ops                | HITL deploy; closed on GH                                                                  |
+| [#167](https://github.com/Leon-87-7/vig/issues/167) | web(jobs): recovery panel summary by active feed tab                                                       | Web / Jobs               | Merged; PR #174; closed on GH                                                              |
+| [#168](https://github.com/Leon-87-7/vig/issues/168) | web(jobs): retry stale pending jobs from recovery panel                                                    | Web / Jobs               | Merged; PR #174; closed on GH                                                              |
+| [#169](https://github.com/Leon-87-7/vig/issues/169) | web(jobs): retry failed jobs with tenant-scoped stale reaping                                              | Web / Jobs               | Merged; PR #174; closed on GH                                                              |
+| [#170](https://github.com/Leon-87-7/vig/issues/170) | web(jobs): clear failed jobs as cancelled from recovery panel                                              | Web / Jobs               | Merged; PR #174; closed on GH                                                              |
+| [#171](https://github.com/Leon-87-7/vig/issues/171) | web(controls): opt out of dashboard recovery Telegram notifications                                        | Web / Controls           | Merged; PR #174; closed on GH                                                              |
+| [#175](https://github.com/Leon-87-7/vig/issues/175) | feat(web): client-side feed filtering (preload + instant filters)                                          | Web / Feed               | Merged; PR #178; closed on GH                                                              |
+| [#176](https://github.com/Leon-87-7/vig/issues/176) | feat(ops): keep-warm ping to eliminate API cold-start spike                                                | Ops                      | Merged; PR #178; closed on GH                                                              |
+| [#177](https://github.com/Leon-87-7/vig/issues/177) | feat(web): silent background freshness (focus-refetch + backstop poll)                                      | Web / Feed               | Merged; PR #178; closed on GH                                                              |
 
 ---
 
@@ -125,11 +133,6 @@
 
 |                                                   # | Title | Area | Depends On |
 | --------------------------------------------------: | ----- | ---- | ---------- |
-| [#167](https://github.com/Leon-87-7/vig/issues/167) | web(jobs): recovery panel summary by active feed tab | Web / Jobs | — |
-| [#168](https://github.com/Leon-87-7/vig/issues/168) | web(jobs): retry stale pending jobs from recovery panel | Web / Jobs | #167 |
-| [#169](https://github.com/Leon-87-7/vig/issues/169) | web(jobs): retry failed jobs with tenant-scoped stale reaping | Web / Jobs | #167 |
-| [#170](https://github.com/Leon-87-7/vig/issues/170) | web(jobs): clear failed jobs as cancelled from recovery panel | Web / Jobs | #167 |
-| [#171](https://github.com/Leon-87-7/vig/issues/171) | web(controls): opt out of dashboard recovery Telegram notifications | Web / Controls | #169 |
 
 ---
 
@@ -342,12 +345,18 @@ Feed/detail bug fixes (docs/bugs/2026-06-15-*.md)
 Critical path: #165 → #166; #164 parallel (all ✅-Done)
 
 Dashboard recovery panel (ADR-0026)
-#167 recovery summary + panel shell
-├── #168 retry stale pending jobs
-├── #169 retry failed jobs + tenant-scoped stale reaping
-│   └── #171 Controls opt-out for recovery Telegram notifications
-└── #170 clear failed jobs as cancelled
-Critical path: #167 → {#168, #169, #170}; #171 follows #169
+#167 recovery summary + panel shell ✅-Done (PR #174)
+├── #168 retry stale pending jobs ✅-Done
+├── #169 retry failed jobs + tenant-scoped stale reaping ✅-Done
+│   └── #171 Controls opt-out for recovery Telegram notifications ✅-Done
+└── #170 clear failed jobs as cancelled ✅-Done
+Critical path: #167 → {#168, #169, #170}; #171 follows #169 (all ✅-Done)
+
+Feed freshness + keep-warm (PR #178)
+#175 client-side feed filtering (preload + instant filters) ✅-Done
+#176 keep-warm ping — eliminate API cold-start spike ✅-Done
+#177 silent background freshness (focus-refetch + backstop poll) ✅-Done
+Critical path: #175, #176, #177 are independent — no dependency between them (all ✅-Done)
 ```
 
 ---
@@ -356,12 +365,16 @@ Critical path: #167 → {#168, #169, #170}; #171 follows #169
 
 |                                                 # | Title                                  | Branch→Base                       | Linked Issue                 | Status |
 | ------------------------------------------------: | -------------------------------------- | --------------------------------- | ---------------------------- | ------ |
-| [#174](https://github.com/Leon-87-7/vig/pull/174) | feat(web): add dashboard job recovery panel | codex-dashboard-recovery-panel→main | #167, #168, #169, #170, #171 | Open   |
 
 ## Closed PRs
 
 |                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status    |
 | ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | --------- |
+| [#181](https://github.com/Leon-87-7/vig/pull/181) | feat(web/feed): tighten stats + filter layout, merge recovery into a controls bar                      | feat/web-feed-layout→main                  | —                   | ✅ Merged |
+| [#180](https://github.com/Leon-87-7/vig/pull/180) | fix(web): localize dates, harden ExportModal, clear dead code + cover untested logic                   | feat/web-date-localization→main            | —                   | ✅ Merged |
+| [#179](https://github.com/Leon-87-7/vig/pull/179) | chore: ponytail-audit cleanup — drop shims, dead flag, committed pyscn snapshots                       | chore/ponytail-cleanup→main                | —                   | ✅ Merged |
+| [#178](https://github.com/Leon-87-7/vig/pull/178) | feat(web): instant feed filtering + silent freshness + keep-warm ping (#175–#177)                      | feat/175-177-feed-freshness→main           | #175, #176, #177    | ✅ Merged |
+| [#174](https://github.com/Leon-87-7/vig/pull/174) | feat(web): add dashboard job recovery panel                                                            | codex-dashboard-recovery-panel→main        | #167, #168, #169, #170, #171 | ✅ Merged |
 | [#173](https://github.com/Leon-87-7/vig/pull/173) | fix(web/feed): guard feed fetch race so tabs only show their content type                              | fix/165-feed-race-guard→main               | #165, #166          | ✅ Merged |
 | [#172](https://github.com/Leon-87-7/vig/pull/172) | fix(web/jobs): populate short-pipeline job detail pages                                                 | fix/164-short-job-detail→main              | #164                | ✅ Merged |
 | [#163](https://github.com/Leon-87-7/vig/pull/163) | fix(article/backfill): continue og:image scan on bad scheme; SQL LIMIT on short backfill               | fix/greptile-149-followup→main             | —                   | ✅ Merged |
