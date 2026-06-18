@@ -1158,7 +1158,7 @@ async def _route_url(chat_id: int, text: str, message_id: int) -> None:
     await _route_video(chat_id, text, pipeline, message_id, pending_template)
 
 
-def _is_public_host(host: str) -> bool:
+async def _is_public_host(host: str) -> bool:
     """True only when every resolved address for *host* is a public, routable IP.
 
     Blocks SSRF to loopback / private / link-local (incl. 169.254.169.254 cloud
@@ -1167,7 +1167,7 @@ def _is_public_host(host: str) -> bool:
     upgrade to an IP-pinned httpx transport if that threat becomes real.
     """
     try:
-        infos = socket.getaddrinfo(host, None)
+        infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
     except socket.gaierror:
         return False
     for info in infos:
@@ -1188,16 +1188,25 @@ async def _safe_get_pdf(url: str) -> bytes | None:
         parsed = urlparse(url)
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             return None
-        if not _is_public_host(parsed.hostname):
+        if not await _is_public_host(parsed.hostname):
             log.warning("document_url_blocked_ssrf", host=parsed.hostname)
             return None
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
-            resp = await client.get(url)
-        if resp.is_redirect and resp.next_request is not None:
-            url = str(resp.next_request.url)
-            continue
-        resp.raise_for_status()
-        return resp.content
+            async with client.stream("GET", url) as resp:
+                if resp.is_redirect and resp.next_request is not None:
+                    url = str(resp.next_request.url)
+                    continue
+                resp.raise_for_status()
+                if int(resp.headers.get("content-length") or 0) > _MAX_DOC_BYTES:
+                    log.warning("document_url_too_large", host=parsed.hostname)
+                    return None
+                buf = bytearray()
+                async for chunk in resp.aiter_bytes():
+                    buf += chunk
+                    if len(buf) > _MAX_DOC_BYTES:  # streamed cap: trust no Content-Length
+                        log.warning("document_url_too_large", host=parsed.hostname)
+                        return None
+                return bytes(buf)
     return None  # too many redirects
 
 
@@ -1299,8 +1308,17 @@ async def _enqueue_document_job(chat_id: int, data: bytes, message_id: int | Non
 
 
 async def _ingest_document(chat_id: int, document: dict, message_id: int | None) -> None:
-    data = await download_file(document["file_id"])
-    await _enqueue_document_job(chat_id, data, message_id)
+    # Runs unawaited via create_task, so swallow nothing silently: catch and tell the user.
+    try:
+        data = await download_file(document["file_id"])
+        if not data.startswith(b"%PDF"):  # parity with the URL path; skip wasted upload+job
+            await send_message(chat_id, "📄 That file isn't a valid PDF.")
+            log.info("document_rejected_magic", chat_id=chat_id)
+            return
+        await _enqueue_document_job(chat_id, data, message_id)
+    except Exception:
+        log.exception("document_ingest_failed", chat_id=chat_id)
+        await send_message(chat_id, "📄 Couldn't process that PDF. Please try again.")
 
 
 async def _handle_photo_update(chat_id: int, message: dict, photo: list) -> None:

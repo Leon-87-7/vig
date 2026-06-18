@@ -100,16 +100,29 @@ async def test_photo_message_does_not_hit_document_handler(monkeypatch):
     doc_handler.assert_not_called()
 
 
-def _patch_httpx(monkeypatch, webhook, *, content: bytes, raise_exc: Exception | None = None):
-    """Patch the SSRF host check + httpx.AsyncClient to return `content` (no redirect)."""
-    monkeypatch.setattr(webhook, "_is_public_host", lambda host: True)
+def _patch_httpx(monkeypatch, webhook, *, content: bytes, raise_exc: Exception | None = None,
+                 content_length: int | None = None):
+    """Patch the SSRF host check + httpx streaming client to yield `content` (no redirect)."""
+    monkeypatch.setattr(webhook, "_is_public_host", AsyncMock(return_value=True))
+
     resp = MagicMock()
-    resp.content = content
     resp.is_redirect = False
     resp.next_request = None
     resp.raise_for_status = MagicMock()
+    resp.headers = {"content-length": str(content_length if content_length is not None else len(content))}
+
+    async def _aiter_bytes():
+        yield content
+    resp.aiter_bytes = _aiter_bytes
+
+    @asynccontextmanager
+    async def _stream(*a, **k):
+        if raise_exc:
+            raise raise_exc
+        yield resp
+
     client = MagicMock()
-    client.get = AsyncMock(side_effect=raise_exc) if raise_exc else AsyncMock(return_value=resp)
+    client.stream = _stream
 
     @asynccontextmanager
     async def _fake_client(*a, **k):
@@ -152,6 +165,41 @@ async def test_route_document_url_fetch_failure_rejected(patched, monkeypatch):
 
     m["create_job"].assert_not_called()
     m["upload"].assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_route_document_url_oversized_body_rejected(patched, monkeypatch):
+    """A body exceeding the 20MB cap is dropped mid-stream, never uploaded."""
+    webhook, m = patched
+    _patch_httpx(monkeypatch, webhook, content=b"%PDF" + b"x" * (21 * 1024 * 1024),
+                 content_length=0)  # lie about length → must be caught by the stream counter
+
+    await webhook._route_document_url(chat_id=9, url="https://x.tld/a.pdf", message_id=3)
+
+    m["upload"].assert_not_called()
+    m["create_job"].assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_document_non_pdf_rejected(patched):
+    webhook, m = patched
+    m["download_file"].return_value = b"<html>nope</html>"
+
+    await webhook._ingest_document(chat_id=42, document={"file_id": "F1"}, message_id=1)
+
+    m["upload"].assert_not_called()
+    assert "valid pdf" in m["send_message"].call_args.args[1].lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_document_download_error_notifies_user(patched):
+    webhook, m = patched
+    m["download_file"].side_effect = RuntimeError("telegram down")
+
+    await webhook._ingest_document(chat_id=42, document={"file_id": "F1"}, message_id=1)
+
+    m["create_job"].assert_not_called()
+    assert "couldn't process" in m["send_message"].call_args.args[1].lower()
 
 
 @pytest.mark.asyncio
