@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import html
 from collections.abc import Awaitable, Callable
 from secrets import compare_digest
@@ -15,8 +16,10 @@ import re
 
 from src import database, queue
 from src.config import settings
+from src.services import storage
 from src.telegram.sender import (
     answer_callback_query,
+    download_file,
     download_photo,
     edit_message_text,
     forward_message,
@@ -1179,11 +1182,53 @@ async def webhook(
         await _handle_photo_update(chat_id, message, photo)
         return {"ok": True}
 
+    # Document upload path (#151) — a file message has no `.text`, so this must
+    # run before the text guard below.
+    document = message.get("document")
+    if document and chat_id:
+        await _handle_document_update(chat_id, message, document)
+        return {"ok": True}
+
     if not chat_id or not text:
         return {"ok": True}
 
     await _route_text(chat_id, text, message_id)
     return {"ok": True}
+
+
+_MAX_DOC_BYTES = 20 * 1024 * 1024  # Telegram bot getFile cap (ADR-0023)
+_DOC_TOO_LARGE_MSG = (
+    "📄 File too large for Telegram (max 20MB). Upload via the web "
+    "dashboard — feature coming soon."
+)
+
+
+async def _handle_document_update(chat_id: int, message: dict, document: dict) -> None:
+    """Validate + ingest a Telegram document upload. PDF-only at MVP (#151)."""
+    file_name = document.get("file_name") or ""
+    is_pdf = document.get("mime_type") == "application/pdf" or file_name.lower().endswith(".pdf")
+    if not is_pdf:
+        await send_message(chat_id, "📄 Only PDF files are supported right now.")
+        log.info("document_rejected_type", chat_id=chat_id, mime=document.get("mime_type"))
+        return
+    if (document.get("file_size") or 0) > _MAX_DOC_BYTES:
+        await send_message(chat_id, _DOC_TOO_LARGE_MSG)
+        log.info("document_rejected_size", chat_id=chat_id, size=document.get("file_size"))
+        return
+    # Heavy download/upload runs off the webhook request, mirroring the photo path.
+    asyncio.create_task(_ingest_document(chat_id, document, message.get("message_id")))
+
+
+async def _ingest_document(chat_id: int, document: dict, message_id: int | None) -> None:
+    data = await download_file(document["file_id"])
+    sha = hashlib.sha256(data).hexdigest()
+    key = storage.object_key("documents", sha, "pdf")
+    await storage.upload(key, data, "application/pdf")
+    job_id = await database.create_job(
+        chat_id=chat_id, url=key, content_type="document", message_id=message_id,
+    )
+    await queue.enqueue({"task": "document", "job_id": job_id})
+    await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
 
 
 async def _handle_photo_update(chat_id: int, message: dict, photo: list) -> None:
