@@ -105,6 +105,7 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, contentTypeC
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search by title or URL"
           placeholder="Search by title or URL…"
           className="h-9 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:min-w-0 sm:flex-1"
         />

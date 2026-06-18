@@ -52,9 +52,12 @@ export function RecoveryPanel({
     void clearFailed();
   };
 
+  // Fragment (not a display:contents section) so the controls row and the error line
+  // flow as direct children of the parent plate while the group label lives on a real,
+  // reliably-exposed element.
   return (
-    <section aria-label="Recovery" className="contents">
-      <div className="flex flex-wrap items-center gap-2">
+    <>
+      <div role="group" aria-label="Recovery" className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] text-muted">
           {summary.stale_in_flight} stale in-flight
         </span>
@@ -69,6 +72,6 @@ export function RecoveryPanel({
         </RecoveryButton>
       </div>
       {error && <p className="w-full text-xs text-status-error">{error}</p>}
-    </section>
+    </>
   );
 }
