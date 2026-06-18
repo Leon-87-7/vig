@@ -165,7 +165,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     raw = await gemini_client.generate(_build_document_prompt(text), model="gemini-2.5-flash")
     data = _extract_json(raw)
 
-    tools: list[dict] = data.get("tools", [])
+    tools: list[dict] = data.get("tools", []) or []  # Gemini may emit null, not absent
     references: list[str] = data.get("references", []) or []
     template_analysis = {
         "author": data.get("author", ""),
@@ -181,7 +181,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
         "done",
         title=data.get("title") or job.get("title") or "",
         ai_objective=data.get("summary", ""),
-        ai_action_points=" | ".join(data.get("key_points", [])),
+        ai_action_points=" | ".join(data.get("key_points", []) or []),
         ai_tools=_tools_str(tools),
         template_analysis=json.dumps(template_analysis),
         completed_at=now,

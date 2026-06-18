@@ -75,6 +75,21 @@ async def test_cache_miss_parses_and_uploads(patched):
 
 
 @pytest.mark.asyncio
+async def test_null_gemini_lists_do_not_crash(patched):
+    """Gemini may emit "tools": null / "key_points": null — must not raise (reaches 'done')."""
+    document, m = patched
+    m["generate"].return_value = json.dumps({
+        "title": "T", "summary": "S", "key_points": None, "references": None, "tools": None,
+    })
+
+    await document.run(_job())
+
+    done = [c for c in m["update_job_status"].call_args_list if c.args[1] == "done"]
+    assert len(done) == 1
+    assert done[0].kwargs["ai_action_points"] == ""
+
+
+@pytest.mark.asyncio
 async def test_cache_hit_skips_parse(patched):
     document, m = patched
     m["exists"].return_value = True
