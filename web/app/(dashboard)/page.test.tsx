@@ -243,4 +243,29 @@ describe('FeedPage', () => {
       'Clear failed jobs in this tab? This marks them cancelled; it does not delete them from DB.',
     );
   });
+
+  it('reloads the feed when the error banner retry is clicked', () => {
+    const reload = vi.fn();
+    setupMocks({ error: 'Failed to load jobs', jobs: [], total: 0, stats: undefined, reload });
+    mockUseFuseSearch.mockReturnValue({ query: '', setQuery: vi.fn(), displayedJobs: [] } as ReturnType<typeof useFuseSearch>);
+
+    render(<FeedPage />);
+    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }));
+
+    expect(reload).toHaveBeenCalled();
+  });
+
+  it('clears every filter from the empty-state Clear button', () => {
+    const setStFilter = vi.fn();
+    const setQuery = vi.fn();
+    setupMocks({ stFilter: 'error', jobs: [], total: 0, stats: undefined, setStFilter });
+    mockUseFuseSearch.mockReturnValue({ query: '', setQuery, displayedJobs: [] } as ReturnType<typeof useFuseSearch>);
+
+    render(<FeedPage />);
+    fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
+
+    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(setStFilter).toHaveBeenCalledWith('');
+    expect(setQuery).toHaveBeenCalledWith('');
+  });
 });

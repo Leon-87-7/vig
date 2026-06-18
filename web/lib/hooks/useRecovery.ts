@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export interface RecoverySummary {
+interface RecoverySummary {
   stale_pending: number;
   error_jobs: number;
   stale_in_flight: number;

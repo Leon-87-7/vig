@@ -22,7 +22,7 @@ interface ContentTypeTabData {
   count: number;
 }
 
-function ContentTypeTab({ label, value, count, active, onClick }: ContentTypeTabData & { active: boolean; onClick: () => void }) {
+function ContentTypeTab({ label, count, active, onClick }: ContentTypeTabData & { active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
