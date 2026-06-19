@@ -370,6 +370,7 @@ Critical path: #175, #176, #177 are independent — no dependency between them (
 
 |                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status    |
 | ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | --------- |
+| [#182](https://github.com/Leon-87-7/vig/pull/182) | feat(document): PDF document pipeline MVP (#150–#155)                                                   | feat/document-pipeline-mvp→main            | —                   | ✅ Merged |
 | [#181](https://github.com/Leon-87-7/vig/pull/181) | feat(web/feed): tighten stats + filter layout, merge recovery into a controls bar                      | feat/web-feed-layout→main                  | —                   | ✅ Merged |
 | [#180](https://github.com/Leon-87-7/vig/pull/180) | fix(web): localize dates, harden ExportModal, clear dead code + cover untested logic                   | feat/web-date-localization→main            | —                   | ✅ Merged |
 | [#179](https://github.com/Leon-87-7/vig/pull/179) | chore: ponytail-audit cleanup — drop shims, dead flag, committed pyscn snapshots                       | chore/ponytail-cleanup→main                | —                   | ✅ Merged |
