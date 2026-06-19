@@ -17,6 +17,7 @@ from src.services.github import enrich_github_links
 from src.telegram.sender import edit_message_text, send_document, send_message, send_photo
 from src.utils.logger import get_logger
 from src.utils.markdown import build_enriched_links_message
+from src.utils import job_tag
 from src.utils.validators import filter_vision_links
 
 log = get_logger(__name__)
@@ -71,9 +72,6 @@ def _build_transcript_markdown(
         transcript,
     ])
 
-
-def _tag(job_id: str) -> str:
-    return f"job_{job_id[-4:]}:"
 
 
 async def _acquire_transcript(
@@ -193,7 +191,7 @@ async def run(job: dict) -> None:
     chat_id = job["chat_id"]
     url = job["url"]
     started = time.time()
-    tag = _tag(job_id)
+    tag = job_tag(job_id)
 
     await database.update_job_status(job_id, "processing")
     status_result = await send_message(chat_id, f"{tag}\n🔊 Processing your short video...")

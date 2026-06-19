@@ -15,6 +15,8 @@ from src import database
 from src.services import storage
 from src.services.parse import ParseError, parse_pdf
 from src.telegram.sender import send_document, send_message
+from src.services.gemini import extract_json
+from src.utils import job_tag
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -23,13 +25,6 @@ log = get_logger(__name__)
 def _sha_from_key(key: str) -> str:
     """documents/<sha>.pdf → <sha>."""
     return key.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-
-
-def _extract_json(raw: str) -> dict:
-    clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
-    clean = re.sub(r"```\s*$", "", clean).strip()
-    m = re.search(r"\{[\s\S]*\}", clean)
-    return json.loads(m.group(0) if m else clean)
 
 
 def _build_document_prompt(text: str) -> str:
@@ -143,7 +138,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     job_id = job["id"]
     chat_id = job["chat_id"]
     key = job["url"]  # documents/<sha>.pdf
-    tag = f"job_{job_id[-4:]}:"
+    tag = job_tag(job_id)
 
     await database.update_job_status(job_id, "processing")
     await send_message(chat_id, f"{tag}\n📄 Reading document...")
@@ -165,7 +160,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     # 2. Gemini enrichment (raises GeminiUnavailableError on total failure).
     from src.services.gemini import gemini_client
     raw = await gemini_client.generate(_build_document_prompt(text), model="gemini-2.5-flash")
-    data = _extract_json(raw)
+    data = extract_json(raw)
 
     tools: list[dict] = data.get("tools", []) or []  # Gemini may emit null, not absent
     references: list[str] = data.get("references", []) or []

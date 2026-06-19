@@ -10,6 +10,7 @@ from typing import Callable
 from src import database
 from src.config import settings
 from src.utils.logger import get_logger
+from src.services.gemini import extract_json
 
 log = get_logger(__name__)
 
@@ -141,17 +142,6 @@ def build_summary_lines(prd: dict) -> list[str]:
     n_features = len(prd.get("features", []))
     lines.append(f"{n_phases} phases, {n_features} features")
     return lines
-
-
-# ---------------------------------------------------------------------------
-# JSON extraction
-# ---------------------------------------------------------------------------
-
-def _extract_json(raw: str) -> dict:
-    clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
-    clean = re.sub(r"```\s*$", "", clean).strip()
-    m = re.search(r"\{[\s\S]*\}", clean)
-    return json.loads(m.group(0) if m else clean)
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +517,7 @@ async def run_prd(
 
     # e. Parse JSON
     try:
-        prd_data = _extract_json(raw_prd)
+        prd_data = extract_json(raw_prd)
     except Exception as exc:
         err_msg = str(exc).splitlines()[0][:120]
         log.error("prd.parse_failed", job_id=job_id, slot=slot, raw_preview=raw_prd[:200])

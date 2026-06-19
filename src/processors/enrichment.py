@@ -14,6 +14,7 @@ from src.brain import EMBEDDING_DIM
 from src.config import settings
 from src.telegram.sender import send_message, send_inline_keyboard
 from src.templates import PROMPT_TEMPLATES, validate_template_choice
+from src.utils import job_tag
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -124,16 +125,13 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no text before
 
 
 def _extract_json(raw: str) -> dict:
-    clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
-    clean = re.sub(r"```\s*$", "", clean).strip()
-    m = re.search(r"\{[\s\S]*\}", clean)
-    text = m.group(0) if m else clean
+    from src.services.gemini import extract_json
     try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
+        parsed = extract_json(raw)
+    except (json.JSONDecodeError, ValueError):
         try:
-            parsed = json.loads(repair_json(text))
-        except json.JSONDecodeError as exc:
+            parsed = json.loads(repair_json(raw))
+        except (json.JSONDecodeError, ValueError) as exc:
             raise EnrichmentUnavailableError(f"Gemini returned unparseable JSON: {exc}") from exc
     if not isinstance(parsed, dict):
         raise EnrichmentUnavailableError(
@@ -484,7 +482,7 @@ async def run(job_id: str) -> None:
         return
 
     chat_id = job["chat_id"]
-    tag = f"job_{job_id[-4:]}:"
+    tag = job_tag(job_id)
 
     if job.get("status") != "transcript_done":
         log.warning("enrichment_wrong_status", job_id=job_id, status=job.get("status"))

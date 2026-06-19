@@ -19,6 +19,7 @@ import asyncio
 import time
 
 from src import database, queue
+from src.utils import job_tag
 from src.utils.logger import configure_logging, get_logger
 
 configure_logging()
@@ -36,7 +37,7 @@ async def _notify_failure(chat_id: int, job_id: str, text: str) -> None:
     """Best-effort failure message — never raises (worker must keep dequeuing)."""
     try:
         from src.telegram.sender import send_message
-        await send_message(chat_id, f"job_{job_id[-4:]}:\n{text}")
+        await send_message(chat_id, f"{job_tag(job_id)}\n{text}")
     except Exception:
         pass
 
@@ -228,7 +229,7 @@ async def reap_stale_jobs() -> None:
     for row in rows:
         chat_id = row["chat_id"]
         job_id = row["id"]
-        tag = f"job_{job_id[-4:]}:"
+        tag = job_tag(job_id)
         try:
             if row["status"] == "enriching":
                 # Transcript is already stored — offer the existing one-tap retry.

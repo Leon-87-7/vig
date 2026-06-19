@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from src import database, queue
+from src.utils import job_tag
 from src.utils.logger import get_logger
 
 ContentType = Literal["short", "long", "article", "repo"]
@@ -187,7 +188,7 @@ async def _notify_reaped_jobs(rows: list[dict[str, Any]], chat_id: int) -> int:
     sent = 0
     for row in rows:
         job_id = row["id"]
-        tag = f"job_{job_id[-4:]}:"
+        tag = job_tag(job_id)
         stage = "Enrichment" if row["status"] == "enriching" else "Processing"
         try:
             await send_message(

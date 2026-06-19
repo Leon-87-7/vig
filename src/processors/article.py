@@ -14,6 +14,8 @@ import httpx
 from src import database
 from src.config import settings
 from src.telegram.sender import edit_message_text, send_document, send_inline_keyboard, send_message
+from src.services.gemini import extract_json
+from src.utils import job_tag
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -138,13 +140,6 @@ Respond ONLY with a valid JSON object. No markdown, no backticks, no text before
 {body}"""
 
 
-def _extract_json(raw: str) -> dict:
-    clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
-    clean = re.sub(r"```\s*$", "", clean).strip()
-    m = re.search(r"\{[\s\S]*\}", clean)
-    return json.loads(m.group(0) if m else clean)
-
-
 def _action_points_section(action_points_raw: str) -> list[str]:
     ap_list = [ap.strip() for ap in action_points_raw.split(" | ") if ap.strip()]
     if not ap_list:
@@ -216,7 +211,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     job_id = job["id"]
     chat_id = job["chat_id"]
     url = job["url"]
-    tag = f"job_{job_id[-4:]}:"
+    tag = job_tag(job_id)
 
     await database.update_job_status(job_id, "processing")
     status_result = await send_message(chat_id, f"{tag}\n🔊 Fetching article...")
@@ -289,7 +284,7 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
         )
         return
 
-    data = _extract_json(raw)
+    data = extract_json(raw)
     promise_gap = data.pop("promise_gap", None)
     tools: list[dict] = data.get("tools", [])
     tools_str = " | ".join(

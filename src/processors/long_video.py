@@ -13,6 +13,7 @@ from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
 from src.services.github import enrich_github_links
 from src.utils.markdown import build_enriched_links_message, build_transcript_markdown
+from src.utils import job_tag
 from src.utils.validators import extract_description_links, slugify
 
 log = get_logger(__name__)
@@ -74,7 +75,7 @@ async def run(job: dict) -> None:
     chat_id = job["chat_id"]
     url = job["url"]
 
-    tag = f"job_{job_id[-4:]}:"
+    tag = job_tag(job_id)
 
     await database.update_job_status(job_id, "processing")
     status_result = await send_message(chat_id, f"{tag}\n🔊 Analyzing your video, It is on it's way 🪽🪽")
