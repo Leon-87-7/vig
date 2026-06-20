@@ -31,6 +31,12 @@ class SpaceIn(BaseModel):
     icon: SpaceIcon = "folder"
 
 
+class SpaceUpdateIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
+    icon: SpaceIcon | None = None  # omit to leave the existing icon unchanged
+
+
 class UrlIn(BaseModel):
     job_id: str = Field(..., min_length=1)
 
@@ -97,7 +103,7 @@ async def get_space(space_id: str, request: Request) -> dict:
 
 
 @spaces_router.put("/{space_id}")
-async def update_space(space_id: str, body: SpaceIn, request: Request) -> dict:
+async def update_space(space_id: str, body: SpaceUpdateIn, request: Request) -> dict:
     chat_id: int = request.state.user["id"]
     await _get_owned_space(space_id, chat_id)
     ok = await database.update_space(
