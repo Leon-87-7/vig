@@ -450,8 +450,8 @@ async def search_links(query: str, top_k: int = 5) -> list[dict]:
         cursor = await conn.execute(
             """SELECT l.id, l.url, l.title, l.topic, l.embedding
                FROM links l
-               JOIN jobs j ON j.id = l.source_job
-               WHERE l.embedding IS NOT NULL AND j.status != 'cancelled'"""
+               LEFT JOIN jobs j ON j.id = l.source_job
+               WHERE l.embedding IS NOT NULL AND COALESCE(j.status, '') != 'cancelled'"""
         )
         rows = [dict(r) for r in await cursor.fetchall()]
 
