@@ -27,19 +27,21 @@ export function ScrollToTop() {
       aria-label="Scroll to top"
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
-      className={`fixed bottom-6 right-6 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface text-muted transition-[opacity,background-color] duration-150 hover:bg-raised hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal motion-reduce:transition-none ${
-        visible ? 'opacity-100' : 'pointer-events-none opacity-0'
+      className={`group fixed bottom-6 right-6 z-30 flex h-11 w-11 items-center justify-center rounded-md bg-signal text-onsignal shadow-[0_6px_20px_-4px_rgba(246,146,30,0.5)] outline-none transition-[opacity,transform,box-shadow,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:bg-signal-bright hover:shadow-[0_12px_30px_-6px_rgba(246,146,30,0.7)] active:translate-y-0 active:bg-signal-deep focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas motion-reduce:transition-none ${
+        visible
+          ? 'translate-y-0 scale-100 opacity-100'
+          : 'pointer-events-none translate-y-1 scale-90 opacity-0'
       }`}
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
-        className="h-4 w-4"
+        className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-y-0.5 motion-reduce:transition-none"
       >
         <path d="M12 19V5M5 12l7-7 7 7" />
       </svg>
