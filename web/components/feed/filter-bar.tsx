@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type React from 'react';
 
 const CONTENT_TYPE_FILTERS = [
@@ -93,6 +93,21 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, contentTypeC
   // Default collapsed; component remounts on navigation so it resets naturally.
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // Track the < sm (640px) breakpoint in JS so the collapsed panel is also
+  // removed from the tab order / AT tree (inert), not just hidden visually.
+  // Guarded for non-browser/jsdom envs → stays on the desktop (always-open) path.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width: 639px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  const collapsed = isMobile && !filtersOpen;
+
   return (
     <section className="mt-8 flex flex-col gap-3" aria-label="Search and filters">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -129,8 +144,10 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, contentTypeC
       </button>
       <div
         id="status-filter-bar"
-        className={`grid overflow-hidden transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none sm:!grid-rows-[1fr] ${
-          filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        aria-hidden={collapsed || undefined}
+        {...(collapsed ? ({ inert: "" } as Record<string, unknown>) : {})}
+        className={`grid overflow-hidden transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none ${
+          collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
         }`}
       >
         <div className="min-h-0 overflow-hidden">
