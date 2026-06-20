@@ -126,6 +126,14 @@
 | [#175](https://github.com/Leon-87-7/vig/issues/175) | feat(web): client-side feed filtering (preload + instant filters)                                          | Web / Feed               | Merged; PR #178; closed on GH                                                              |
 | [#176](https://github.com/Leon-87-7/vig/issues/176) | feat(ops): keep-warm ping to eliminate API cold-start spike                                                | Ops                      | Merged; PR #178; closed on GH                                                              |
 | [#177](https://github.com/Leon-87-7/vig/issues/177) | feat(web): silent background freshness (focus-refetch + backstop poll)                                      | Web / Feed               | Merged; PR #178; closed on GH                                                              |
+| [#185](https://github.com/Leon-87-7/vig/issues/185) | feat(web/feed): mobile inline stats row (T/D/P/E) | Web / Feed | Merged; PR #193; closed on GH |
+| [#186](https://github.com/Leon-87-7/vig/issues/186) | feat(web/feed): wrap content-type tabs instead of horizontal scroll | Web / Feed | Merged; PR #193; closed on GH |
+| [#187](https://github.com/Leon-87-7/vig/issues/187) | feat(web/feed): collapse recovery + status filters on mobile | Web / Feed | Merged; PR #193; closed on GH |
+| [#188](https://github.com/Leon-87-7/vig/issues/188) | feat(web): scroll-to-top button in dashboard layout | Web / Layout | Merged; PR #193; closed on GH |
+| [#189](https://github.com/Leon-87-7/vig/issues/189) | feat(db): add icon column to spaces table | DB / Spaces | Merged; PR #193; closed on GH |
+| [#190](https://github.com/Leon-87-7/vig/issues/190) | feat(web/spaces): redesign space cards with icon + color wash + inline delete | Web / Spaces | Merged; PR #193; closed on GH |
+| [#191](https://github.com/Leon-87-7/vig/issues/191) | feat(web/spaces): icon picker on space create/edit | Web / Spaces | Merged; PR #193; closed on GH |
+| [#192](https://github.com/Leon-87-7/vig/issues/192) | feat(web/jobs): enlarge mobile back-link on job detail | Web / Jobs | Merged; PR #193; closed on GH |
 
 ---
 
@@ -357,19 +365,33 @@ Feed freshness + keep-warm (PR #178)
 #176 keep-warm ping — eliminate API cold-start spike ✅-Done
 #177 silent background freshness (focus-refetch + backstop poll) ✅-Done
 Critical path: #175, #176, #177 are independent — no dependency between them (all ✅-Done)
+
+UI/UX makeover (source: docs/todo-notes.md — impeccable shape briefs 2026-06-20)
+#185 mobile inline stats row (T/D/P/E) — independent ✅-Done (PR #193)
+#186 wrap content-type tabs — independent ✅-Done (PR #193)
+#187 collapse recovery + status filters on mobile — independent ✅-Done (PR #193)
+#188 scroll-to-top button — independent ✅-Done (PR #193)
+#189 add icon column to spaces table — independent (root) ✅-Done (PR #193)
+├── #190 redesign space cards with icon + color wash + inline delete ✅-Done (PR #193)
+└── #191 icon picker on space create/edit ✅-Done (PR #193)
+#192 enlarge mobile back-link on job detail — independent ✅-Done (PR #193)
+Critical path: #189 → {#190, #191}; all others independent (all ✅-Done)
 ```
 
 ---
 
 ## Open PRs
 
-|                                                 # | Title                                  | Branch→Base                       | Linked Issue                 | Status |
-| ------------------------------------------------: | -------------------------------------- | --------------------------------- | ---------------------------- | ------ |
+|                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status |
+| ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | ------ |
 
 ## Closed PRs
 
 |                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status    |
 | ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | --------- |
+| [#193](https://github.com/Leon-87-7/vig/pull/193) | feat(web): mobile-first UI/UX makeover + per-space icons (#185–#192) | feat/ui-ux-makeover→main | #185–#192 | ✅ Merged |
+| [#184](https://github.com/Leon-87-7/vig/pull/184) | fix: hide cancelled jobs from feed and brain search | fix/hide-cancelled-from-feed-and-brain→main | — | ✅ Merged |
+| [#183](https://github.com/Leon-87-7/vig/pull/183) | refactor: centralize extract_json and job_tag utilities                                                | refactor/centralize-extract-json-and-job-tag→main | —              | ✅ Merged |
 | [#182](https://github.com/Leon-87-7/vig/pull/182) | feat(document): PDF document pipeline MVP (#150–#155)                                                   | feat/document-pipeline-mvp→main            | —                   | ✅ Merged |
 | [#181](https://github.com/Leon-87-7/vig/pull/181) | feat(web/feed): tighten stats + filter layout, merge recovery into a controls bar                      | feat/web-feed-layout→main                  | —                   | ✅ Merged |
 | [#180](https://github.com/Leon-87-7/vig/pull/180) | fix(web): localize dates, harden ExportModal, clear dead code + cover untested logic                   | feat/web-date-localization→main            | —                   | ✅ Merged |
