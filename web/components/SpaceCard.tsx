@@ -16,15 +16,19 @@ export interface SpaceSummary {
 export function SpaceCard({ space, onDeleted }: { space: SpaceSummary; onDeleted?: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [failed, setFailed] = useState(false);
   const Icon = spaceIcon(space.icon);
 
   const handleDelete = async () => {
     setDeleting(true);
+    setFailed(false);
     try {
       const res = await fetch(`/api/spaces/${space.id}`, { method: "DELETE" });
-      if (res.ok) onDeleted?.();
-      else setDeleting(false);
+      if (res.ok) { onDeleted?.(); return; }
+      setFailed(true);
+      setDeleting(false);
     } catch {
+      setFailed(true);
       setDeleting(false);
     }
   };
@@ -33,6 +37,7 @@ export function SpaceCard({ space, onDeleted }: { space: SpaceSummary; onDeleted
     return (
       <div className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-lg border border-line bg-surface p-4 text-center">
         <p className="text-sm text-ink">Delete {space.name}?</p>
+        {failed && <p className="text-xs text-status-error">Couldn&apos;t delete — try again.</p>}
         <div className="flex gap-4">
           <button
             type="button"

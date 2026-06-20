@@ -19,7 +19,7 @@ export function ScrollToTop() {
   return (
     <button
       type="button"
-      onClick={() => document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" })}
+      onClick={() => document.querySelector<HTMLElement>("main")?.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Scroll to top"
       className={`fixed bottom-6 right-6 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-line bg-surface text-muted transition-[opacity,background-color] duration-150 hover:bg-raised hover:text-ink active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal motion-reduce:transition-none ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
