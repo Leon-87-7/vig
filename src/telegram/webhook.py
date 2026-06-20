@@ -33,6 +33,7 @@ from src.telegram.sender import (
     send_message,
 )
 from src.templates import PROMPT_TEMPLATES
+from src.utils import job_tag
 from src.utils.logger import get_logger
 from src.utils.validators import detect_pipeline, normalize_repo_url, _ARTICLE_HINT, _REPO_HINT
 
@@ -294,7 +295,7 @@ async def _cb_article_retry(ctx: CallbackCtx) -> None:
     await database.update_job_status(ctx.job_id, "pending")
     await queue.enqueue({"task": "article", "job_id": ctx.job_id, "skip_document": True})
     log.info("article_retry_enqueued", job_id=ctx.job_id)
-    await send_message(ctx.chat_id, f"job_{ctx.job_id[-4:]}:\n📥 Retrying Gemini enrichment...")
+    await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n📥 Retrying article analysis...")
 
 
 async def _cb_reprocess(ctx: CallbackCtx) -> None:
@@ -884,18 +885,18 @@ async def _handle_awaiting_freestyle(chat_id: int, text: str, state: dict) -> No
     elif job and job.get("content_type") == "repo":
         await queue.enqueue({"task": "repo", "job_id": job_id})
         log.info("freestyle.repo.enqueued", chat_id=chat_id, job_id=job_id)
-        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting repo analysis")
+        await send_message(chat_id, f"{job_tag(job_id)}\n✨ Freestyle prompt received — starting repo analysis")
     elif job and job.get("content_type") == "article":
         await queue.enqueue({"task": "article", "job_id": job_id})
         log.info("freestyle.article.enqueued", chat_id=chat_id, job_id=job_id)
-        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting article analysis")
+        await send_message(chat_id, f"{job_tag(job_id)}\n✨ Freestyle prompt received — starting article analysis")
     elif job and job.get("status") == "transcript_done":
         await queue.enqueue({"task": "enrichment", "job_id": job_id})
         log.info("freestyle.enrichment.enqueued", chat_id=chat_id, job_id=job_id)
-        await send_message(chat_id, f"job_{job_id[-4:]}:\n✨ Freestyle prompt received — starting Gemini analysis")
+        await send_message(chat_id, f"{job_tag(job_id)}\n✨ Freestyle prompt received — starting Gemini analysis")
     else:
         log.info("freestyle.prompt.deferred", chat_id=chat_id, job_id=job_id)
-        await send_message(chat_id, f"job_{job_id[-4:]}:\n✍️ Prompt saved — Gemini will start when transcript is ready")
+        await send_message(chat_id, f"{job_tag(job_id)}\n✍️ Prompt saved — Gemini will start when transcript is ready")
 
 
 async def _parse_spec_args(chat_id: int, parts: list[str]) -> tuple[str, str | None] | None:

@@ -129,11 +129,11 @@ def _filter_grounded_links(links: list[dict], summary: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Shared infrastructure — ONE fallback loop, ONE _call_sync, ONE _extract_json
+# Shared infrastructure — ONE fallback loop, ONE _call_sync, ONE extract_json
 # ---------------------------------------------------------------------------
 
 
-def _extract_json(raw: str, *, root: str = "object") -> dict | list:
+def extract_json(raw: str, *, root: str = "object") -> dict | list:
     """Strip markdown fences and parse a JSON object (default) or array."""
     clean = re.sub(r"^```json\s*", "", raw, flags=re.IGNORECASE)
     clean = re.sub(r"```\s*$", "", clean).strip()
@@ -212,7 +212,7 @@ async def call_gemini_vision(frames: list[dict]) -> dict:
         log_ok="gemini.vision_ok",
         log_fail="gemini.vision_key_failed",
     )
-    return _extract_json(response.text or "")
+    return extract_json(response.text or "")
 
 
 async def call_gemini_photo_links(
@@ -239,7 +239,7 @@ async def call_gemini_photo_links(
         log_ok="gemini.photo_ok",
         log_fail="gemini.photo_key_failed",
     )
-    data = _extract_json(response.text or "")
+    data = extract_json(response.text or "")
     raw_links = data.get("links", []) or []
     grounded = _filter_grounded_links(raw_links, data.get("summary", ""))
     data["links"] = grounded
@@ -266,7 +266,7 @@ async def resolve_tool_urls(tools: list[dict]) -> list[dict]:
         log.error("gemini.resolve_urls_all_keys_failed")
         return [{**t, "url": None} for t in tools]
     try:
-        resolved = _extract_json(raw, root="array")
+        resolved = extract_json(raw, root="array")
         if not isinstance(resolved, list):
             raise ValueError("expected JSON array")
     except Exception:

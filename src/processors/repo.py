@@ -17,6 +17,7 @@ from src.services.github import fetch_repo_bundle
 from src.services.sheets import append_repo_row, update_repo_row
 from src.telegram.sender import edit_message_text, send_document, send_inline_keyboard, send_message
 from src.utils.logger import get_logger
+from src.utils import job_tag
 from src.utils.markdown import _humanize_age
 
 log = get_logger(__name__)
@@ -412,7 +413,7 @@ async def run(job: dict) -> None:
     chat_id = job["chat_id"]
     url = job["url"]
     freestyle_prompt = job.get("freestyle_prompt")
-    tag = f"job_{job_id[-4:]}:"
+    tag = job_tag(job_id)
 
     await database.update_job_status(job_id, "processing")
     owner, repo = _parse_owner_repo(url)
