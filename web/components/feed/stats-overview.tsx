@@ -12,12 +12,18 @@ export function StatsOverview({ stats }: { stats: FeedStats }) {
 
   return (
     <section className="mt-5" aria-label="Overview">
-      {/* Mobile (#185): one compact inline row instead of the card grid (~100px shorter). */}
-      <div className="flex items-center gap-3 font-mono text-[12px] tabular-nums sm:hidden">
-        <span className="text-muted">T <span className="text-ink">{stats.total}</span></span>
-        <span className="text-muted">D <span className="text-status-done">{done}</span></span>
-        <span className="text-muted">P <span className="text-status-pending">{pending}</span></span>
-        <span className="text-muted">E <span className="text-status-error">{error}</span></span>
+      {/* Mobile (#185): one compact inline row instead of the card grid (~100px shorter).
+          The T/D/P/E letters are decorative — screen readers get the spoken summary. */}
+      <div className="sm:hidden">
+        <p className="sr-only">
+          Total {stats.total}, done {done}, pending {pending}, error {error}
+        </p>
+        <div aria-hidden="true" className="flex items-center gap-3 font-mono text-[12px] tabular-nums">
+          <span className="text-muted">T <span className="text-ink">{stats.total}</span></span>
+          <span className="text-muted">D <span className="text-status-done">{done}</span></span>
+          <span className="text-muted">P <span className="text-status-pending">{pending}</span></span>
+          <span className="text-muted">E <span className="text-status-error">{error}</span></span>
+        </div>
       </div>
       <div className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Total" value={stats.total} />
