@@ -162,7 +162,6 @@ Ordered by unblocked-first, then dependency chain.
 | [#194](https://github.com/Leon-87-7/vig/issues/194) | Brain graph endpoint + desktop 2D render | Brain / Web | — |
 | [#195](https://github.com/Leon-87-7/vig/issues/195) | Normalized-URL dedup in brain ingest | Brain | — |
 | [#196](https://github.com/Leon-87-7/vig/issues/196) | Brain graph search highlight | Web | #194 |
-| [#197](https://github.com/Leon-87-7/vig/issues/197) | Brain graph mobile ego-network view | Web | #194 |
 | [#198](https://github.com/Leon-87-7/vig/issues/198) | Repo-node metadata refresh (stars/pushed_at) | Brain | #194 |
 
 ---
@@ -385,10 +384,10 @@ Critical path: #189 → {#190, #191}; all others independent (all ✅-Done)
 Brain graph map (grill 2026-06-21 — ADR-0027, ADR-0028; CONTEXT.md Brain graph)
 #194 graph endpoint + desktop 2D render (root)
 ├── #196 graph search highlight ◄── #194
-├── #197 mobile ego-network view ◄── #194
-└── #198 repo-node metadata refresh (stars/pushed_at) ◄── #194
+├── #197 mobile ego-network view — ✗ WONTFIX 2026-06-21 (deferred; re-eval after minimal build)
+└── #198 repo-node metadata refresh (stars/pushed_at) ◄── #194 (fold into refresh_stale_links)
 #195 normalized-URL dedup (independent)
-Critical path: #194 → {#196, #197, #198}; #195 parallel
+Critical path: #194 → {#196, #198}; #195 parallel
 ```
 
 ---
