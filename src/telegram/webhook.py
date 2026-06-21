@@ -298,6 +298,11 @@ async def _cb_article_retry(ctx: CallbackCtx) -> None:
     await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n📥 Retrying article analysis...")
 
 
+def _task_for(pipeline: str) -> str:
+    """Worker task name for a pipeline / content_type. Default video."""
+    return pipeline if pipeline in ("repo", "article", "document") else "video"
+
+
 async def _cb_reprocess(ctx: CallbackCtx) -> None:
     """One-tap retry for a 'processing' job orphaned by a restart (ADR-0010).
 
@@ -315,11 +320,7 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
         content_type=job["content_type"],
         template=job.get("template"),
     )
-    task_type = (
-        "repo" if job["content_type"] == "repo"
-        else "article" if job["content_type"] == "article"
-        else "video"
-    )
+    task_type = _task_for(job["content_type"])
     await queue.enqueue({"task": task_type, "job_id": new_job_id})
     log.info("reprocess_enqueued", orphan_job_id=ctx.job_id, new_job_id=new_job_id)
     await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
@@ -533,7 +534,7 @@ async def _cmd_template(ctx: SlashCtx) -> None:
         job_id, "pending",
         template_detection_method="explicit_command",
     )
-    await queue.enqueue({"task": "video", "job_id": job_id})
+    await queue.enqueue({"task": _task_for(pipeline), "job_id": job_id})
     await send_message(ctx.chat_id, f"📥 Received\n✨ Kicking off Gemini analysis ({template})\njob_{job_id[-4:]}")
 
 
@@ -581,7 +582,7 @@ async def _cmd_force(ctx: SlashCtx) -> None:
         job_id = existing_job["id"]
         await database.reset_job(job_id)
         content_type = existing_job.get("content_type")
-        task_type = "repo" if content_type == "repo" else ("article" if content_type == "article" else "video")
+        task_type = _task_for(content_type)
         if pipeline == "repo":
             try:
                 from urllib.parse import urlparse as _urlparse
@@ -621,7 +622,7 @@ async def _cmd_force(ctx: SlashCtx) -> None:
         content_type=pipeline,
         message_id=ctx.message_id,
     )
-    task_type = "repo" if pipeline == "repo" else ("article" if pipeline == "article" else "video")
+    task_type = _task_for(pipeline)
     await queue.enqueue({"task": task_type, "job_id": job_id})
     await send_message(ctx.chat_id, f"🔁 Force-reprocessing!\njob_{job_id[-4:]}")
 
@@ -1037,11 +1038,7 @@ async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: in
         freestyle_prompt=extra_instructions or None,
         template_detection_method=f"user_template:{tmpl_name}",
     )
-    task_type = (
-        "repo" if pipeline == "repo"
-        else "article" if pipeline == "article"
-        else "video"
-    )
+    task_type = _task_for(pipeline)
     await queue.enqueue({"task": task_type, "job_id": job_id})
     await send_message(
         chat_id,
