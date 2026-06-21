@@ -338,6 +338,21 @@ async def _cb_show_done(ctx: CallbackCtx) -> None:
         await edit_message_text(ctx.chat_id, ctx.message_id, "here you go")
 
 
+async def _cb_document_md(ctx: CallbackCtx) -> None:
+    """📄 Get Markdown — render/serve parsed/<sha>.md on demand (#156)."""
+    job = await database.get_job(ctx.job_id)
+    if not job or job.get("content_type") != "document":
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
+    await answer_callback_query(ctx.cq_id)
+    from src.processors import document
+    try:
+        await document.deliver_markdown(job)
+    except Exception:
+        log.exception("document_md.failed", job_id=ctx.job_id)
+        await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n⚠️ Couldn't render Markdown — try again later.")
+
+
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "gemini_no":          _cb_gemini_no,
     "gemini_yes":         _cb_gemini_yes,
@@ -352,6 +367,7 @@ _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "article_retry":      _cb_article_retry,
     "reprocess":          _cb_reprocess,
     "show_done":          _cb_show_done,
+    "document_md":        _cb_document_md,
 }
 
 
@@ -891,6 +907,10 @@ async def _handle_awaiting_freestyle(chat_id: int, text: str, state: dict) -> No
         await queue.enqueue({"task": "article", "job_id": job_id})
         log.info("freestyle.article.enqueued", chat_id=chat_id, job_id=job_id)
         await send_message(chat_id, f"{job_tag(job_id)}\n✨ Freestyle prompt received — starting article analysis")
+    elif job and job.get("content_type") == "document":
+        await queue.enqueue({"task": "document", "job_id": job_id})
+        log.info("freestyle.document.enqueued", chat_id=chat_id, job_id=job_id)
+        await send_message(chat_id, f"{job_tag(job_id)}\n✨ Freestyle prompt received — re-running document analysis")
     elif job and job.get("status") == "transcript_done":
         await queue.enqueue({"task": "enrichment", "job_id": job_id})
         log.info("freestyle.enrichment.enqueued", chat_id=chat_id, job_id=job_id)
