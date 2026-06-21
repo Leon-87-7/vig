@@ -28,5 +28,5 @@
 
 dedupe on url/doc-title&size - to be worked on.
 
-## repo job page
+## repo job page - skip
 1. the md output should be the structure and info of the repo detail page. 
