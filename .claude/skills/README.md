@@ -8,6 +8,7 @@ Explicit-invoke skills bundled with this repo. They sync the project's
 | `/to-issue-kanban` | `/to-issues` + append new issues to the board | **Yes** — needs `to-issues` (see below) |
 | `/triage-kanban` | `/triage` + move the issue's row to its new column | **Yes** — needs `triage` (see below) |
 | `/update-kanban` | On-demand board↔GitHub reconcile + open/closed PR section | **None** — fully self-contained |
+| `/feature-fill` | Gap finder & feature radar — reads PRD, ADRs, board, source and reports what's missing, stale, or next | **None** — read-only |
 | `kanban-sync.md` | Shared board-writing helper (not a skill; called by all three) | — |
 
 ## Prerequisite for the two wrappers
