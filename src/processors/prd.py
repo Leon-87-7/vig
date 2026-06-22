@@ -315,7 +315,7 @@ async def run_auto_resend(job_id: str) -> None:
     from src.services.drive import update_file
     from src.telegram.sender import send_document, send_message, send_inline_keyboard
     try:
-        await update_file(cached_file_id, md_content)
+        await update_file(cached_file_id, md_content, chat_id=chat_id)
         log.info("prd.drive.updated", job_id=job_id, file_id=cached_file_id, slot="auto_resend")
     except Exception:
         log.exception("prd.auto_resend.drive_failed", job_id=job_id)
@@ -397,6 +397,7 @@ async def _append_prd_sheet_row(
             video_url=job["url"],
             title=job.get("title", ""),
             drive_url=drive_url,
+            chat_id=chat_id,
             **sheets_kwargs,
         )
         log.info("prd.sheets.appended", job_id=job_id, slot=slot)
@@ -539,12 +540,12 @@ async def run_prd(
     cached_file_id = job.get(drive_file_col)
     try:
         if cached_file_id:
-            drive_url = await update_file(cached_file_id, md_content)
+            drive_url = await update_file(cached_file_id, md_content, chat_id=chat_id)
             file_id = cached_file_id
             log.info("prd.drive.updated", job_id=job_id, file_id=file_id, slot=slot)
         else:
             file_id, drive_url = await upload_file(
-                md_content, filename, settings.GOOGLE_DRIVE_FOLDER_PRD
+                md_content, filename, settings.GOOGLE_DRIVE_FOLDER_PRD, chat_id=chat_id
             )
             log.info("prd.drive.uploaded", job_id=job_id, file_id=file_id, slot=slot)
     except Exception as exc:
