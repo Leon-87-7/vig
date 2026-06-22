@@ -224,8 +224,14 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     async def _sheets_task() -> None:
         from src.services import sheets
         existing_row = refreshed.get("sheets_row_id") if refreshed else None
+        row_idx_int: int | None = None
         if existing_row:
-            await sheets.update_document_row(int(existing_row), refreshed or job)
+            try:
+                row_idx_int = int(existing_row)
+            except (TypeError, ValueError):
+                log.warning("document.invalid_sheets_row_id", job_id=job_id, sheets_row_id=existing_row)
+        if row_idx_int is not None:
+            await sheets.update_document_row(row_idx_int, refreshed or job)
         else:
             row_idx = await sheets.append_document_row(refreshed or job)
             if row_idx:

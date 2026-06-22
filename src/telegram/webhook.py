@@ -341,7 +341,11 @@ async def _cb_show_done(ctx: CallbackCtx) -> None:
 async def _cb_document_md(ctx: CallbackCtx) -> None:
     """📄 Get Markdown — render/serve parsed/<sha>.md on demand (#156)."""
     job = await database.get_job(ctx.job_id)
-    if not job or job.get("content_type") != "document":
+    if (
+        not job
+        or job.get("content_type") != "document"
+        or str(job.get("chat_id")) != str(ctx.chat_id)
+    ):
         await answer_callback_query(ctx.cq_id, text="Job not found.")
         return
     await answer_callback_query(ctx.cq_id)
