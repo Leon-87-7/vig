@@ -79,7 +79,7 @@ function FeedPageContent() {
       <FilterBar
         query={query} setQuery={setQuery}
         ctFilter={ctFilter} setCtFilter={setContentType}
-        contentTypeCounts={contentTypeCounts} totalCount={stats?.total ?? 0}
+        contentTypeCounts={contentTypeCounts} totalCount={Object.values(contentTypeCounts).reduce((a, b) => a + b, 0)}
         stFilter={stFilter} setStFilter={setStFilter}
         recoveryPanel={<RecoveryPanel contentType={ctFilter} onRecovered={refreshFeed} />}
       />
