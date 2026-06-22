@@ -312,5 +312,6 @@ async def export_space(space_id: str, body: ExportIn, request: Request) -> dict:
         markdown=markdown,
         name=doc_name,
         folder_id=settings.GOOGLE_DRIVE_FOLDER_EXPORTS,
+        chat_id=chat_id,
     )
     return {"url": url}

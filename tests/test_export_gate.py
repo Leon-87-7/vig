@@ -7,7 +7,8 @@ new processor can't accidentally leak. See ADR-0027 / ADR-0022.
 """
 from __future__ import annotations
 
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -103,3 +104,27 @@ async def test_sheets_runs_for_operator(operator_set):
     with patch("src.services.sheets._append_sync", return_value=1) as ap:
         await sheets_svc.append_repo_row(job, {}, {})
     ap.assert_called_once()
+
+
+# --- API call site ---------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_spaces_export_forwards_chat_id(operator_set, monkeypatch):
+    """POST /spaces/{id}/export must thread the caller's chat_id into the gate,
+    else a non-operator authenticated user writes a Doc into the operator's Drive.
+    """
+    from src.api import spaces
+
+    monkeypatch.setattr("src.config.settings.GOOGLE_DRIVE_FOLDER_EXPORTS", "folder")
+    request = SimpleNamespace(state=SimpleNamespace(user={"id": INTRUDER}))
+
+    with patch.object(spaces, "_get_owned_space", AsyncMock(return_value={"name": "S"})), \
+         patch.object(spaces.database, "list_context_blobs", AsyncMock(return_value=[])), \
+         patch.object(spaces.database, "list_space_urls", AsyncMock(return_value=[])), \
+         patch.object(spaces.database, "list_tags", AsyncMock(return_value=[])), \
+         patch.object(spaces, "_enrich_space_jobs", AsyncMock(return_value=[])), \
+         patch("src.services.space_export.compose_space_export", return_value="# md"), \
+         patch("src.services.drive.export_to_gdoc", AsyncMock(return_value="")) as gdoc:
+        await spaces.export_space("sp1", spaces.ExportIn(), request)  # type: ignore[arg-type]
+
+    assert gdoc.await_args.kwargs["chat_id"] == INTRUDER
