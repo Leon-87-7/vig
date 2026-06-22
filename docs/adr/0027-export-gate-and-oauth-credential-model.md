@@ -37,7 +37,7 @@ Two facts reshaped that:
 dashboard. No `user_config` table, no `/config` command, no per-folder routing —
 that is speculative scaffolding for a feature that does not exist yet.
 
-**Later (only when a user asks): per-user OAuth, unrestricted scopes.** When
+**Later (only when a user asks): per-user OAuth, narrowly scoped.** When
 "connect your own Google account" is built, it is per-user OAuth scoped to
 `drive.file` + `spreadsheets`, writing results into a vig-created `/vig` folder.
 The shared-SA model is rejected outright.
