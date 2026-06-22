@@ -101,7 +101,7 @@ export function BrainGraph({ results, searchState }: { results: SearchResult[]; 
           nodeRelSize={4}
           nodeVal={(n) => Math.max(1, n.seen_count || 1)}
           nodeLabel={(n) => `${n.title}${n.stars != null ? ` · ★${n.stars}` : ''}`}
-          nodeColor={(n) => (hasMatches ? (matchedIds.has(n.id as string) ? MATCH : DIM) : topicColor(n.topic))}
+          nodeColor={(n) => (hasMatches ? (matchedIds.has(n.url) ? MATCH : DIM) : topicColor(n.topic))}
           linkColor={() => 'rgba(140,148,160,0.20)'}
           linkWidth={(l) => Math.max(0.5, (l.score || 0) * 2)}
           warmupTicks={20}

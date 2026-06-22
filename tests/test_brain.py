@@ -300,6 +300,8 @@ async def test_normalized_url_dedup_variants():
             rows = await cursor.fetchall()
 
         assert normalize_url("https://example.com/tool/?v=X#frag") == "https://example.com/tool"
+        # Root-domain URLs collapse to one canonical form regardless of trailing slash.
+        assert normalize_url("https://example.com/") == normalize_url("https://example.com") == "https://example.com"
         assert len(rows) == 1
         assert rows[0]["url"] == "https://example.com/tool"
         assert rows[0]["seen_count"] == 3

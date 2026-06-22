@@ -136,7 +136,7 @@ def normalize_url(url: str) -> str:
     """Canonical URL for Brain node identity: no query, fragment, or trailing slash."""
     stripped = url.strip()
     parts = urlsplit(stripped)
-    path = parts.path.rstrip("/") or ("/" if parts.path == "/" else "")
+    path = parts.path.rstrip("/")
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
