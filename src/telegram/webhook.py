@@ -298,7 +298,7 @@ async def _cb_article_retry(ctx: CallbackCtx) -> None:
     await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n📥 Retrying article analysis...")
 
 
-def _task_for(pipeline: str) -> str:
+def _task_for(pipeline: str | None) -> str:
     """Worker task name for a pipeline / content_type. Default video."""
     return pipeline if pipeline in ("repo", "article", "document") else "video"
 
