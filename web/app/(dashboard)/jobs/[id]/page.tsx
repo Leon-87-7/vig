@@ -148,7 +148,7 @@ function FieldCard({ label, value, render }: { label: string; value: string; ren
 }
 
 function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
-  const displayTitle = job.title ?? job.url;
+  const displayTitle = job.title?.trim() || job.url;
   const displayUrl = job.url.length > 40 ? `${job.url.slice(0, 40)}...` : job.url;
   return (
     <div>

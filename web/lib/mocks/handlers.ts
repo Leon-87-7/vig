@@ -101,7 +101,10 @@ return [
   http.put('/api/templates/:name', async ({ params, request }) => {
     const t = templates.find((x) => x.name === params.name && !x.is_builtin);
     if (!t) return new HttpResponse(null, { status: 404 });
-    Object.assign(t, await request.json(), { updated_at: new Date().toISOString() });
+    const body = (await request.json()) as Partial<Pick<Template, 'description' | 'extra_instructions'>>;
+    if (typeof body.description === 'string') t.description = body.description;
+    if (typeof body.extra_instructions === 'string') t.extra_instructions = body.extra_instructions;
+    t.updated_at = new Date().toISOString();
     return HttpResponse.json(t);
   }),
   http.delete('/api/templates/:name', ({ params }) => {

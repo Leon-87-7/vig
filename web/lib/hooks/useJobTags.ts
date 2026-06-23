@@ -62,7 +62,8 @@ export function useJobTags(jobId: string, fetchState: FetchState) {
         throw new Error(res.status === 409 ? 'Tag name already exists' : 'Create failed');
       }
       const tag = (await res.json()) as TagSummary;
-      await fetch(`/api/jobs/${jobId}/tags/${tag.id}`, { method: 'POST', credentials: 'include' });
+      const attach = await fetch(`/api/jobs/${jobId}/tags/${tag.id}`, { method: 'POST', credentials: 'include' });
+      if (!attach.ok) throw new Error('Tag created but could not be attached to this job');
       refetchAll();
       refetchTags();
     },

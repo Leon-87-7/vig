@@ -6,8 +6,13 @@ const PUBLIC_PATHS = ["/login"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Mock/demo mode: no real auth backend, so skip the session gate.
-  if (process.env.NEXT_PUBLIC_API_MOCK === "1") {
+  // Mock/demo mode: no real auth backend, so skip the session gate. Guarded to
+  // non-production so a stray NEXT_PUBLIC_API_MOCK=1 in a prod build can't ship
+  // with auth disabled.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_API_MOCK === "1"
+  ) {
     return NextResponse.next();
   }
 

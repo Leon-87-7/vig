@@ -75,7 +75,7 @@ export function PreviewCard({
       <Link
         href={`/jobs/${job.id}`}
         aria-label={display}
-        className="absolute inset-0 rounded-lg"
+        className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-inset"
       />
 
       <div className="pointer-events-none">

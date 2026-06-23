@@ -79,7 +79,7 @@ export function TagMenu({
           <button
             type="button"
             aria-label="Tags"
-            className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink focus:outline-none data-[state=open]:border-line-strong data-[state=open]:text-ink"
+            className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas data-[state=open]:border-line-strong data-[state=open]:text-ink"
           >
             Tags
             {jobTags.length > 0 && (
@@ -307,7 +307,7 @@ export function TagChips({
           <button
             type="button"
             onClick={() => onRemove(tag.id)}
-            className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none"
+            className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-1 focus-visible:ring-offset-canvas"
             aria-label={`Remove tag ${tag.name}`}
           >
             &times;

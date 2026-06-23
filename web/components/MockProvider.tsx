@@ -14,7 +14,8 @@ export default function MockProvider({ children }: { children: React.ReactNode }
     let active = true;
     import('@/lib/mocks/browser')
       .then(({ startWorker }) => startWorker())
-      .then(() => { if (active) setReady(true); });
+      .catch((err) => console.error('[MockProvider] mock worker failed to start:', err))
+      .finally(() => { if (active) setReady(true); }); // render children even if mocks fail, never blank
     return () => { active = false; };
   }, []);
 
