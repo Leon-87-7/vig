@@ -87,6 +87,27 @@ return [
     tags.push(tag);
     return HttpResponse.json(tag, { status: 201 });
   }),
+  http.put('/api/controls/tags/:id', async ({ params, request }) => {
+    const t = tags.find((x) => x.id === params.id);
+    if (!t) return new HttpResponse(null, { status: 404 });
+    const body = (await request.json()) as Partial<Pick<Tag, 'name' | 'meaning' | 'color'>>;
+    if (typeof body.name === 'string') {
+      if (tags.some((x) => x.id !== t.id && x.name.toLowerCase() === body.name!.toLowerCase())) {
+        return HttpResponse.json({ detail: 'Tag name already exists' }, { status: 409 });
+      }
+      t.name = body.name;
+    }
+    if (typeof body.meaning === 'string') t.meaning = body.meaning;
+    if (typeof body.color === 'string') t.color = body.color;
+    return HttpResponse.json(t);
+  }),
+  http.delete('/api/controls/tags/:id', ({ params }) => {
+    const i = tags.findIndex((x) => x.id === params.id);
+    if (i >= 0) tags.splice(i, 1);
+    // Drop attachments to the deleted tag so mock state stays consistent.
+    for (const k of jobTags) if (k.endsWith(`:${params.id}`)) jobTags.delete(k);
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   http.get('/api/templates', () => HttpResponse.json(templates)),
   http.post('/api/templates', async ({ request }) => {
