@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTagList } from '@/lib/hooks/useTagList';
 import { useDomainList } from '@/lib/hooks/useDomainList';
 import { apiPut } from '@/lib/fetch-utils';
@@ -159,6 +159,7 @@ function TagsTab() {
 
 function DomainTab({ apiPath, label }: { apiPath: string; label: string }) {
   const { domains, loading, fetchError, addDomain, removeDomain } = useDomainList(apiPath, label);
+  const inputId = useId(); // both DomainTab instances render at once — IDs must be unique
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | undefined>();
@@ -195,8 +196,8 @@ function DomainTab({ apiPath, label }: { apiPath: string; label: string }) {
         <h3 className="mb-3 text-sm font-semibold text-ink">Add domain</h3>
         <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <label htmlFor="domain-input" className="text-xs font-medium text-body">Domain or URL</label>
-            <input id="domain-input" type="text" required value={input} onChange={(e) => setInput(e.target.value)} placeholder="example.com" className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
+            <label htmlFor={inputId} className="text-xs font-medium text-body">Domain or URL</label>
+            <input id={inputId} type="text" required value={input} onChange={(e) => setInput(e.target.value)} placeholder="example.com" className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
           </div>
           <button type="submit" disabled={adding} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
             {adding ? 'Adding…' : 'Add'}
