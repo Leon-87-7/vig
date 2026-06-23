@@ -201,7 +201,6 @@ async def run(job: dict) -> None:
     raw_frames = frame_resp.get("frames", [])
     platform = frame_resp.get("platform", "unknown")
     video_id = frame_resp.get("video_id", "")
-    title = frame_resp.get("title", "")
 
     # 2. Gemini Vision analysis
     vision = await gemini.call_gemini_vision(raw_frames)
