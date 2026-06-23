@@ -47,6 +47,7 @@ export default function LoginPage() {
     return () => {
       delete (window as unknown as Record<string, unknown>)
         .onTelegramAuth;
+      script.remove();
     };
   }, [router]);
 

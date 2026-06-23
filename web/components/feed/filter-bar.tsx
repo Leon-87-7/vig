@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
+
+// useLayoutEffect on the server warns; fall back to useEffect there (no DOM to measure anyway).
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 const CONTENT_TYPE_FILTERS = [
   { label: "All", value: "" },
@@ -37,12 +40,12 @@ function SegmentedTabs({ tabs, value, onChange }: {
   const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null);
   const activeIndex = tabs.findIndex((t) => t.value === value);
 
-  useEffect(() => {
+  // Measure before paint so the orange thumb shows on first frame (no flash of no selection).
+  useIsoLayoutEffect(() => {
     const el = refs.current[activeIndex];
     if (!el) return;
     const update = () => {
       const next = { left: el.offsetLeft, width: el.offsetWidth };
-      // Guard against the render loop: tabs is rebuilt each render, so bail when unchanged.
       setThumb((prev) => (prev && prev.left === next.left && prev.width === next.width ? prev : next));
     };
     update();
@@ -125,11 +128,15 @@ export function FilterBar({ query, setQuery, ctFilter, setCtFilter, contentTypeC
   setStFilter: (v: string) => void;
   recoveryPanel?: React.ReactNode;
 }) {
-  const tabs = CONTENT_TYPE_FILTERS.map(({ label, value }) => ({
-    label,
-    value,
-    count: value ? contentTypeCounts[value] ?? 0 : totalCount,
-  }));
+  const tabs = useMemo(
+    () =>
+      CONTENT_TYPE_FILTERS.map(({ label, value }) => ({
+        label,
+        value,
+        count: value ? contentTypeCounts[value] ?? 0 : totalCount,
+      })),
+    [contentTypeCounts, totalCount],
+  );
 
   // #187: status filters + recovery panel collapse behind a disclosure on mobile.
   // Default collapsed; component remounts on navigation so it resets naturally.
