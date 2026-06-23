@@ -6,6 +6,11 @@ const PUBLIC_PATHS = ["/login"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Mock/demo mode: no real auth backend, so skip the session gate.
+  if (process.env.NEXT_PUBLIC_API_MOCK === "1") {
+    return NextResponse.next();
+  }
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }

@@ -6,6 +6,7 @@ import { useDomainList } from '@/lib/hooks/useDomainList';
 import { apiPut } from '@/lib/fetch-utils';
 import type { Tag, TagFormState } from '@/lib/hooks/useTagList';
 import { TabBar } from '@/components/ui';
+import { PRESET_COLORS } from '@/components/TagPicker';
 
 const DEFAULT_COLOR = '#6366f1';
 
@@ -41,27 +42,47 @@ function TagForm({
     }
   };
 
+  const inputCls =
+    'w-full rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none';
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-body">Name</label>
-        <input type="text" required maxLength={80} value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} placeholder="Tag name" className="w-44 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="flex gap-3">
+        <div className="flex flex-1 flex-col gap-1">
+          <label className="text-xs font-medium text-body">Name</label>
+          <input type="text" required maxLength={80} value={values.name} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} placeholder="Tag name" className={inputCls} />
+        </div>
+        <div className="flex flex-[1.4] flex-col gap-1">
+          <label className="text-xs font-medium text-body">Meaning</label>
+          <input type="text" maxLength={500} value={values.meaning} onChange={(e) => setValues((v) => ({ ...v, meaning: e.target.value }))} placeholder="What this tag means…" className={inputCls} />
+        </div>
       </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-body">Meaning</label>
-        <input type="text" maxLength={500} value={values.meaning} onChange={(e) => setValues((v) => ({ ...v, meaning: e.target.value }))} placeholder="What this tag means..." className="w-72 rounded-md border border-line bg-canvas px-3 py-1.5 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none" />
-      </div>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <label className="text-xs font-medium text-body">Color</label>
-        <input type="color" value={values.color} onChange={(e) => setValues((v) => ({ ...v, color: e.target.value }))} className="h-9 w-14 cursor-pointer rounded-md border border-line bg-canvas p-1" />
+        <div className="mx-auto grid w-fit grid-cols-9 gap-2 p-2">
+          {PRESET_COLORS.map((c) => {
+            const selected = c === values.color;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setValues((v) => ({ ...v, color: c }))}
+                aria-label={`Color ${c}`}
+                aria-pressed={selected}
+                className={`h-6 w-6 rounded-full transition-ui ${selected ? 'ring-2 ring-signal ring-offset-2 ring-offset-surface' : 'hover:scale-110'}`}
+                style={{ backgroundColor: c }}
+              />
+            );
+          })}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
+      {localError && <p className="text-xs text-status-error">{localError}</p>}
+      <div className="flex justify-end gap-2 pt-1">
+        {onCancel && <button type="button" onClick={onCancel} className="h-8 rounded-md px-3.5 text-[13px] font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Cancel</button>}
         <button type="submit" disabled={submitting} className="h-8 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted">
           {submitting ? 'Saving…' : submitLabel}
         </button>
-        {onCancel && <button type="button" onClick={onCancel} className="h-8 rounded-md px-3.5 text-[13px] font-medium text-muted transition-ui hover:bg-raised hover:text-ink">Cancel</button>}
       </div>
-      {localError && <p className="w-full text-xs text-status-error">{localError}</p>}
     </form>
   );
 }
@@ -122,8 +143,8 @@ function TagsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-line bg-surface p-4">
-        <h3 className="mb-3 text-sm font-semibold text-ink">Create tag</h3>
+      <div className="max-w-md rounded-lg border border-line bg-surface p-5">
+        <h3 className="mb-4 text-sm font-semibold text-ink">Create tag</h3>
         <TagForm initial={{ name: '', meaning: '', color: DEFAULT_COLOR }} onSubmit={createTag} submitLabel="Create" />
       </div>
       {loading && <p className="text-sm text-body">Loading tags…</p>}
