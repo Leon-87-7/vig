@@ -49,4 +49,4 @@ web/node_modules/
 web/.next/
 
 # Local dev mock snapshot of real data (regenerate from data/jobs.db)
-web/lib/mocks/seed.json
+web/public/seed.json

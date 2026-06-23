@@ -1,17 +1,22 @@
 import { http, HttpResponse } from 'msw';
-import seed from './seed.json';
 
-// In-memory state seeded from a real DB snapshot. Mutations (tag attach/detach,
+// In-memory state seeded from a real DB snapshot fetched at worker start (so the
+// 1.3MB file is never bundled — see browser.ts). Mutations (tag attach/detach,
 // create tag, annotations) persist for the browser session only.
 interface Job { id: string; content_type: string; status: string; [k: string]: unknown }
 interface Tag { id: string; name: string; meaning: string; color: string }
 interface Template { id: string; name: string; description: string; extra_instructions: string; is_builtin: boolean; created_at?: string; updated_at?: string }
+export interface Seed {
+  jobs: Job[];
+  tags: Tag[];
+  job_tags: { job_id: string; tag_id: string }[];
+  annotations: { job_id: string; notes: string; updated_at: string | null }[];
+}
 
-const jobs = seed.jobs as unknown as Job[];
-const tags = (seed.tags as Tag[]).slice();
-const jobTags = new Set(
-  (seed.job_tags as { job_id: string; tag_id: string }[]).map((jt) => `${jt.job_id}:${jt.tag_id}`),
-);
+export function makeHandlers(seed: Seed) {
+const jobs = seed.jobs;
+const tags = seed.tags.slice();
+const jobTags = new Set(seed.job_tags.map((jt) => `${jt.job_id}:${jt.tag_id}`));
 const templates: Template[] = [
   { id: 'b1', name: 'summary', description: 'Concise summary of the video', extra_instructions: '', is_builtin: true },
   { id: 'b2', name: 'transcript', description: 'Full transcript with timestamps', extra_instructions: '', is_builtin: true },
@@ -19,14 +24,11 @@ const templates: Template[] = [
   { id: 'u1', name: 'startup-notes', description: 'Founder takeaways', extra_instructions: 'Extract actionable startup lessons and growth tactics mentioned in the video.', is_builtin: false },
 ];
 const annotations = new Map<string, { notes: string; updated_at: string | null }>(
-  (seed.annotations as { job_id: string; notes: string; updated_at: string | null }[]).map((a) => [
-    a.job_id,
-    { notes: a.notes, updated_at: a.updated_at },
-  ]),
+  seed.annotations.map((a) => [a.job_id, { notes: a.notes, updated_at: a.updated_at }]),
 );
 
 // Order matters: more specific paths first (`/api/jobs/:id` also matches `/api/jobs/stats`).
-export const handlers = [
+return [
   http.get('/api/jobs/stats', ({ request }) => {
     const ct = new URL(request.url).searchParams.get('content_type') || '';
     const by_content_type: Record<string, number> = {};
@@ -108,3 +110,4 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 ];
+}
