@@ -252,3 +252,24 @@ async def test_short_pipeline_persists_summary_with_non_empty_vision() -> None:
     links_calls = [c for c in mock_update.call_args_list if c.kwargs.get("links") is not None]
     assert links_calls
     assert links_calls[-1].kwargs.get("links") == json.dumps(vision_with_links["links"])
+
+
+@pytest.mark.asyncio
+async def test_short_pipeline_omits_links_when_none_found() -> None:
+    """Link-free videos must not persist links='[]' (would render literal [] in UI)."""
+    from src.processors import short_video
+
+    vision_no_links = {
+        "main_frame_index": 0,
+        "summary": "A short clip about Python.",
+        "links": [],
+    }
+    transcript_resp = {"text": ""}
+
+    with _patch_short_pipeline(transcript_resp, job=_PLAIN_SHORT_JOB) as (_, mock_update):
+        with patch("src.processors.short_video.gemini.call_gemini_vision", new_callable=AsyncMock, return_value=vision_no_links):
+            with patch("src.processors.short_video.brave.verify_links", new_callable=AsyncMock, return_value=[]):
+                with patch("src.processors.short_video.enrich_github_links", new_callable=AsyncMock, return_value=[]):
+                    await short_video.run(_PLAIN_SHORT_JOB)
+
+    assert not any("links" in c.kwargs for c in mock_update.call_args_list)

@@ -244,7 +244,9 @@ async def run(job: dict) -> None:
     # 6+7. Send best frame photo, then links message (its message_id wins as anchor)
     bot_message_id, links = await _deliver_media(chat_id, tag, raw_frames, main_idx, summary, links)
 
-    media_fields: dict[str, object] = {"links": json.dumps(links)}
+    media_fields: dict[str, object] = {}
+    if links:
+        media_fields["links"] = json.dumps(links)
     if bot_message_id:
         media_fields["bot_message_id"] = bot_message_id
     await database.update_job_status(job_id, "done", **media_fields)
