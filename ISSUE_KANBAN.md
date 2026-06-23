@@ -140,6 +140,9 @@
 | [#153](https://github.com/Leon-87-7/vig/issues/153) | feat(document): add vig-document liteparse sidecar | Document / Sidecar | Merged; PR #182; closed on GH |
 | [#154](https://github.com/Leon-87-7/vig/issues/154) | feat(document): parse cache and automatic Gemini enrichment | Document Pipeline | Merged; PR #182; closed on GH |
 | [#155](https://github.com/Leon-87-7/vig/issues/155) | feat(document): deliver plain text and enrichment summary in Telegram | Telegram / Document | Merged; PR #182; closed on GH |
+| [#156](https://github.com/Leon-87-7/vig/issues/156) | feat(document): render Markdown on demand from cached plain text | Document / Markdown | Merged; PR #200; closed on GH |
+| [#157](https://github.com/Leon-87-7/vig/issues/157) | feat(document): support Freestyle re-runs from cached parse | Document / Templates | Merged; PR #200; closed on GH |
+| [#158](https://github.com/Leon-87-7/vig/issues/158) | feat(exports): add opt-in Document Analysis export hook | Exports / Sheets | Merged; PR #200; closed on GH |
 
 ---
 
@@ -147,6 +150,12 @@
 
 |                                                   # | Title | Area | Depends On |
 | --------------------------------------------------: | ----- | ---- | ---------- |
+| [#201](https://github.com/Leon-87-7/vig/issues/201) | epic(multi-tenancy): per-user export isolation | Multi-tenancy | — |
+| [#202](https://github.com/Leon-87-7/vig/issues/202) | feat(config): operator-only export gate (per-user isolation, the #201 'now' fix) | Config / Exports | — |
+| [#203](https://github.com/Leon-87-7/vig/issues/203) | chore(ops): Google Cloud OAuth app — production publishing + sensitive-scope verification | Ops / OAuth | — |
+| [#204](https://github.com/Leon-87-7/vig/issues/204) | feat(oauth): per-user 'Connect Google' (web) — encrypted token store → exports to /vig | OAuth / Web | — |
+| [#205](https://github.com/Leon-87-7/vig/issues/205) | feat(telegram): Mini App 'Connect Google' surface — initData identity, shared OAuth backend | Telegram / OAuth | — |
+| [#206](https://github.com/Leon-87-7/vig/issues/206) | feat(oauth): connection lifecycle — invalid_grant handling, /disconnect, notify-once | OAuth | — |
 
 ---
 
@@ -156,13 +165,13 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                      | Area               | Depends On |
 | --------------------------------------------------: | ---------------------------------------------------------- | ------------------ | ---------- |
-| [#158](https://github.com/Leon-87-7/vig/issues/158) | feat(exports): add opt-in Document Analysis export hook | Exports / Sheets | #154 |
-| [#156](https://github.com/Leon-87-7/vig/issues/156) | feat(document): render Markdown on demand from cached plain text | Document / Markdown | #154, #155 |
-| [#157](https://github.com/Leon-87-7/vig/issues/157) | feat(document): support Freestyle re-runs from cached parse | Document / Templates | #154, #155 |
 | [#194](https://github.com/Leon-87-7/vig/issues/194) | Brain graph endpoint + desktop 2D render | Brain / Web | — |
 | [#195](https://github.com/Leon-87-7/vig/issues/195) | Normalized-URL dedup in brain ingest | Brain | — |
 | [#196](https://github.com/Leon-87-7/vig/issues/196) | Brain graph search highlight | Web | #194 |
 | [#198](https://github.com/Leon-87-7/vig/issues/198) | Repo-node metadata refresh (stars/pushed_at) | Brain | #194 |
+| [#211](https://github.com/Leon-87-7/vig/issues/211) | Vision-harvested short titles | Short Video | — |
+| [#212](https://github.com/Leon-87-7/vig/issues/212) | Remove key_phrases end-to-end | Short Video / Enrichment | — |
+| [#213](https://github.com/Leon-87-7/vig/issues/213) | Links Found detail section (clickable) | Web / Jobs | #212 |
 
 ---
 
@@ -338,11 +347,11 @@ Document pipeline (ADR-0023: docs/adr/0023-liteparse-document-pipeline.md + docs
 └── #153 vig-document liteparse sidecar ✅-Done (PR #182)
     └── #154 parse cache + automatic Gemini enrichment ◄── also #151, #152 ✅-Done (PR #182)
         ├── #155 plain text + enrichment Telegram delivery ✅-Done (PR #182)
-        │   ├── #156 on-demand Markdown rendering ◄── also #154
-        │   └── #157 Freestyle re-runs from cached parse ◄── also #154
-        └── #158 opt-in Document Analysis export hook
+        │   ├── #156 on-demand Markdown rendering ✅-Done (PR #200) ◄── also #154
+        │   └── #157 Freestyle re-runs from cached parse ✅-Done (PR #200) ◄── also #154
+        └── #158 opt-in Document Analysis export hook ✅-Done (PR #200)
 Critical path: #150 → {#151, #152, #153} → #154 → #155 → {#156, #157}; #158 can follow #154 in parallel
-(#150–#155 ✅-Done via PR #182; #156/#157/#158 remain open)
+(#150–#158 ✅-Done; #150–#155 via PR #182, #156/#157/#158 via PR #200)
 
 Short-thumbnail backfill (docs/backfill_agreed_plan.md — ADR-0025 Phase-2 follow-up)
 #159 core script (happy path) ✅-Done (PR #149)
@@ -389,6 +398,12 @@ Brain graph map (grill 2026-06-21 — ADR-0027, ADR-0028; CONTEXT.md Brain graph
 └── #198 repo-node metadata refresh (stars/pushed_at) ◄── #194 (fold into refresh_stale_links)
 #195 normalized-URL dedup (independent)
 Critical path: #194 → {#196, #198}; #195 parallel
+
+Short titles + Links Found (grill 2026-06-23)
+#211 vision-harvested short titles (independent) — title field on existing vision pass, no 2nd Gemini call
+#212 remove key_phrases end-to-end (independent) — template enrichment untouched
+└── #213 Links Found detail section (clickable) ◄── #212 (takes over the detail-section slot key_phrases vacates)
+Critical path: #211 parallel; #212 → #213
 ```
 
 ---
@@ -397,12 +412,17 @@ Critical path: #194 → {#196, #198}; #195 parallel
 
 |                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status |
 | ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | ------ |
-| [#199](https://github.com/Leon-87-7/vig/pull/199) | docs(brain): graph map plan — ADR-0027/0028, CONTEXT, issues #194–#198 | feat/brain-graph-map→main | — | Open |
+| [#208](https://github.com/Leon-87-7/vig/pull/208) | feat(config): operator-only export gate — per-user isolation (#202) | feat/operator-export-gate→main | #202 | Open |
+| [#207](https://github.com/Leon-87-7/vig/pull/207) | docs(multi-tenancy): export-isolation design — ADR-0027, Operator term, issue breakdown | docs/multi-tenancy-export-isolation→main | — | Open |
 
 ## Closed PRs
 
 |                                                 # | Title                                                                                                  | Branch→Base                                | Linked Issue        | Status    |
 | ------------------------------------------------: | ------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ------------------- | --------- |
+| [#210](https://github.com/Leon-87-7/vig/pull/210) | feat(web): job tag menu, controls accordion, denser feed cards | ui/job-tag-menu→main | — | ✅ Merged |
+| [#209](https://github.com/Leon-87-7/vig/pull/209) | feat(skills): add /spec-to-kanban wrapper | feat/spec-to-kanban-skill→main | — | ✅ Merged |
+| [#200](https://github.com/Leon-87-7/vig/pull/200) | fix+feat(document): dispatch fallthrough fix + fast-follow (#156 #157 #158) | fix/document-dispatch-fallthrough→main | #156, #157, #158 | ✅ Merged |
+| [#199](https://github.com/Leon-87-7/vig/pull/199) | docs(brain): graph map plan — ADR-0027/0028, CONTEXT, issues #194–#198 | feat/brain-graph-map→main | — | ✅ Merged |
 | [#193](https://github.com/Leon-87-7/vig/pull/193) | feat(web): mobile-first UI/UX makeover + per-space icons (#185–#192) | feat/ui-ux-makeover→main | #185–#192 | ✅ Merged |
 | [#184](https://github.com/Leon-87-7/vig/pull/184) | fix: hide cancelled jobs from feed and brain search | fix/hide-cancelled-from-feed-and-brain→main | — | ✅ Merged |
 | [#183](https://github.com/Leon-87-7/vig/pull/183) | refactor: centralize extract_json and job_tag utilities                                                | refactor/centralize-extract-json-and-job-tag→main | —              | ✅ Merged |
