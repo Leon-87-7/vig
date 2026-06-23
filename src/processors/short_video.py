@@ -7,7 +7,6 @@ import time
 from datetime import datetime, timezone
 
 from src import database
-from src.analysis import extract_key_phrases
 from src.config import settings
 from src.processors import enrichment as enrichment_proc
 from src.services import brave, frames, gemini, sheets
@@ -208,6 +207,7 @@ async def run(job: dict) -> None:
     vision = await gemini.call_gemini_vision(raw_frames)
     main_idx = max(0, min(vision.get("main_frame_index", 0), len(raw_frames) - 1))
     await _persist_best_frame_thumbnail(job_id, platform, raw_frames, main_idx)
+    title = vision.get("title") or frame_resp.get("title", "")
     summary = vision.get("summary", "")
     ignored = await database.get_ignored_domains(chat_id)
     links: list[dict] = filter_vision_links(vision.get("links", []), extra_ignored=ignored)
@@ -244,8 +244,10 @@ async def run(job: dict) -> None:
     # 6+7. Send best frame photo, then links message (its message_id wins as anchor)
     bot_message_id, links = await _deliver_media(chat_id, tag, raw_frames, main_idx, summary, links)
 
+    media_fields: dict[str, object] = {"links": json.dumps(links)}
     if bot_message_id:
-        await database.update_job_status(job_id, "done", bot_message_id=bot_message_id)
+        media_fields["bot_message_id"] = bot_message_id
+    await database.update_job_status(job_id, "done", **media_fields)
 
     # 8. Sheets logging (fire-and-forget)
     refreshed = await database.get_job(job_id) or job
@@ -341,13 +343,11 @@ async def _transcript_phase(
     if wordless:
         await send_message(chat_id, f"{tag}\n⚠️ I'm wordless")
 
-    # Persist transcript + key_phrases immediately on acquisition
+    # Persist transcript immediately on acquisition. The key_phrases DB column is dormant.
     if transcript_text:
-        key_phrases = extract_key_phrases(transcript_text, max_phrases=8)
         await database.update_job_status(
             job_id, "done",
             transcript=transcript_text,
-            key_phrases=json.dumps(key_phrases),
         )
 
     await _run_template_enrichment(
