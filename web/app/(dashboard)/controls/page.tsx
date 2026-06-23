@@ -5,7 +5,7 @@ import { useTagList } from '@/lib/hooks/useTagList';
 import { useDomainList } from '@/lib/hooks/useDomainList';
 import { apiPut } from '@/lib/fetch-utils';
 import type { Tag, TagFormState } from '@/lib/hooks/useTagList';
-import { TabBar } from '@/components/ui';
+import { ChevronDown } from 'lucide-react';
 import { PRESET_COLORS } from '@/components/TagPicker';
 
 const DEFAULT_COLOR = '#6366f1';
@@ -142,19 +142,17 @@ function TagsTab() {
   const { tags, loading, fetchError, createTag, deleteTag, updateTag } = useTagList();
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-md rounded-lg border border-line bg-surface p-5">
+    <div className="grid items-start gap-6 md:grid-cols-2">
+      <div className="rounded-lg border border-line bg-surface p-5">
         <h3 className="mb-4 text-sm font-semibold text-ink">Create tag</h3>
         <TagForm initial={{ name: '', meaning: '', color: DEFAULT_COLOR }} onSubmit={createTag} submitLabel="Create" />
       </div>
-      {loading && <p className="text-sm text-body">Loading tags…</p>}
-      {fetchError && <p className="text-sm text-status-error">{fetchError}</p>}
-      {!loading && !fetchError && tags.length === 0 && <p className="text-sm text-muted">No tags yet. Create one above.</p>}
-      {tags.length > 0 && (
-        <ul className="space-y-2">
-          {tags.map((tag) => <TagRow key={tag.id} tag={tag} onDelete={deleteTag} onUpdate={updateTag} />)}
-        </ul>
-      )}
+      <div className="space-y-2">
+        {loading && <p className="text-sm text-body">Loading tags…</p>}
+        {fetchError && <p className="text-sm text-status-error">{fetchError}</p>}
+        {!loading && !fetchError && tags.length === 0 && <p className="text-sm text-muted">No tags yet. Create one on the left.</p>}
+        {tags.map((tag) => <TagRow key={tag.id} tag={tag} onDelete={deleteTag} onUpdate={updateTag} />)}
+      </div>
     </div>
   );
 }
@@ -207,10 +205,10 @@ function DomainTab({ apiPath, label }: { apiPath: string; label: string }) {
         </form>
       </div>
 
-      {loading && <p className="text-sm text-body">Loading {label.toLowerCase()}…</p>}
-      {fetchError && <p className="text-sm text-status-error">{fetchError}</p>}
-      {removeError && <p className="text-sm text-status-error">{removeError}</p>}
-      {!loading && !fetchError && domains.length === 0 && <p className="text-sm text-muted">No {label.toLowerCase()} yet. Add one above.</p>}
+      {loading && <p className="px-4 text-sm text-body">Loading {label.toLowerCase()}…</p>}
+      {fetchError && <p className="px-4 text-sm text-status-error">{fetchError}</p>}
+      {removeError && <p className="px-4 text-sm text-status-error">{removeError}</p>}
+      {!loading && !fetchError && domains.length === 0 && <p className="px-4 text-sm text-muted">No {label.toLowerCase()} yet. Add one above.</p>}
       {domains.length > 0 && (
         <ul className="space-y-2">
           {domains.map((domain) => (
@@ -272,8 +270,8 @@ function RecoveryTab() {
   };
 
   return (
-    <div className="space-y-4">
-      <label className="flex max-w-xl items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm text-ink">
+    <>
+      <label className="flex items-center gap-3 text-sm text-ink">
         <input
           type="checkbox"
           checked={enabled}
@@ -283,27 +281,46 @@ function RecoveryTab() {
         />
         <span className="font-medium">Dashboard recovery Telegram notifications</span>
       </label>
-      {error && <p className="text-sm text-status-error">{error}</p>}
-    </div>
+      <p className="ml-7 mt-1.5 text-xs text-muted">Send a Telegram message when a stuck job is recovered from the dashboard.</p>
+      {error && <p className="ml-7 mt-2 text-sm text-status-error">{error}</p>}
+    </>
   );
 }
 
-const TABS = ['Tags', 'Allowed Domains', 'Ignored Domains', 'Recovery'] as const;
-type Tab = (typeof TABS)[number];
+function Section({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  return (
+    <details open={defaultOpen} className="group overflow-hidden rounded-lg border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-ink transition-ui hover:bg-raised [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown className="h-4 w-4 text-muted transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-line bg-canvas p-4">{children}</div>
+    </details>
+  );
+}
 
 export default function ControlsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Tags');
-
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">Controls</h1>
-      <div className="mb-6">
-        <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} />
+      <div className="space-y-3">
+        <Section title="Tags" defaultOpen><TagsTab /></Section>
+        <Section title="Domains" defaultOpen>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Allowed</h4>
+              <DomainTab apiPath="/api/controls/allowed-domains" label="Allowed Domains" />
+            </div>
+            <div className="md:border-l md:border-line md:pl-6">
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Ignored</h4>
+              <DomainTab apiPath="/api/controls/ignored-domains" label="Ignored Domains" />
+            </div>
+          </div>
+        </Section>
+        <div className="rounded-lg border border-line bg-surface px-4 py-3">
+          <RecoveryTab />
+        </div>
       </div>
-      {activeTab === 'Tags' && <TagsTab />}
-      {activeTab === 'Allowed Domains' && <DomainTab apiPath="/api/controls/allowed-domains" label="Allowed Domains" />}
-      {activeTab === 'Ignored Domains' && <DomainTab apiPath="/api/controls/ignored-domains" label="Ignored Domains" />}
-      {activeTab === 'Recovery' && <RecoveryTab />}
     </div>
   );
 }
