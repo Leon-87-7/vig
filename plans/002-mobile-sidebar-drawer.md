@@ -155,7 +155,7 @@ bar.
 CSS/markup change reusing existing `open` state — no new logic, no new unit test
 warranted. Run the existing suite to confirm no regression:
 
-```
+```bash
 cd web && npm run test:run
 ```
 

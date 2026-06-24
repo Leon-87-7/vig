@@ -55,6 +55,9 @@ function TagForm({
       onSubmit={handleSubmit}
       className="space-y-3"
     >
+      {localError && (
+        <p className="text-xs text-status-error">{localError}</p>
+      )}
       {/* ponytail: 2 cols on desktop, stacked on mobile. Left = Name+Meaning
           grouped tight; right = Color with the buttons sharing the swatch row. */}
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-8">
@@ -135,9 +138,6 @@ function TagForm({
           </div>
         </div>
       </div>
-      {localError && (
-        <p className="text-xs text-status-error">{localError}</p>
-      )}
     </form>
   );
 }
@@ -204,14 +204,14 @@ function TagRow({
       <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={() => setEditing(true)}
-          aria-label="Edit"
+          aria-label={`Edit ${tag.name}`}
           className="rounded p-1.5 text-muted transition-ui hover:bg-raised hover:text-ink"
         >
           <PenLine className="h-4 w-4" aria-hidden="true" />
         </button>
         <button
           onClick={handleDelete}
-          aria-label="Delete"
+          aria-label={`Delete ${tag.name}`}
           className="rounded p-1.5 text-status-error transition-ui hover:bg-raised"
         >
           <TagX className="h-4 w-4" aria-hidden="true" />

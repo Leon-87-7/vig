@@ -279,6 +279,7 @@ export function Sidebar() {
         aria-label="Open navigation"
         aria-expanded={open}
         aria-controls="vig-nav-panel"
+        tabIndex={open ? -1 : undefined}
         className={`fixed left-0 top-1/2 z-30 flex h-14 w-4 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-line bg-surface text-muted shadow-overlay transition-opacity hover:text-ink sm:hidden ${
           open ? 'pointer-events-none opacity-0' : 'opacity-100'
         }`}

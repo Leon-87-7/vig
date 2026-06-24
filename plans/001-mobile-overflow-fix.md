@@ -14,7 +14,7 @@ viewport and scrolls horizontally.
 
 The dashboard shell is:
 
-```
+```tsx
 web/app/(dashboard)/layout.tsx
   <div className="flex h-screen overflow-hidden">
     <Sidebar />                                    // fixed w-16 (64px) rail
@@ -116,7 +116,7 @@ warranted (the existing Vitest suite asserts behavior, not pixel widths). The
 verification is the manual viewport check in Done criteria #4. Run the existing
 suite once to confirm nothing regressed:
 
-```
+```bash
 cd web && npm run test:run
 ```
 
