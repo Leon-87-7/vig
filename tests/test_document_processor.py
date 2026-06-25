@@ -170,6 +170,22 @@ async def test_tenant_scoped_ownership_shared_parse(patched):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_job_suppresses_all_telegram(patched):
+    """telegram_delivery='off' (dashboard upload) → no status ping, no delivery."""
+    document, m = patched
+    job = _job()
+    job["telegram_delivery"] = "off"
+
+    await document.run(job)
+
+    m["send_message"].assert_not_awaited()  # the in-progress status ping is gated too
+    m["send_document"].assert_not_awaited()
+    m["send_inline_keyboard"].assert_not_awaited()
+    # still reaches 'done' — only the Telegram traffic is suppressed
+    assert any(c.args[1] == "done" for c in m["update_job_status"].call_args_list)
+
+
+@pytest.mark.asyncio
 async def test_happy_path_sends_txt_summary_then_buttons(patched):
     document, m = patched
     m["exists"].return_value = False  # parse → text = "extracted document text"

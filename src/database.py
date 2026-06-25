@@ -250,6 +250,9 @@ CREATE TABLE IF NOT EXISTS document_outputs (
     CHECK(kind IN ('raw_txt','raw_md','summary','clean','freestyle'))
 );
 CREATE INDEX IF NOT EXISTS idx_document_outputs_job_id ON document_outputs(job_id, created_at);
+-- Singular kinds (raw_txt/raw_md/summary/clean) are one-per-job and upserted;
+-- freestyle accumulates as history, so it's excluded from the uniqueness rule.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_document_outputs_singular ON document_outputs(job_id, kind) WHERE kind <> 'freestyle';
 """
 
 
@@ -726,6 +729,16 @@ _MIGRATIONS.append([
         CHECK(kind IN ('raw_txt','raw_md','summary','clean','freestyle'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_document_outputs_job_id ON document_outputs(job_id, created_at)",
+])
+
+# v21 → v22: dedup singular document outputs and enforce one-per-(job,kind)
+# (ADR-0029). Freestyle stays multi-row; raw/summary/clean upsert in place.
+_MIGRATIONS.append([
+    # Drop pre-existing duplicate singular rows (keep the earliest id) so the
+    # unique index can be created without violating it.
+    "DELETE FROM document_outputs WHERE kind <> 'freestyle' AND id NOT IN "
+    "(SELECT MIN(id) FROM document_outputs WHERE kind <> 'freestyle' GROUP BY job_id, kind)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_document_outputs_singular ON document_outputs(job_id, kind) WHERE kind <> 'freestyle'",
 ])
 
 
@@ -1218,15 +1231,22 @@ async def set_job_telegram_delivery(job_id: str, state: str) -> dict | None:
 
 
 async def add_document_output(job_id: str, kind: str, gcs_key: str, title: str = "") -> dict:
+    # Singular kinds (raw_txt/raw_md/summary/clean) upsert in place so re-runs
+    # (a freestyle re-process, a repeated Clean) refresh the one card instead of
+    # duplicating it; freestyle has no unique index, so it accumulates as history.
     output_id = generate_id()
     async with connection() as conn:
-        await conn.execute(
+        cur = await conn.execute(
             """INSERT INTO document_outputs (id, job_id, kind, gcs_key, title)
-            VALUES (?, ?, ?, ?, ?)""",
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(job_id, kind) WHERE kind <> 'freestyle'
+            DO UPDATE SET gcs_key = excluded.gcs_key, title = excluded.title
+            RETURNING id, job_id, kind, gcs_key, title""",
             (output_id, job_id, kind, gcs_key, title),
         )
+        row = await cur.fetchone()
         await conn.commit()
-    return {"id": output_id, "job_id": job_id, "kind": kind, "gcs_key": gcs_key, "title": title}
+    return dict(row)
 
 
 async def list_document_outputs(job_id: str) -> list[dict]:

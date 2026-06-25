@@ -178,9 +178,13 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     chat_id = job["chat_id"]
     key = job["url"]  # documents/<sha>.pdf
     tag = job_tag(job_id)
+    # Dashboard-originated jobs set telegram_delivery='off'; suppress ALL Telegram
+    # traffic for them, including the in-progress status ping (not just _deliver).
+    deliver = job.get("telegram_delivery", "on") != "off"
 
     await database.update_job_status(job_id, "processing")
-    await send_message(chat_id, f"{tag}\n📄 Reading document...")
+    if deliver:
+        await send_message(chat_id, f"{tag}\n📄 Reading document...")
 
     # 1. Parse cache: parsed text is shared by sha across tenants.
     sha = _sha_from_key(key)
@@ -256,6 +260,6 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
 
     asyncio.create_task(_sheets_task())
 
-    if (refreshed or job).get("telegram_delivery", "on") != "off":
+    if deliver:
         await _deliver(refreshed or job, text, tools, references)
     log.info("document_complete", job_id=job_id, title=data.get("title", "")[:80])
