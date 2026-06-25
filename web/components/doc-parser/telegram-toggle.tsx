@@ -13,6 +13,7 @@ export function TelegramToggle({ jobId, value = 'off' }: { jobId: string; value?
 
   async function persist(next: State) {
     const res = await fetch(`/api/parsed/${jobId}/telegram-delivery`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: next }) });
+    if (!res.ok) return; // failed PUT → keep current state, don't setState(undefined)
     const data = await res.json();
     setState(data.telegram_delivery);
   }
