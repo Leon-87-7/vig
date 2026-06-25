@@ -178,6 +178,7 @@ Ordered by unblocked-first, then dependency chain.
 | [#224](https://github.com/Leon-87-7/vig/issues/224) | feat(web): three-state Telegram toggle component                     | Web / API                | #217             |
 | [#225](https://github.com/Leon-87-7/vig/issues/225) | feat(web): Doc Parser detail page with output cards                  | Web                      | #221, #223, #224 |
 | [#226](https://github.com/Leon-87-7/vig/issues/226) | feat(web): freestyle modal with random + saved prompts               | Web                      | #225             |
+| [#231](https://github.com/Leon-87-7/vig/issues/231) | Latent: 'retroactive' storable as a persistent telegram_delivery state | DB / Document          | —                |
 
 ---
 
