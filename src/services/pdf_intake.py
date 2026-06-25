@@ -74,12 +74,17 @@ async def fetch_remote_pdf(url: str) -> tuple[bytes, str]:
 
 async def read_capped_body(request: Request) -> bytes:
     # Stream-read a raw body with a cap so a giant body can't exhaust memory
-    # before validate_pdf checks the size (mirrors the multipart MAX_PDF_BYTES+1 read).
+    # before validate_pdf checks the size. Clamp the boundary-crossing chunk so a
+    # single huge chunk can't buffer past the cap (mirrors the multipart +1 read).
+    limit = MAX_PDF_BYTES + 1
     chunks: list[bytes] = []
     total = 0
     async for chunk in request.stream():
-        total += len(chunk)
-        chunks.append(chunk)
-        if total > MAX_PDF_BYTES:
+        remaining = limit - total
+        if remaining <= 0:
+            break
+        chunks.append(chunk[:remaining])
+        total += min(len(chunk), remaining)
+        if len(chunk) >= remaining:
             break
     return b"".join(chunks)

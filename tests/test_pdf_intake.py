@@ -6,7 +6,6 @@ import socket
 import pytest
 from fastapi import HTTPException
 
-from src.services import pdf_intake
 from src.services.pdf_intake import (
     MAX_PDF_BYTES,
     assert_public_host,
@@ -84,13 +83,34 @@ async def test_fetch_remote_pdf_blocks_ssrf_before_network(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_read_capped_body_stops_at_cap():
-    # A body over the cap is truncated, not buffered whole, so validate_pdf can 400 it.
+async def test_read_capped_body_clamps_to_cap():
+    # A multi-chunk body over the cap is buffered to exactly MAX_PDF_BYTES+1,
+    # not held whole, so validate_pdf can 400 it without memory blowup.
     class FakeRequest:
         async def stream(self):
             for _ in range(3):
                 yield b"x" * (MAX_PDF_BYTES // 2)  # 1.5x the cap across chunks
 
     data = await read_capped_body(FakeRequest())
-    assert len(data) <= MAX_PDF_BYTES + (MAX_PDF_BYTES // 2)  # last chunk crosses, then stops
-    assert len(data) > MAX_PDF_BYTES  # cap is exceeded by exactly one chunk, then break
+    assert len(data) == MAX_PDF_BYTES + 1
+
+
+@pytest.mark.asyncio
+async def test_read_capped_body_clamps_single_huge_chunk():
+    # One chunk larger than the cap must not buffer past MAX_PDF_BYTES+1.
+    class FakeRequest:
+        async def stream(self):
+            yield b"x" * (MAX_PDF_BYTES * 3)
+
+    data = await read_capped_body(FakeRequest())
+    assert len(data) == MAX_PDF_BYTES + 1
+
+
+@pytest.mark.asyncio
+async def test_read_capped_body_returns_small_body_whole():
+    class FakeRequest:
+        async def stream(self):
+            yield b"%PDF-1.4 small"
+
+    data = await read_capped_body(FakeRequest())
+    assert data == b"%PDF-1.4 small"
