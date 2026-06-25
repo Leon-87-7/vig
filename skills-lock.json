@@ -1,12 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "agent-watchdog": {
-      "source": "builderio/skills",
-      "sourceType": "github",
-      "skillPath": "skills/agent-watchdog/SKILL.md",
-      "computedHash": "b2f466a79829a65b1fac570a9725f09bd2bde2612fe09e96651af91a054c9cf4"
-    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
