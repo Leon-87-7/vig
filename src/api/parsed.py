@@ -120,6 +120,10 @@ class FreestyleIn(BaseModel):
 
 
 async def _generate_output(job: dict, kind: str, prompt: str | None = None) -> dict:
+    # get_owned_job only checks ownership; a non-document job (article/repo) has a
+    # plain URL, not documents/<sha>.pdf, so the SHA/parse path below would 500.
+    if job.get("content_type") != "document":
+        raise HTTPException(status_code=422, detail={"field": "job", "message": "Not a document job"})
     sha = document_processor._sha_from_key(job["url"])
     text = await document_processor._cached_parse(sha, "txt")
     from src.services.gemini import gemini_client

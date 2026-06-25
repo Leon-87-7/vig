@@ -41,3 +41,13 @@ def test_validate_pdf_rejects_oversize():
 
 def test_validate_pdf_accepts_pdf():
     _validate_pdf(b"%PDF-1.4 ...", "doc.pdf")  # no raise
+
+
+@pytest.mark.asyncio
+async def test_generate_output_rejects_non_document_job():
+    from src.api.parsed import _generate_output
+    # An article/repo job (plain URL) must be rejected before SHA extraction, not 500.
+    job = {"id": "J", "chat_id": 1, "content_type": "article", "url": "https://example.com/post"}
+    with pytest.raises(HTTPException) as exc:
+        await _generate_output(job, "clean")
+    assert exc.value.status_code == 422
