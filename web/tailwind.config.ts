@@ -45,6 +45,8 @@ const config: Config = {
           article: "#2dd4bf",
           repo: "#fb7185",
         },
+        "telegram-blue": "#26A5E4",
+        "telegram-ring": "#145b7d",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],
