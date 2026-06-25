@@ -42,6 +42,10 @@ async def _create_document_job(chat_id: int, data: bytes, filename: str) -> dict
     key = storage.object_key("documents", sha, "pdf")
     await storage.upload(key, data, "application/pdf")
     job_id = await database.create_job(chat_id=chat_id, url=key, content_type="document")
+    # Dashboard uploads default to NOT delivering to Telegram (user opts in via
+    # the per-job toggle). Bot-submitted jobs keep the DB default ('on') so the
+    # existing Telegram flow is unchanged.
+    await database.set_job_telegram_delivery(job_id, "off")
     await queue.enqueue({"task": "document", "job_id": job_id})
     return {"job_id": job_id, "sha256": sha, "gcs_key": key, "status": "pending"}
 
@@ -89,10 +93,19 @@ async def upload_url(body: UrlIn, request: Request) -> dict:
     try:
         # follow_redirects=False: a redirect could bounce to an internal host
         # past the _assert_public_host check (TOCTOU / redirect-based SSRF).
+        # Stream with an early abort so a huge/slow body can't exhaust memory
+        # before _validate_pdf runs (httpx has no max-response-size option).
         async with httpx.AsyncClient(follow_redirects=False, timeout=20) as client:
-            resp = await client.get(body.url.strip())
-            resp.raise_for_status()
-            data = resp.content
+            async with client.stream("GET", body.url.strip()) as resp:
+                resp.raise_for_status()
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in resp.aiter_bytes():
+                    total += len(chunk)
+                    if total > MAX_PDF_BYTES:
+                        raise HTTPException(status_code=422, detail={"field": "url", "message": "PDF must be 20 MB or smaller"})
+                    chunks.append(chunk)
+                data = b"".join(chunks)
     except HTTPException:
         raise
     except Exception as exc:
@@ -182,15 +195,16 @@ async def events(request: Request) -> StreamingResponse:
     chat_id = request.state.user["id"]
     async def gen():
         last = ""
-        while True:
-            if await request.is_disconnected():
-                break
-            async with database.connection() as conn:
+        # One connection for the whole stream, not one per 2s poll cycle.
+        async with database.connection() as conn:
+            while True:
+                if await request.is_disconnected():
+                    break
                 cur = await conn.execute("SELECT id,status,updated_at FROM jobs WHERE chat_id=? AND content_type='document' ORDER BY updated_at DESC LIMIT 20", (chat_id,))
                 rows = [dict(r) for r in await cur.fetchall()]
-            payload = json.dumps(rows)
-            if payload != last:
-                last = payload
-                yield f"event: jobs\ndata: {payload}\n\n"
-            await asyncio.sleep(2)
+                payload = json.dumps(rows)
+                if payload != last:
+                    last = payload
+                    yield f"event: jobs\ndata: {payload}\n\n"
+                await asyncio.sleep(2)
     return StreamingResponse(gen(), media_type="text/event-stream")

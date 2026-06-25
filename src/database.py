@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     og_image_url                TEXT,
     summary                     TEXT,
     links                       TEXT,
-    telegram_delivery           TEXT NOT NULL DEFAULT 'off',
+    telegram_delivery           TEXT NOT NULL DEFAULT 'on',
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
@@ -715,7 +715,7 @@ _MIGRATIONS.append([
 
 # v20 → v21: Doc Parser dashboard delivery state and output index (ADR-0029).
 _MIGRATIONS.append([
-    "ALTER TABLE jobs ADD COLUMN telegram_delivery TEXT NOT NULL DEFAULT 'off'",
+    "ALTER TABLE jobs ADD COLUMN telegram_delivery TEXT NOT NULL DEFAULT 'on'",
     """CREATE TABLE IF NOT EXISTS document_outputs (
         id          TEXT PRIMARY KEY,
         job_id      TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
