@@ -20,6 +20,8 @@ export default function DocDetail() {
   const [outs, setOuts] = useState<Output[]>([]);
   const [prompt, setPrompt] = useState(RANDOM_PROMPTS[0]);
   const [open, setOpen] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     const [j, o] = await Promise.all([
@@ -33,14 +35,29 @@ export default function DocDetail() {
     load();
   }, [id]);
 
+  async function runAction(send: () => Promise<Response>) {
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await send();
+      if (!r.ok) {
+        const detail = await r.json().catch(() => null);
+        setErr(detail?.detail?.message || 'Action failed. Please try again.');
+        return;
+      }
+      await load();
+    } catch {
+      setErr('Network error. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
   async function clean() {
-    await fetch(`/api/parsed/${id}/clean`, { method: 'POST' });
-    load();
+    await runAction(() => fetch(`/api/parsed/${id}/clean`, { method: 'POST' }));
   }
   async function freestyle() {
-    await fetch(`/api/parsed/${id}/freestyle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
     setOpen(false);
-    load();
+    await runAction(() => fetch(`/api/parsed/${id}/freestyle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) }));
   }
 
   if (!job) return null;
@@ -58,9 +75,11 @@ export default function DocDetail() {
         <TelegramToggle jobId={job.id} value={job.telegram_delivery || 'off'} />
       </header>
 
+      {err && <p className="text-sm text-status-error" role="alert">{err}</p>}
+
       <div className="flex flex-wrap gap-2">
-        <button onClick={clean} className="rounded-md bg-signal px-4 py-2 text-sm text-onsignal">Clean</button>
-        <button onClick={() => setOpen(true)} className="rounded-md border border-line px-4 py-2 text-sm text-ink">Freestyle</button>
+        <button onClick={clean} disabled={busy} className="rounded-md bg-signal px-4 py-2 text-sm text-onsignal disabled:opacity-50">Clean</button>
+        <button onClick={() => setOpen(true)} disabled={busy} className="rounded-md border border-line px-4 py-2 text-sm text-ink disabled:opacity-50">Freestyle</button>
         {rawParse && <a href={rawParse.content_url} target="_blank" className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>}
         {job.url && <span className="rounded-md border border-line px-4 py-2 font-mono text-xs text-muted">{job.url}</span>}
       </div>

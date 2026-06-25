@@ -222,11 +222,16 @@ async def telegram_delivery(job_id: str, body: DeliveryIn, request: Request) -> 
 async def outputs(job_id: str, request: Request) -> list[dict]:
     await get_owned_document_job(job_id, request)
     rows = await database.list_document_outputs(job_id)
-    result = []
-    for row in rows:
-        content = (await storage.download(row["gcs_key"])).decode("utf-8", "replace")
-        result.append({**row, "preview": "\n".join(content.splitlines()[:8]), "content_url": f"/api/parsed/{job_id}/outputs/{row['id']}"})
-    return result
+    # Fetch the blobs concurrently — sequential awaits are O(n) round-trips.
+    blobs = await asyncio.gather(*(storage.download(row["gcs_key"]) for row in rows))
+    return [
+        {
+            **row,
+            "preview": "\n".join(blob.decode("utf-8", "replace").splitlines()[:8]),
+            "content_url": f"/api/parsed/{job_id}/outputs/{row['id']}",
+        }
+        for row, blob in zip(rows, blobs)
+    ]
 
 
 @parsed_router.get("/{job_id}/outputs/{output_id}")
