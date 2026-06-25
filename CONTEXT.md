@@ -102,6 +102,12 @@ This document is the single source of truth for domain language and architecture
 | **Brain tiers**                  | The intended multi-tenancy model for the [[Second Brain]] (the `links` graph). **MVP: global** — `links` has no `chat_id`, so today it is one shared graph (fine while single-user; the Telegram `/find` is global too). **Future model (deliberate, not shared-by-default):** three tiers — (1) **Private individual brain** = default, `links WHERE chat_id = me`; (2) **Community brain** = explicit, **per-link** opt-in via a "Share to the community brain" toggle button on each private link, `links WHERE shared_to_community = 1` (the union of what individuals chose to share — a *curated* commons, not everyone's raw history, so privacy exposure is near-zero and quality stays high); (3) **Group brain** = isolated per group ([[Tenant]] group kind), `links WHERE chat_id = <group>`, never bleeding into the individual commons. Requires (future) adding owner `chat_id` + `shared_to_community` (default 0) columns to `links`; the `/brain` page gains a **My / Community** toggle. Rejected: shared-by-default across all individuals (would expose links nobody opted to share). |
 | **Tenant**                       | The scoping key for all user-owned data — a Telegram `chat_id`, carried on every table (`jobs`, `links`, web tables). A chat_id is one of two kinds: a **private chat** (identity-equivalent to a single Telegram user, where `chat_id == telegram_user_id`) or a **group chat** (a distinct collective tenant shared by many users). The web app currently supports only the private kind: the Telegram Login Widget yields a `telegram_user_id`, which maps 1:1 to its private `chat_id`. Group-chat dashboard access is a separate user type and out of current web-app scope — but the data model needs no change to add it later; only the login→tenant resolution does. See [[web-dashboard]]. |
 | **Repo Analysis sheet**          | Fifth tab in the consolidated Google Spreadsheet ([[Consolidated spreadsheet]]). Columns: `job_id, url, owner, repo, title, tagline, tech_stack, stars, forks, language, last_pushed, archived, project_ideas, when_to_use, avoid_when, concepts_taught, prerequisites, curriculum_hooks, submitted_at, status`. Written by `sheets.append_repo_row` / `sheets.update_repo_row`. Array fields serialize newline-joined per cell (matching the article tab pattern). |
+| **Doc Parser page**              | Dashboard route `/doc-parser` — the web surface for the document pipeline (ADR-0029). Desktop layout: left half = URL input + file dropzone; right half = job list (rows with title, status badge, tags, file-type badges). Mobile: upload area collapses to a compact bar. Top bar: format tabs (PDF active, Word/Spreadsheet/Presentation/Image greyed until format support lands) + status filter pills + recovery bar + search. Upload hits `POST /api/parsed/upload` (multipart) or `POST /api/parsed/url` (JSON). Sidebar: below Feed, `FileCodeCorner` Lucide icon. |
+| **Doc Parser detail page**       | Route `/doc-parser/[id]`. Shows output cards (parsed text, structured summary, clean version, freestyle history) each with scrollable preview + expand-to-new-tab icon. Action buttons: Clean, Freestyle, Get Markdown. Freestyle opens a modal with a text area, shuffle button (hardcoded random prompts), and user's saved prompts from the templates system. Telegram toggle icon (three-state). |
+| **Structured summary**           | Auto-generated Gemini output for document jobs (ADR-0029). Gemini reads the full parsed text and produces a new `.md` briefing: title, TL;DR, key sections, takeaways, references. Stored at `enriched/<sha>_summary.md` in GCS. Part of the automatic pipeline — runs on every document job. |
+| **Clean version**                | On-demand Gemini output for document jobs (ADR-0029). Gemini takes the raw parsed text (often messy from PDF extraction) and produces a clean, properly formatted markdown of the same content. Stored at `enriched/<sha>_clean.md` in GCS. Triggered by the "Clean" button on the detail page. |
+| **Freestyle output (document)**  | On-demand Gemini output for document jobs (ADR-0029). User provides a custom prompt; Gemini generates a new `.md`. Each run stored separately at `enriched/<sha>_freestyle_<timestamp>.md`. All runs accumulate as history on the detail page. Prompt sources: hardcoded random pool (frontend) + user's saved templates (backend). |
+| **Telegram toggle (three-state)** | Per-job control on the Doc Parser page (both job row and detail page). A Telegram icon with three states: grey (off), colored (future outputs sent to Telegram), colored+glow (long-press 1.5s: retroactively sends all existing outputs + future). The glow state uses a radial clock-fill animation; releasing early resets. On completion: haptic on mobile, toast confirms, drops to colored state. Persisted as `telegram_delivery` column on `jobs`. |
 | **Platform storage**             | Centralized, operator-owned storage layer (GCS bucket + database) that holds all user data, isolated by `chat_id`. The canonical persistence layer for vig as a SaaS — users never provision their own buckets or cloud credentials. Contrast with [[Opt-in export]]. See ADR-0022. |
 | **Opt-in export**                | User-initiated sync of pipeline results to a third-party service the user has personally connected (Google Drive, Google Sheets). Requires the user to authorize vig via OAuth. Exports are a convenience feature layered on top of [[Platform storage]] — they are not the primary record, and pipeline steps never depend on them. Hardwired Drive/Sheets writes in current processors are migration-target debt: they belong behind a per-user "connected integrations" flag. See ADR-0022. |
 
@@ -279,6 +285,42 @@ Freestyle re-run:
 → DEL github_repo_bundle:{owner}/{repo}
 → DEL github_meta:{owner}/{repo}
 → existing jobs-row reset behavior
+```
+
+## Data Flow — Document (via Dashboard)
+
+```
+PDF file or URL submitted via /doc-parser page
+→ POST /api/parsed/upload (multipart) or POST /api/parsed/url (JSON)
+→ validate (format, 20 MB cap) → SHA-256 hash → GCS upload documents/<sha>.pdf
+→ jobs row (pending, content_type="document", chat_id from session)
+→ Redis enqueue {"task": "document"}
+→ SSE pushes status updates to connected dashboard client
+
+→ worker dequeues → document.run
+  → _cached_parse(sha, "txt") → parsed/<sha>.txt (GCS)
+  → Gemini structured summary → enriched/<sha>_summary.md (GCS)
+  → metadata extraction (title, author, summary, key_points, tools, references)
+  → update_job_status("done", ...)
+  → fire-and-forget sheets.append_document_row
+  → if telegram_delivery enabled: send source PDF + .txt + summary .md to Telegram
+  → status = done
+
+On-demand actions (from detail page):
+[user clicks Clean] → POST /api/parsed/{id}/clean
+  → Gemini cleans raw parse → enriched/<sha>_clean.md (GCS)
+  → if telegram_delivery: send to Telegram
+
+[user clicks Freestyle] → modal with random/saved prompt → POST /api/parsed/{id}/freestyle
+  → Gemini generates new .md from custom prompt → enriched/<sha>_freestyle_<ts>.md (GCS)
+  → if telegram_delivery: send to Telegram
+
+[user clicks Get Markdown] → existing deliver_markdown path → parsed/<sha>.md
+
+Telegram toggle (three-state):
+  grey → off (no Telegram delivery)
+  colored → future outputs sent to Telegram
+  colored+glow (1.5s long-press) → retroactively send all existing outputs + future
 ```
 
 ## Data Flow — Mini-PRD (intent path)
