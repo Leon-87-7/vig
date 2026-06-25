@@ -831,9 +831,15 @@ async def _migrate_v22_v23(conn: aiosqlite.Connection) -> None:
     # cascade-deletes its ON DELETE CASCADE children (document_outputs, etc.).
     await conn.commit()
     await conn.execute("PRAGMA foreign_keys=OFF")
-    await _rebuild_jobs_table(conn, _V23_CREATE, "jobs_v23", _V23_COLS)
-    await conn.commit()
-    await conn.execute("PRAGMA foreign_keys=ON")
+    try:
+        await _rebuild_jobs_table(conn, _V23_CREATE, "jobs_v23", _V23_COLS)
+        await conn.commit()
+    finally:
+        # Re-enable FK even if the rebuild raised, so a partially-failed upgrade
+        # can't leave enforcement off for the rest of the connection. Roll back any
+        # open transaction first — PRAGMA foreign_keys is a no-op inside one.
+        await conn.rollback()
+        await conn.execute("PRAGMA foreign_keys=ON")
 
 
 _MIGRATIONS.append(_migrate_v22_v23)
