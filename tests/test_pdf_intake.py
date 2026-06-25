@@ -16,7 +16,9 @@ from src.services.pdf_intake import (
 
 
 @pytest.mark.asyncio
-async def test_assert_public_host_rejects_loopback():
+async def test_assert_public_host_rejects_loopback(monkeypatch):
+    # Mock the resolver so the test is hermetic (no real DNS for "localhost").
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("127.0.0.1", 0))])
     with pytest.raises(HTTPException):
         await assert_public_host("localhost")
 

@@ -69,7 +69,9 @@ async def fetch_remote_pdf(url: str) -> tuple[bytes, str]:
         raise
     except Exception as exc:
         raise HTTPException(status_code=502, detail="Could not fetch PDF URL") from exc
-    return data, parsed.path.rsplit("/", 1)[-1] or "document.pdf"
+    filename = parsed.path.rsplit("/", 1)[-1] or "document.pdf"
+    validate_pdf(data, filename)  # magic-byte check so the function honors its "Validate" contract
+    return data, filename
 
 
 async def read_capped_body(request: Request) -> bytes:
