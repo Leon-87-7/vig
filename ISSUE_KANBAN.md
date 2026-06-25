@@ -156,6 +156,15 @@
 | [#204](https://github.com/Leon-87-7/vig/issues/204) | feat(oauth): per-user 'Connect Google' (web) — encrypted token store → exports to /vig | OAuth / Web | — |
 | [#205](https://github.com/Leon-87-7/vig/issues/205) | feat(telegram): Mini App 'Connect Google' surface — initData identity, shared OAuth backend | Telegram / OAuth | — |
 | [#206](https://github.com/Leon-87-7/vig/issues/206) | feat(oauth): connection lifecycle — invalid_grant handling, /disconnect, notify-once | OAuth | — |
+
+---
+
+## Ready for Agent
+
+Ordered by unblocked-first, then dependency chain.
+
+|                                                   # | Title                                                      | Area               | Depends On |
+| --------------------------------------------------: | ---------------------------------------------------------- | ------------------ | ---------- |
 | [#217](https://github.com/Leon-87-7/vig/issues/217) | feat(api): document upload REST endpoints + telegram_delivery column | API | — |
 | [#218](https://github.com/Leon-87-7/vig/issues/218) | feat(web): Doc Parser page shell + sidebar entry | Web | — |
 | [#219](https://github.com/Leon-87-7/vig/issues/219) | feat(processor): Gemini structured summary + enriched GCS storage | Processor | #217 |
@@ -166,15 +175,6 @@
 | [#224](https://github.com/Leon-87-7/vig/issues/224) | feat(web): three-state Telegram toggle component | Web / API | #217 |
 | [#225](https://github.com/Leon-87-7/vig/issues/225) | feat(web): Doc Parser detail page with output cards | Web | #221, #223, #224 |
 | [#226](https://github.com/Leon-87-7/vig/issues/226) | feat(web): freestyle modal with random + saved prompts | Web | #225 |
-
----
-
-## Ready for Agent
-
-Ordered by unblocked-first, then dependency chain.
-
-|                                                   # | Title                                                      | Area               | Depends On |
-| --------------------------------------------------: | ---------------------------------------------------------- | ------------------ | ---------- |
 | [#194](https://github.com/Leon-87-7/vig/issues/194) | Brain graph endpoint + desktop 2D render | Brain / Web | — |
 | [#195](https://github.com/Leon-87-7/vig/issues/195) | Normalized-URL dedup in brain ingest | Brain | — |
 | [#196](https://github.com/Leon-87-7/vig/issues/196) | Brain graph search highlight | Web | #194 |
