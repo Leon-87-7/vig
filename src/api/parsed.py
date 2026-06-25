@@ -73,12 +73,14 @@ class UrlIn(BaseModel):
     url: str = Field(..., min_length=1)
 
 
-def _assert_public_host(host: str | None) -> None:
+async def _assert_public_host(host: str | None) -> None:
     # SSRF guard: refuse hosts that resolve to non-public addresses (loopback,
     # private, link-local cloud metadata at 169.254.169.254, etc.).
+    # getaddrinfo is blocking — run it off the event loop.
     if not host:
         raise HTTPException(status_code=422, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
-    for *_, sockaddr in socket.getaddrinfo(host, None):
+    infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
+    for *_, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
             raise HTTPException(status_code=422, detail={"field": "url", "message": "URL host is not allowed"})
@@ -89,7 +91,7 @@ async def upload_url(body: UrlIn, request: Request) -> dict:
     parsed = urlparse(body.url.strip())
     if parsed.scheme != "https" or not parsed.path.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
-    _assert_public_host(parsed.hostname)
+    await _assert_public_host(parsed.hostname)
     try:
         # follow_redirects=False: a redirect could bounce to an internal host
         # past the _assert_public_host check (TOCTOU / redirect-based SSRF).
