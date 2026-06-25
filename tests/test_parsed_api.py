@@ -29,6 +29,16 @@ async def test_assert_public_host_allows_public(monkeypatch):
     await _assert_public_host("example.com")  # no raise
 
 
+@pytest.mark.asyncio
+async def test_assert_public_host_dns_failure_is_400(monkeypatch):
+    def boom(*a, **k):
+        raise socket.gaierror("name resolution failed")
+    monkeypatch.setattr(socket, "getaddrinfo", boom)
+    with pytest.raises(HTTPException) as exc:
+        await _assert_public_host("no-such-host.invalid")
+    assert exc.value.status_code == 400
+
+
 def test_validate_pdf_rejects_non_pdf():
     with pytest.raises(HTTPException):
         _validate_pdf(b"not a pdf", "x.pdf")

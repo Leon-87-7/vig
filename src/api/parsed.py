@@ -90,8 +90,11 @@ async def _assert_public_host(host: str | None) -> None:
     # private, link-local cloud metadata at 169.254.169.254, etc.).
     # getaddrinfo is blocking — run it off the event loop.
     if not host:
-        raise HTTPException(status_code=422, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
-    infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
+        raise HTTPException(status_code=400, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
+    try:
+        infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=400, detail={"field": "url", "message": "Could not resolve URL host"}) from exc
     for *_, sockaddr in infos:
         ip = ipaddress.ip_address(sockaddr[0])
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:

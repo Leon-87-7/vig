@@ -45,6 +45,9 @@ export default function DocDetail() {
 
   if (!job) return null;
 
+  // "Get Markdown" serves the raw parse artifact, not the JSON outputs index.
+  const rawParse = outs.find((o) => o.kind === 'raw_txt');
+
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <header className="flex items-start gap-3">
@@ -58,7 +61,7 @@ export default function DocDetail() {
       <div className="flex flex-wrap gap-2">
         <button onClick={clean} className="rounded-md bg-signal px-4 py-2 text-sm text-onsignal">Clean</button>
         <button onClick={() => setOpen(true)} className="rounded-md border border-line px-4 py-2 text-sm text-ink">Freestyle</button>
-        <a href={`/api/parsed/${id}/outputs`} className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>
+        {rawParse && <a href={rawParse.content_url} target="_blank" className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>}
         {job.url && <span className="rounded-md border border-line px-4 py-2 font-mono text-xs text-muted">{job.url}</span>}
       </div>
 
