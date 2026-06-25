@@ -18,6 +18,7 @@ from src import database, queue
 from src.api.deps import get_owned_job
 from src.processors import document as document_processor
 from src.services import storage
+from src.services.parse import ParseError
 from src.telegram.sender import send_document
 
 parsed_router = APIRouter(prefix="/api/parsed", tags=["parsed"])
@@ -30,10 +31,21 @@ def _sha(data: bytes) -> str:
 
 
 def _validate_pdf(data: bytes, name: str = "document.pdf") -> None:
+    # Field-level 400s for malformed input (wrong type / oversized), per #217.
     if len(data) > MAX_PDF_BYTES:
-        raise HTTPException(status_code=422, detail={"field": "file", "message": "PDF must be 20 MB or smaller"})
+        raise HTTPException(status_code=400, detail={"field": "file", "message": "PDF must be 20 MB or smaller"})
     if not name.lower().endswith(".pdf") or not data.startswith(b"%PDF"):
-        raise HTTPException(status_code=422, detail={"field": "file", "message": "Only PDF files are supported"})
+        raise HTTPException(status_code=400, detail={"field": "file", "message": "Only PDF files are supported"})
+
+
+async def get_owned_document_job(job_id: str, request: Request) -> dict:
+    """get_owned_job + a content_type guard. Document-only routes must not run on
+    an owned article/repo job: its url is a plain HTTP address, not a GCS key, so
+    the SHA/parse path 500s and the Telegram toggle would mutate the wrong job."""
+    job = await get_owned_job(job_id, request)
+    if job.get("content_type") != "document":
+        raise HTTPException(status_code=404, detail="Document job not found")
+    return job
 
 
 async def _create_document_job(chat_id: int, data: bytes, filename: str) -> dict:
@@ -90,7 +102,7 @@ async def _assert_public_host(host: str | None) -> None:
 async def upload_url(body: UrlIn, request: Request) -> dict:
     parsed = urlparse(body.url.strip())
     if parsed.scheme != "https" or not parsed.path.lower().endswith(".pdf"):
-        raise HTTPException(status_code=422, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
+        raise HTTPException(status_code=400, detail={"field": "url", "message": "Enter a direct HTTPS PDF URL"})
     await _assert_public_host(parsed.hostname)
     try:
         # follow_redirects=False: a redirect could bounce to an internal host
@@ -125,7 +137,12 @@ async def _generate_output(job: dict, kind: str, prompt: str | None = None) -> d
     if job.get("content_type") != "document":
         raise HTTPException(status_code=422, detail={"field": "job", "message": "Not a document job"})
     sha = document_processor._sha_from_key(job["url"])
-    text = await document_processor._cached_parse(sha, "txt")
+    try:
+        text = await document_processor._cached_parse(sha, "txt")
+    except ParseError as exc:
+        # Scanned/image-only PDF (or a prior failed parse): surface as a readable
+        # 422 instead of a generic 500.
+        raise HTTPException(status_code=422, detail={"field": "job", "message": "Document text could not be extracted (scanned or image-only PDF)"}) from exc
     from src.services.gemini import gemini_client
     if kind == "clean":
         instruction = "Clean this parsed PDF text into well-formatted Markdown while preserving the same content."
@@ -146,13 +163,13 @@ async def _generate_output(job: dict, kind: str, prompt: str | None = None) -> d
 
 @parsed_router.post("/{job_id}/clean", status_code=201)
 async def clean(job_id: str, request: Request) -> dict:
-    job = await get_owned_job(job_id, request)
+    job = await get_owned_document_job(job_id, request)
     return await _generate_output(job, "clean")
 
 
 @parsed_router.post("/{job_id}/freestyle", status_code=201)
 async def freestyle(job_id: str, body: FreestyleIn, request: Request) -> dict:
-    job = await get_owned_job(job_id, request)
+    job = await get_owned_document_job(job_id, request)
     return await _generate_output(job, "freestyle", body.prompt)
 
 
@@ -162,7 +179,7 @@ class DeliveryIn(BaseModel):
 
 @parsed_router.put("/{job_id}/telegram-delivery")
 async def telegram_delivery(job_id: str, body: DeliveryIn, request: Request) -> dict:
-    job = await get_owned_job(job_id, request)
+    job = await get_owned_document_job(job_id, request)
     sent = 0
     state = body.state
     if state == "retroactive":
@@ -177,7 +194,7 @@ async def telegram_delivery(job_id: str, body: DeliveryIn, request: Request) -> 
 
 @parsed_router.get("/{job_id}/outputs")
 async def outputs(job_id: str, request: Request) -> list[dict]:
-    await get_owned_job(job_id, request)
+    await get_owned_document_job(job_id, request)
     rows = await database.list_document_outputs(job_id)
     result = []
     for row in rows:
@@ -188,7 +205,7 @@ async def outputs(job_id: str, request: Request) -> list[dict]:
 
 @parsed_router.get("/{job_id}/outputs/{output_id}")
 async def output_content(job_id: str, output_id: str, request: Request) -> Response:
-    await get_owned_job(job_id, request)
+    await get_owned_document_job(job_id, request)
     row = next((r for r in await database.list_document_outputs(job_id) if r["id"] == output_id), None)
     if row is None:
         raise HTTPException(status_code=404, detail="Output not found")

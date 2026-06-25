@@ -84,7 +84,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document')),
     CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
-    CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error'))
+    CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error')),
+    CHECK(telegram_delivery IN ('off','on','retroactive'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);

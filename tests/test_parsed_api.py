@@ -51,3 +51,18 @@ async def test_generate_output_rejects_non_document_job():
     with pytest.raises(HTTPException) as exc:
         await _generate_output(job, "clean")
     assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_generate_output_parse_error_returns_422(monkeypatch):
+    from src.api import parsed
+    from src.services.parse import ParseError
+
+    async def boom(*a, **k):
+        raise ParseError("scanned or image-only")
+
+    monkeypatch.setattr(parsed.document_processor, "_cached_parse", boom)
+    job = {"id": "J", "chat_id": 1, "content_type": "document", "url": "documents/abc.pdf"}
+    with pytest.raises(HTTPException) as exc:
+        await parsed._generate_output(job, "clean")
+    assert exc.value.status_code == 422
