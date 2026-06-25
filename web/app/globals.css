@@ -52,7 +52,7 @@
   position: absolute;
   inset: -4px;
   pointer-events: none;
-  background: conic-gradient(from 0deg, #145b7d var(--doc-hold-angle), transparent 0deg);
+  background: conic-gradient(from 0deg, theme("colors.telegram-ring") var(--doc-hold-angle), transparent 0deg);
   /* Carve a 2px circular ring out of the conic disc. The closing transparent stop
      past 100% is essential — without it the square's corners (which sit beyond the
      farthest-side radius) stay opaque and the glow reads as a square, not a ring. */
