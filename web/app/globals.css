@@ -36,6 +36,48 @@
     scroll-behavior: auto !important;
   }
 }
-.doc-telegram-hold { box-shadow: 0 0 0 2px #f6921e inset, 0 0 18px rgba(246,146,30,.45); }
-@media (prefers-reduced-motion: no-preference) { .doc-telegram-hold { animation: doc-hold 1.5s linear forwards; } @keyframes doc-hold { from { background: conic-gradient(#f6921e 0deg, transparent 0deg); } to { background: conic-gradient(#f6921e 360deg, transparent 360deg); } } }
-@media (prefers-reduced-motion: reduce) { .doc-telegram-hold { outline: 2px solid #f6921e; } }
+/* Hold-to-deliver-retroactively progress cue. The glow is a loader spinner: a
+   telegram-ring (#145b7d) arc that sweeps from 12 o'clock clockwise and lands
+   back at 12, over the full 1.5s hold window — a deep Telegram-blue that ties
+   the spinner to the brand mark it surrounds. The ring is carved out of a conic
+   disc with a radial mask, then blurred so it reads as a soft glow. */
+@property --doc-hold-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.doc-telegram-hold::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, theme("colors.telegram-ring") var(--doc-hold-angle), transparent 0deg);
+  /* Carve a 2px circular ring out of the conic disc. The closing transparent stop
+     past 100% is essential — without it the square's corners (which sit beyond the
+     farthest-side radius) stay opaque and the glow reads as a square, not a ring. */
+  -webkit-mask: radial-gradient(circle farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px) 100%, transparent 100%);
+  mask: radial-gradient(circle farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px) 100%, transparent 100%);
+  filter: blur(1px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .doc-telegram-hold::before {
+    animation: doc-hold 1.5s linear forwards;
+  }
+  @keyframes doc-hold {
+    from {
+      --doc-hold-angle: 0deg;
+    }
+    to {
+      --doc-hold-angle: 360deg;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No sweep available — show the completed ring as a static "charging" cue. */
+  .doc-telegram-hold::before {
+    --doc-hold-angle: 360deg;
+  }
+}
