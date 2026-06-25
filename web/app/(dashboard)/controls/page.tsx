@@ -5,7 +5,13 @@ import { useTagList } from '@/lib/hooks/useTagList';
 import { useDomainList } from '@/lib/hooks/useDomainList';
 import { apiPut } from '@/lib/fetch-utils';
 import type { Tag, TagFormState } from '@/lib/hooks/useTagList';
-import { ChevronDown, TagPlus, PenLine, TagX } from 'lucide-react';
+import {
+  SlidersHorizontal,
+  ChevronDown,
+  TagPlus,
+  PenLine,
+  TagX,
+} from 'lucide-react';
 import { PRESET_COLORS } from '@/components/TagPicker';
 
 const DEFAULT_COLOR = '#6366f1';
@@ -207,14 +213,20 @@ function TagRow({
           aria-label={`Edit ${tag.name}`}
           className="rounded p-1.5 text-muted transition-ui hover:bg-raised hover:text-ink"
         >
-          <PenLine className="h-4 w-4" aria-hidden="true" />
+          <PenLine
+            className="h-4 w-4"
+            aria-hidden="true"
+          />
         </button>
         <button
           onClick={handleDelete}
           aria-label={`Delete ${tag.name}`}
           className="rounded p-1.5 text-status-error transition-ui hover:bg-raised"
         >
-          <TagX className="h-4 w-4" aria-hidden="true" />
+          <TagX
+            className="h-4 w-4"
+            aria-hidden="true"
+          />
         </button>
       </div>
       {deleteError && (
@@ -246,7 +258,10 @@ function TagsTab() {
       >
         <summary className="flex cursor-pointer list-none items-center justify-between p-4 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden sm:hidden">
           Create tag
-          <TagPlus className="h-4 w-4 text-muted" aria-hidden="true" />
+          <TagPlus
+            className="h-4 w-4 text-muted"
+            aria-hidden="true"
+          />
         </summary>
         <div className="border-t border-line p-4 sm:border-t-0">
           <TagForm
@@ -528,7 +543,8 @@ function Section({
 export default function ControlsPage() {
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight text-ink">
+      <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
+        <SlidersHorizontal className="text-signal" />
         Controls
       </h1>
       <div className="space-y-3">

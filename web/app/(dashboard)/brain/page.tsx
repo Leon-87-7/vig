@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { Brain } from 'lucide-react';
 import { BrainGraph } from '@/components/brain-graph';
 import { useSemanticSearch } from '@/lib/hooks/useSemanticSearch';
 import type { BrainResult } from '@/lib/hooks/useSemanticSearch';
@@ -119,8 +120,9 @@ export default function BrainPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">
-          Brain
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
+          <Brain className="text-signal" />
+          <span>Brain</span>
         </h1>
         <p className="text-sm text-body">
           Semantic search across everything saved to your Second
