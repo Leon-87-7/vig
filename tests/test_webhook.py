@@ -1465,3 +1465,26 @@ async def test_webhook_handler_error_returns_ok_and_notifies_user(
     assert result == {"ok": True}
     sent.assert_awaited_once()
     assert "went wrong" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_webhook_callback_error_acknowledges_query(
+    _patch_webhook_secret, monkeypatch
+):
+    """A failing callback must still answer the query so the button stops spinning."""
+    from src.telegram.webhook import webhook
+
+    monkeypatch.setattr(
+        "src.telegram.webhook._handle_callback",
+        AsyncMock(side_effect=RuntimeError("boom")),
+    )
+    ack = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", ack)
+
+    class _Req:
+        async def json(self):
+            return {"callback_query": {"id": "cb1", "data": "x"}}
+
+    result = await webhook(_Req(), x_telegram_bot_api_secret_token="S")
+    assert result == {"ok": True}
+    ack.assert_awaited_once_with("cb1")

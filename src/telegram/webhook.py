@@ -8,6 +8,7 @@ import html
 import ipaddress
 import socket
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 
 import httpx
 from secrets import compare_digest
@@ -822,11 +823,11 @@ _HELP_TEXT = (
     "/cancel — cancel the current pending prompt\n"
     "/ignore <domain> — hide a domain from link results\n"
     "/unignore <domain> — stop hiding a domain\n"
-    "/ignore\\_list — show ignored domains\n"
+    "`/ignore_list` — show ignored domains\n"
     "/allowlist <domain> — add an article domain\n"
     "/unallowlist <domain> — remove an article domain\n"
-    "/allowlist\\_list — show allowlisted domains\n"
-    "/download\\_md <suffix> — download a job result as Markdown\n"
+    "`/allowlist_list` — show allowlisted domains\n"
+    "`/download_md` <suffix> — download a job result as Markdown\n"
     "/rebuild-graph — rebuild the Second Brain link graph"
 )
 
@@ -1309,6 +1310,9 @@ async def webhook(
             await _handle_callback(callback)
         except Exception:
             log.exception("webhook_callback_error")
+            # Acknowledge so the client's inline button stops spinning even on failure.
+            with suppress(Exception):
+                await answer_callback_query(callback.get("id", ""))
         return {"ok": True}
 
     message = update.get("message") or update.get("edited_message") or {}
