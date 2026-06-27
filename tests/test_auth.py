@@ -241,7 +241,11 @@ class TestAuthRouter:
         assert resp.headers["location"] == "/logout"
         # Session key should be gone
         assert "session:logout-sid" not in fr._store
-        assert "vig_session" in resp.headers["set-cookie"]
+        # Cookie must be actively cleared, not just present in the header
+        set_cookie = resp.headers["set-cookie"]
+        assert "vig_session=" in set_cookie
+        assert 'vig_session=""' in set_cookie or "vig_session=;" in set_cookie
+        assert "Max-Age=0" in set_cookie or "expires=Thu, 01 Jan 1970" in set_cookie
 
     def test_me_returns_current_user(
         self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
