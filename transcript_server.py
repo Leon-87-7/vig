@@ -34,6 +34,19 @@ INSTAGRAM_COOKIES = os.environ.get(
 )
 INSTAGRAM_MAX_SLIDES = 10
 
+
+def _with_cookies(ydl_opts: dict, tmp_dir: str) -> dict:
+    """Add a writable cookiefile to ydl_opts if INSTAGRAM_COOKIES is configured.
+
+    yt-dlp rewrites the cookiefile, and credentials/ is read-only, so copy to tmp.
+    """
+    if INSTAGRAM_COOKIES and os.path.exists(INSTAGRAM_COOKIES):
+        tmp_cookies = os.path.join(tmp_dir, "cookies.txt")
+        shutil.copy2(INSTAGRAM_COOKIES, tmp_cookies)
+        ydl_opts["cookiefile"] = tmp_cookies
+    return ydl_opts
+
+
 app = Flask(__name__)
 
 
@@ -93,12 +106,7 @@ def _download_audio_b64(url: str, tmp_dir: str) -> tuple[str, str]:
         "format": "bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
     }
-    if INSTAGRAM_COOKIES and os.path.exists(INSTAGRAM_COOKIES):
-        # Copy to writable tmp location — /app/credentials/ is read-only, and
-        # yt-dlp tries to write updated cookies back to the cookiefile path.
-        tmp_cookies = os.path.join(tmp_dir, "cookies.txt")
-        shutil.copy2(INSTAGRAM_COOKIES, tmp_cookies)
-        ydl_opts["cookiefile"] = tmp_cookies
+    _with_cookies(ydl_opts, tmp_dir)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
         ydl.extract_info(url, download=True)
@@ -323,6 +331,7 @@ def get_short_frames():
             "merge_output_format": "mp4",
             "logger": NullLogger,
         }
+        _with_cookies(ydl_opts, tmp_video_dir)
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
                 info = ydl.extract_info(url, download=True)
