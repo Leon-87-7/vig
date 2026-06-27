@@ -236,10 +236,12 @@ class TestAuthRouter:
         fr._store["session:logout-sid"] = json.dumps(user)
 
         auth_client.cookies.set("vig_session", "logout-sid")
-        resp = auth_client.post("/api/auth/logout")
-        assert resp.status_code == 200
+        resp = auth_client.post("/api/auth/logout", follow_redirects=False)
+        assert resp.status_code == 303
+        assert resp.headers["location"] == "/logout"
         # Session key should be gone
         assert "session:logout-sid" not in fr._store
+        assert "vig_session" in resp.headers["set-cookie"]
 
     def test_me_returns_current_user(
         self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
