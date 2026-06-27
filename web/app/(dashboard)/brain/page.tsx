@@ -5,6 +5,7 @@ import { Brain } from 'lucide-react';
 import { BrainGraph } from '@/components/brain-graph';
 import { useSemanticSearch } from '@/lib/hooks/useSemanticSearch';
 import type { BrainResult } from '@/lib/hooks/useSemanticSearch';
+import { PageShell, PageHeader } from '@/components/page-shell';
 
 function IdleBanner() {
   return (
@@ -118,17 +119,12 @@ export default function BrainPage() {
   const loading = searchState === 'loading';
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
-          <Brain className="text-signal" />
-          <span>Brain</span>
-        </h1>
-        <p className="text-sm text-body">
-          Semantic search across everything saved to your Second
-          Brain.
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        icon={Brain}
+        title="Brain"
+        description="Semantic search across everything saved to your Second Brain."
+      />
 
       <section className="flex gap-2">
         <input
@@ -192,6 +188,6 @@ export default function BrainPage() {
           </ul>
         </section>
       )}
-    </div>
+    </PageShell>
   );
 }

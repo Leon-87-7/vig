@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileCode2, Sparkles, Upload } from 'lucide-react';
 import { StatusBadge } from '@/components/badges';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
+import { PageShell, PageHeader } from '@/components/page-shell';
 
 type Job = { id: string; title?: string | null; url: string; status: string; created_at: string; telegram_delivery?: 'off' | 'on' | 'retroactive' };
 const statuses = ['', 'done', 'pending', 'processing', 'error'];
@@ -69,11 +70,12 @@ export default function DocParserPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink"><FileCode2 className="text-signal" />Doc Parser</h1>
-        <p className="text-sm text-body">Upload PDFs, watch status live, and generate Gemini-transformed Markdown outputs.</p>
-      </header>
+    <PageShell>
+      <PageHeader
+        icon={FileCode2}
+        title="Doc Parser"
+        description="Upload PDFs, watch status live, and generate Gemini-transformed Markdown outputs."
+      />
 
       <div className="rounded-lg border border-line bg-surface p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -121,6 +123,6 @@ export default function DocParserPage() {
           ))}
         </section>
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -12,6 +12,7 @@ import { FilterBar } from "@/components/feed/filter-bar";
 import { SkeletonGrid, SkeletonList, ErrorBanner, EmptyState } from "@/components/feed/feed-states";
 import { PreviewGrid } from "@/components/feed/preview-grid";
 import { RecoveryPanel } from "@/components/feed/recovery-panel";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 const CONTENT_TYPES = new Set(["short", "long", "article", "repo"]);
 
@@ -71,8 +72,8 @@ function FeedPageContent() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Feed</h1>
+    <PageShell>
+      <PageHeader title="Feed" />
 
       {stats && <StatsOverview stats={stats} contentType={ctFilter} />}
 
@@ -84,7 +85,7 @@ function FeedPageContent() {
         recoveryPanel={<RecoveryPanel contentType={ctFilter} onRecovered={refreshFeed} />}
       />
 
-      <section className="mt-8">
+      <section>
         <div className="mb-3 flex items-center gap-3">
           <h2 className="text-base font-semibold text-ink">Jobs</h2>
           <span
@@ -111,7 +112,7 @@ function FeedPageContent() {
           )
         )}
       </section>
-    </div>
+    </PageShell>
   );
 }
 
