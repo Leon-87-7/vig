@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { MessageSquareText } from 'lucide-react';
 import { useTemplateList } from '@/lib/hooks/useTemplateList';
+import { PageShell, PageHeader } from '@/components/page-shell';
 import type {
   Template,
   TemplateFormState,
@@ -297,11 +298,8 @@ export default function PromptsPage() {
   const userTemplates = templates.filter((t) => !t.is_builtin);
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
-        <MessageSquareText className="text-signal" />
-        Prompts
-      </h1>
+    <PageShell>
+      <PageHeader icon={MessageSquareText} title="Prompts" />
 
       {loading && (
         <p className="text-sm text-body">Loading templates…</p>
@@ -381,6 +379,6 @@ export default function PromptsPage() {
           </section>
         </>
       )}
-    </div>
+    </PageShell>
   );
 }

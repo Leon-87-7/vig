@@ -22,6 +22,7 @@ import {
   buildMarkdown,
   parseLinks,
 } from "@/lib/job-detail-utils";
+import { PageShell } from "@/components/page-shell";
 
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   ssr: false,
@@ -243,7 +244,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
   });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <PageShell width="narrow">
       <JobHeader
         job={job}
         tags={
@@ -269,6 +270,6 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
       </div>
 
       {loaded && <MarkdownEditor initialMarkdown={annotation.notes} onSave={handleSave} />}
-    </div>
+    </PageShell>
   );
 }

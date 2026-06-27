@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
+import { PageShell } from '@/components/page-shell';
 
 const RANDOM_PROMPTS = [
   'Summarize into the 5 most important takeaways',
@@ -66,7 +67,7 @@ export default function DocDetail() {
   const rawParse = outs.find((o) => o.kind === 'raw_txt');
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <PageShell>
       <header className="flex items-start gap-3">
         <div className="flex-1">
           <h1 className="text-2xl font-semibold text-ink">{job.title || 'Document job'}</h1>
@@ -112,6 +113,6 @@ export default function DocDetail() {
           </div>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

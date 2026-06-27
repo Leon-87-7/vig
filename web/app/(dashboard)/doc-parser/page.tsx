@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileCode2, Sparkles, Upload } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { FileCode2, Sparkles, Upload, CircleQuestionMark } from 'lucide-react';
 import { StatusBadge } from '@/components/badges';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
+import { PageShell, PageHeader } from '@/components/page-shell';
 
 type Job = { id: string; title?: string | null; url: string; status: string; created_at: string; telegram_delivery?: 'off' | 'on' | 'retroactive' };
 const statuses = ['', 'done', 'pending', 'processing', 'error'];
@@ -19,6 +20,80 @@ async function errorMessage(r: Response, fallback: string): Promise<string> {
     if (detail?.message) return detail.message;
   } catch { /* non-JSON (e.g. a 500 HTML page) — fall through */ }
   return `${fallback} (${r.status})`;
+}
+
+// One filter pill, two jobs: the active type/status (signal) and the toggles.
+// Color + press are the smoothness — clicks animate instead of snapping, and
+// scale(0.97) gives the tap feedback. min-h-9 keeps the mobile hit area honest.
+function Chip({
+  active,
+  disabled,
+  slim,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  disabled?: boolean;
+  slim?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  const size = slim ? 'min-h-7 px-2.5 py-0.5 text-xs' : 'min-h-9 px-3.5 py-1.5 text-sm';
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={onClick ? active : undefined}
+      className={`inline-flex ${size} items-center gap-1 rounded-md tabular-nums transition-[transform,background-color,color,border-color] duration-150 ease-out-quart active:scale-[0.97] disabled:pointer-events-none disabled:opacity-60 ${
+        active
+          ? 'bg-signal text-onsignal'
+          : disabled
+            ? 'border border-line text-muted'
+            : 'bg-canvas text-body hover:bg-raised hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Full format list (LlamaParse multi-format). All-inline markup so it stays
+// valid nested inside the header <p>; reveals on hover OR keyboard focus.
+function FormatHelp() {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        aria-label="Show all supported formats"
+        aria-describedby="doc-formats-tip"
+        className="inline-flex h-5 w-5 items-center justify-center rounded text-muted transition-ui hover:text-ink"
+      >
+        <CircleQuestionMark className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <span
+        id="doc-formats-tip"
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-md border border-line bg-surface p-3 font-sans text-xs leading-relaxed text-body opacity-0 shadow-overlay transition-opacity duration-150 ease-out-quart group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        <span className="block font-medium text-ink">All supported formats</span>
+        <span className="mt-2 grid gap-1.5">
+          {[
+            ['PDF', '.pdf'],
+            ['Word', '.doc .docx .docm .odt .rtf .pages'],
+            ['PowerPoint', '.ppt .pptx .pptm .odp .key'],
+            ['Spreadsheet', '.xls .xlsx .xlsm .ods .csv .tsv .numbers'],
+            ['Images', '.jpg .jpeg .png .gif .bmp .tiff .webp .svg'],
+          ].map(([label, exts]) => (
+            <span key={label} className="block">
+              <span className="text-muted">{label}</span>{' '}
+              <span className="font-mono text-[11px] text-body">{exts}</span>
+            </span>
+          ))}
+        </span>
+      </span>
+    </span>
+  );
 }
 
 export default function DocParserPage() {
@@ -69,24 +144,39 @@ export default function DocParserPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink"><FileCode2 className="text-signal" />Doc Parser</h1>
-        <p className="text-sm text-body">Upload PDFs, watch status live, and generate Gemini-transformed Markdown outputs.</p>
-      </header>
+    <PageShell>
+      <PageHeader
+        icon={FileCode2}
+        title="Doc Parser"
+        description={
+          <>
+            Upload PDFs, Microsoft Office formats and Images.
+            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-muted">
+              <span>.pdf | .docx | .xlsx | .pptx | .png | …</span>
+              <FormatHelp />
+            </span>
+          </>
+        }
+      />
 
       <div className="rounded-lg border border-line bg-surface p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <button className="rounded-md bg-signal px-3 py-1.5 text-sm text-onsignal">PDF <span className="font-mono">{jobs.length}</span></button>
-          {['Word', 'Spreadsheet', 'Presentation', 'Image'].map(x => <button key={x} disabled className="rounded-md border border-line px-3 py-1.5 text-sm text-muted">{x} 0</button>)}
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search documents…" className="ml-auto h-9 rounded-md border border-line bg-canvas px-3 text-sm text-ink" />
+          <Chip active>PDF <span className="font-mono">{jobs.length}</span></Chip>
+          {['Word', 'Spreadsheet', 'Presentation', 'Image'].map(x => (
+            <Chip key={x} disabled>{x} <span className="font-mono text-[10px] uppercase tracking-wide text-muted">soon</span></Chip>
+          ))}
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search documents…" className="h-9 w-full min-w-0 rounded-md border border-line bg-canvas px-3 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:ml-auto sm:w-64" />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {statuses.map(s => <button key={s || 'all'} onClick={() => setStatus(s)} className={`rounded-md px-3 py-1.5 text-sm ${status === s ? 'bg-signal text-onsignal' : 'bg-canvas text-body'}`}>{s || 'all'}</button>)}
+          {statuses.map(s => (
+            <Chip key={s || 'all'} slim active={status === s} onClick={() => setStatus(s)}>
+              {s || 'all'}
+            </Chip>
+          ))}
         </div>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <section className={`${compact ? 'max-lg:max-h-12 max-lg:overflow-hidden' : ''} rounded-lg border border-line bg-surface p-4`}>
           <button onClick={() => setCompact(!compact)} className="mb-3 w-full text-left text-sm font-medium text-ink lg:hidden">Upload documents</button>
           <form onSubmit={submitUrl} className="flex gap-2">
@@ -98,7 +188,7 @@ export default function DocParserPage() {
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
             onClick={() => fileRef.current?.click()}
-            className="mt-4 flex min-h-48 w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-canvas text-body"
+            className="mt-4 flex min-h-48 w-full cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-line-strong bg-canvas text-body transition-ui hover:border-signal hover:text-ink"
           >
             <Upload />
             <span>Drop a PDF here or click to choose</span>
@@ -121,6 +211,6 @@ export default function DocParserPage() {
           ))}
         </section>
       </div>
-    </div>
+    </PageShell>
   );
 }

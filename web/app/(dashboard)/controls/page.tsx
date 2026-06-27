@@ -13,6 +13,7 @@ import {
   TagX,
 } from 'lucide-react';
 import { PRESET_COLORS } from '@/components/TagPicker';
+import { PageShell, PageHeader } from '@/components/page-shell';
 
 const DEFAULT_COLOR = '#6366f1';
 
@@ -542,11 +543,8 @@ function Section({
 
 export default function ControlsPage() {
   return (
-    <div className="mx-auto max-w-5xl">
-      <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
-        <SlidersHorizontal className="text-signal" />
-        Controls
-      </h1>
+    <PageShell>
+      <PageHeader icon={SlidersHorizontal} title="Controls" />
       <div className="space-y-3">
         <Section
           title="Tags"
@@ -583,6 +581,6 @@ export default function ControlsPage() {
           <RecoveryTab />
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }
