@@ -163,7 +163,7 @@ export default function DocParserPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Chip active>PDF <span className="font-mono">{jobs.length}</span></Chip>
           {['Word', 'Spreadsheet', 'Presentation', 'Image'].map(x => (
-            <Chip key={x} disabled>{x} 0</Chip>
+            <Chip key={x} disabled>{x} <span className="font-mono text-[10px] uppercase tracking-wide text-muted">soon</span></Chip>
           ))}
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search documents…" className="h-9 w-full min-w-0 rounded-md border border-line bg-canvas px-3 text-sm text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:ml-auto sm:w-64" />
         </div>
