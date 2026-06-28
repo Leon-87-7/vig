@@ -85,7 +85,7 @@ describe('BrainPage', () => {
 
   it('shows blank warning when Search is clicked with empty query', () => {
     render(<BrainPage />);
-    const button = screen.getByRole('button', { name: /search/i });
+    const button = screen.getByRole('button', { name: /run search/i });
     fireEvent.click(button);
     expect(screen.getByText(/please enter a search query/i)).toBeTruthy();
   });
@@ -94,7 +94,7 @@ describe('BrainPage', () => {
     const runSearch = vi.fn();
     setupMocks({ query: 'machine learning', runSearch });
     render(<BrainPage />);
-    const button = screen.getByRole('button', { name: /search/i });
+    const button = screen.getByRole('button', { name: /run search/i });
     fireEvent.click(button);
     expect(runSearch).toHaveBeenCalled();
   });
@@ -103,8 +103,41 @@ describe('BrainPage', () => {
     const runSearch = vi.fn();
     setupMocks({ query: 'startup advice', runSearch });
     render(<BrainPage />);
-    const input = screen.getByRole('textbox', { name: /semantic search query/i });
+    const input = screen.getByRole('searchbox', { name: /semantic search query/i });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(runSearch).toHaveBeenCalled();
+  });
+
+  it('renders links tab rows from the paginated endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            url: 'https://example.com/canonical',
+            title: 'Canonical',
+            topic: 'Docs',
+            seen_count: 4,
+            first_seen: '2026-06-28T12:00:00+00:00',
+          },
+        ],
+        limit: 25,
+        offset: 0,
+        total: 1,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<BrainPage />);
+    fireEvent.click(screen.getByRole('button', { name: /links/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('https://example.com/canonical')).toBeTruthy();
+    });
+    const link = screen.getByRole('link', { name: /https:\/\/example.com\/canonical/i });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByText('4')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith('/api/brain/links?limit=25&offset=0');
   });
 });

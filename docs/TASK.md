@@ -18,7 +18,7 @@ fit well on narrow viewports.
 grid) for small screens. 
 
 
-## 3. Extracted-links table in the Brain page
+## 3. Extracted-links table in the Brain page ✅ ISSUED TO GITHUB #238
 
 Surface every link discovered by the enrichment pipelines as a deduplicated
 table in the dashboard.

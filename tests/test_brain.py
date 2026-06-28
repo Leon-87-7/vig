@@ -19,6 +19,7 @@ from src.brain import (
     rebuild_graph,
     get_graph,
     ingest_links,
+    list_links,
     normalize_url,
     refresh_stale_links,
     search_links,
@@ -327,6 +328,140 @@ async def test_get_graph_empty_corpus():
             mock_settings.DB_PATH = db_path
             mock_settings.BRAIN_MIN_SCORE = 0.5
             assert await get_graph() == {"nodes": [], "edges": []}
+    finally:
+        os.unlink(db_path)
+
+
+@pytest.mark.asyncio
+async def test_list_links_orders_paginates_and_filters_cancelled_but_keeps_photo_rows():
+    import aiosqlite
+    import os
+    import tempfile
+    from src.brain import SCHEMA_SQL
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.executescript(SCHEMA_SQL)
+            await conn.execute("CREATE TABLE jobs (id TEXT PRIMARY KEY, status TEXT)")
+            await conn.executemany(
+                "INSERT INTO jobs (id, status) VALUES (?, ?)",
+                [("job_done", "done"), ("job_cancelled", "cancelled")],
+            )
+            await conn.executemany(
+                """INSERT INTO links
+                   (id, url, title, topic, source_job, seen_count, last_seen_at, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    (
+                        "old",
+                        "https://example.com/old",
+                        "Old",
+                        "topic-a",
+                        "job_done",
+                        3,
+                        "2026-06-27T10:00:00+00:00",
+                        "2026-06-27T10:00:00+00:00",
+                        "2026-06-27T10:00:00+00:00",
+                    ),
+                    (
+                        "new",
+                        "https://example.com/new",
+                        "New",
+                        "topic-b",
+                        "job_done",
+                        7,
+                        "2026-06-28T10:00:00+00:00",
+                        "2026-06-28T10:00:00+00:00",
+                        "2026-06-28T10:00:00+00:00",
+                    ),
+                    (
+                        "cancelled",
+                        "https://example.com/cancelled",
+                        "Cancelled",
+                        "topic-c",
+                        "job_cancelled",
+                        1,
+                        "2026-06-29T10:00:00+00:00",
+                        "2026-06-29T10:00:00+00:00",
+                        "2026-06-29T10:00:00+00:00",
+                    ),
+                    (
+                        "photo",
+                        "https://example.com/photo",
+                        "Photo",
+                        "topic-photo",
+                        "photo_123",
+                        2,
+                        "2026-06-28T12:00:00+00:00",
+                        "2026-06-28T12:00:00+00:00",
+                        "2026-06-28T12:00:00+00:00",
+                    ),
+                ],
+            )
+            await conn.commit()
+
+        with patch("src.brain.settings") as mock_settings:
+            mock_settings.DB_PATH = db_path
+            first_page = await list_links(limit=2, offset=0)
+            second_page = await list_links(limit=2, offset=2)
+
+        assert first_page["total"] == 3
+        assert [item["url"] for item in first_page["items"]] == [
+            "https://example.com/photo",
+            "https://example.com/new",
+        ]
+        assert first_page["items"][0]["first_seen"] == "2026-06-28T12:00:00+00:00"
+        assert first_page["items"][0]["seen_count"] == 2
+        assert [item["url"] for item in second_page["items"]] == [
+            "https://example.com/old",
+        ]
+    finally:
+        os.unlink(db_path)
+
+
+@pytest.mark.asyncio
+async def test_list_links_q_filters_by_substring_across_url_title_topic():
+    import aiosqlite
+    import os
+    import tempfile
+    from unittest.mock import patch
+    from src.brain import SCHEMA_SQL, list_links
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        async with aiosqlite.connect(db_path) as conn:
+            await conn.executescript(SCHEMA_SQL)
+            await conn.execute("CREATE TABLE jobs (id TEXT PRIMARY KEY, status TEXT)")
+            await conn.execute("INSERT INTO jobs (id, status) VALUES ('j', 'done')")
+            await conn.executemany(
+                """INSERT INTO links
+                   (id, url, title, topic, source_job, seen_count, last_seen_at, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, 'j', 1, ?, ?, ?)""",
+                [
+                    ("a", "https://github.com/foo", "Repo", "code", "t", "t", "t"),
+                    ("b", "https://news.com/x", "GitHub digest", "media", "t", "t", "t"),
+                    ("c", "https://blog.io/y", "Other", "github-actions", "t", "t", "t"),
+                    ("d", "https://example.com/z", "Nope", "misc", "t", "t", "t"),
+                ],
+            )
+            await conn.commit()
+
+        with patch("src.brain.settings") as mock_settings:
+            mock_settings.DB_PATH = db_path
+            res = await list_links(q="github")  # case-insensitive; matches url/title/topic
+            empty = await list_links(q="   ")  # blank q is ignored, returns all
+
+        assert {item["url"] for item in res["items"]} == {
+            "https://github.com/foo",
+            "https://news.com/x",
+            "https://blog.io/y",
+        }
+        assert res["total"] == 3
+        assert empty["total"] == 4
     finally:
         os.unlink(db_path)
 
