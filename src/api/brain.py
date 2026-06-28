@@ -24,6 +24,15 @@ async def get_graph() -> dict[str, list[dict]]:
     return await brain.get_graph()
 
 
+@brain_router.get("/links")
+async def list_links(
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    q: str = Query(default=""),
+) -> dict:
+    return await brain.list_links(limit=limit, offset=offset, q=q)
+
+
 @brain_router.post("/rebuild")
 async def rebuild_graph() -> dict[str, int]:
     try:

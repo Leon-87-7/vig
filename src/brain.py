@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS links (
 );
 CREATE INDEX IF NOT EXISTS idx_links_url ON links(url);
 CREATE INDEX IF NOT EXISTS idx_links_updated_at ON links(updated_at);
+CREATE INDEX IF NOT EXISTS idx_links_created_at ON links(created_at);
 """
 
 
@@ -509,6 +510,60 @@ async def get_graph() -> dict[str, list[dict]]:
             edges.append({"source": source, "target": target, "score": round(related["score"], 4)})
 
     return {"nodes": nodes, "edges": edges}
+
+
+async def list_links(limit: int = 50, offset: int = 0, q: str = "") -> dict[str, Any]:
+    """Return deduplicated Brain links ordered newest-first with pagination.
+
+    ``q`` filters by case-insensitive substring across url/title/topic.
+    # ponytail: substring LIKE, not typo-tolerant fuzzy; add FTS5 if a profiler/users ask.
+    """
+    import aiosqlite
+
+    where = "COALESCE(j.status, '') != 'cancelled'"
+    filter_params: list[Any] = []
+    if q.strip():
+        where += " AND (l.url LIKE ? OR l.title LIKE ? OR l.topic LIKE ?)"
+        like = f"%{q.strip()}%"
+        filter_params = [like, like, like]
+
+    async with aiosqlite.connect(settings.DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        count_cursor = await conn.execute(
+            f"""SELECT COUNT(*) AS total
+                FROM links l
+                LEFT JOIN jobs j ON j.id = l.source_job
+                WHERE {where}""",
+            filter_params,
+        )
+        count_row = await count_cursor.fetchone()
+        cursor = await conn.execute(
+            f"""SELECT l.url, l.title, l.topic, l.seen_count, l.created_at, l.last_seen_at
+                FROM links l
+                LEFT JOIN jobs j ON j.id = l.source_job
+                WHERE {where}
+                ORDER BY l.created_at DESC, l.url ASC
+                LIMIT ? OFFSET ?""",
+            (*filter_params, limit, offset),
+        )
+        rows = [dict(r) for r in await cursor.fetchall()]
+
+    return {
+        "items": [
+            {
+                "url": row["url"],
+                "title": row.get("title"),
+                "topic": row.get("topic"),
+                "seen_count": row.get("seen_count") or 1,
+                "first_seen": row["created_at"],
+                "last_seen": row["last_seen_at"],
+            }
+            for row in rows
+        ],
+        "limit": limit,
+        "offset": offset,
+        "total": count_row["total"] if count_row else 0,
+    }
 
 
 async def search_links(query: str, top_k: int = 5) -> list[dict]:
