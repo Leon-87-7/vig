@@ -138,7 +138,7 @@ def _fetch_vtt_text(url: str, tmp_dir: str) -> tuple[str | None, dict]:
         "outtmpl": os.path.join(tmp_dir, "%(id)s.%(ext)s"),
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore
-        info = ydl.extract_info(url, download=True) or {}
+        info = dict(ydl.extract_info(url, download=True) or {})
     vtt_files = [f for f in os.listdir(tmp_dir) if f.endswith(".vtt")]
     if vtt_files:
         return _parse_vtt(os.path.join(tmp_dir, vtt_files[0])), info
