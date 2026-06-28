@@ -523,8 +523,9 @@ async def list_links(limit: int = 50, offset: int = 0, q: str = "") -> dict[str,
     where = "COALESCE(j.status, '') != 'cancelled'"
     filter_params: list[Any] = []
     if q.strip():
-        where += " AND (l.url LIKE ? OR l.title LIKE ? OR l.topic LIKE ?)"
-        like = f"%{q.strip()}%"
+        where += " AND (l.url LIKE ? ESCAPE '\\' OR l.title LIKE ? ESCAPE '\\' OR l.topic LIKE ? ESCAPE '\\')"
+        escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        like = f"%{escaped}%"
         filter_params = [like, like, like]
 
     async with aiosqlite.connect(settings.DB_PATH) as conn:

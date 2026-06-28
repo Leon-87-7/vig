@@ -161,11 +161,11 @@ describe('FeedPage', () => {
 
   it('renders content-type tabs with counts', () => {
     render(<FeedPage />);
-    expect(screen.getByRole('tab', { name: /all 5/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /short 3/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /long 2/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /article 0/i })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /repo 0/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /all 5/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /short 3/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /long 2/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /article 0/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /repo 0/i })).toBeTruthy();
   });
 
   it('updates the type query param when a content tab is clicked', () => {
@@ -173,7 +173,7 @@ describe('FeedPage', () => {
     setupMocks({ setCtFilter });
 
     render(<FeedPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /long 2/i }));
+    fireEvent.click(screen.getByRole('button', { name: /long 2/i }));
 
     expect(navigationMock.replace).toHaveBeenCalledWith('/?type=long', { scroll: false });
     expect(setCtFilter).toHaveBeenCalledWith('long');

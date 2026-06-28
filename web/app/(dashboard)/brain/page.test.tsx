@@ -85,7 +85,7 @@ describe('BrainPage', () => {
 
   it('shows blank warning when Search is clicked with empty query', () => {
     render(<BrainPage />);
-    const button = screen.getByRole('button', { name: /search/i });
+    const button = screen.getByRole('button', { name: /run search/i });
     fireEvent.click(button);
     expect(screen.getByText(/please enter a search query/i)).toBeTruthy();
   });
@@ -94,7 +94,7 @@ describe('BrainPage', () => {
     const runSearch = vi.fn();
     setupMocks({ query: 'machine learning', runSearch });
     render(<BrainPage />);
-    const button = screen.getByRole('button', { name: /search/i });
+    const button = screen.getByRole('button', { name: /run search/i });
     fireEvent.click(button);
     expect(runSearch).toHaveBeenCalled();
   });
@@ -129,14 +129,14 @@ describe('BrainPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<BrainPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /links/i }));
+    fireEvent.click(screen.getByRole('button', { name: /links/i }));
 
     await waitFor(() => {
       expect(screen.getByText('https://example.com/canonical')).toBeTruthy();
     });
     const link = screen.getByRole('link', { name: /https:\/\/example.com\/canonical/i });
     expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noopener');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByText('4')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith('/api/brain/links?limit=25&offset=0');
   });

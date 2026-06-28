@@ -210,7 +210,7 @@ export function StatsOverview({
         </div>
       </div>
 
-      <div className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-5">
+      <div data-testid="stat-cards" className="hidden grid-cols-2 gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-5">
         <StatCard
           label={totalLabel}
           value={stats.total}

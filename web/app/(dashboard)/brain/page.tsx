@@ -114,6 +114,7 @@ function formatDate(value: string): string {
 function LinksTable() {
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [data, setData] = useState<LinksResponse>({
     items: [],
     limit: LINKS_PAGE_SIZE,
@@ -122,6 +123,12 @@ function LinksTable() {
   });
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('');
+
+  // Debounce only the search box; page navigation should load immediately.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,7 +139,7 @@ function LinksTable() {
         limit: String(LINKS_PAGE_SIZE),
         offset: String(page * LINKS_PAGE_SIZE),
       });
-      if (query.trim()) params.set('q', query.trim());
+      if (debouncedQuery.trim()) params.set('q', debouncedQuery.trim());
       try {
         const res = await fetch(`/api/brain/links?${params}`);
         if (!res.ok) throw new Error(`Links request failed (${res.status})`);
@@ -148,12 +155,11 @@ function LinksTable() {
         }
       }
     };
-    const timer = setTimeout(load, 250);
+    void load();
     return () => {
       cancelled = true;
-      clearTimeout(timer);
     };
-  }, [page, query]);
+  }, [page, debouncedQuery]);
 
   const start = data.total === 0 ? 0 : data.offset + 1;
   const end = Math.min(data.offset + data.items.length, data.total);
@@ -225,7 +231,7 @@ function LinksTable() {
                           <a
                             href={href}
                             target="_blank"
-                            rel="noopener"
+                            rel="noopener noreferrer"
                             className="group inline-flex max-w-full items-center gap-2 font-mono text-xs text-ink transition-ui hover:text-signal hover:underline"
                           >
                             <span className="truncate">{link.url}</span>
@@ -350,6 +356,7 @@ export default function BrainPage() {
             <button
               onClick={handleRun}
               disabled={loading}
+              aria-label="Run search"
               className="h-9 rounded-md bg-signal px-4 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep disabled:bg-surface disabled:text-muted"
             >
               {loading ? (

@@ -59,7 +59,7 @@ export function SegmentedTabs({ tabs, value, onChange, label }: {
 
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label={label}
       className="relative flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap sm:gap-1 sm:rounded-lg sm:border sm:border-line sm:bg-surface sm:p-1"
     >
@@ -80,8 +80,7 @@ export function SegmentedTabs({ tabs, value, onChange, label }: {
           <button
             ref={(el) => { refs.current[i] = el; }}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             aria-label={tab.badge ? `${tab.label} (${tab.badge})` : `${tab.label} ${tab.count ?? ''}`.trim()}
             disabled={tab.disabled}
             onClick={() => onChange(tab.value)}

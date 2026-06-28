@@ -98,6 +98,13 @@ function FeedPageContent() {
     [pathname, router, searchParams, setCtFilter],
   );
 
+  // Drop an unsupported ?type= from the URL so deep links/bookmarks match the
+  // actual ("All") view instead of advertising a filter that isn't applied.
+  useEffect(() => {
+    const raw = searchParams.get('type');
+    if (raw && !CONTENT_TYPES.has(raw)) setContentType('');
+  }, [searchParams, setContentType]);
+
   const contentTypeCounts = useMemo(
     () => stats?.by_content_type ?? {},
     [stats],
