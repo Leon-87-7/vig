@@ -15,14 +15,17 @@ const RANDOM_PROMPTS = [
 
 const FEEDBACK_RESET_MS = 1500;
 
-type Job = { id: string; title?: string; url: string; status: string; telegram_delivery?: 'off' | 'on' | 'retroactive'; sheets_row_id?: string | null };
+type Job = { id: string; title?: string; url: string; status: string; telegram_delivery: 'off' | 'on' | 'retroactive'; sheets_row_id?: string | null };
 type Output = { id: string; kind: string; title: string; preview: string; content_url: string; created_at: string };
 type OutputActionState = 'idle' | 'copied' | 'copy_failed' | 'download_failed';
 
+const FILENAME_FORBIDDEN = /[/\\:*?"<>|]/g;
+
 function outputFilename(job: Job, output: Output) {
-  const stem = (job.title || job.id).replace(/[/\\:*?"<>|]/g, '_') || job.id;
+  const stem = (job.title || job.id).replace(FILENAME_FORBIDDEN, '_') || job.id;
+  const kind = output.kind.replace(FILENAME_FORBIDDEN, '_');
   const ext = output.kind === 'raw_txt' ? 'txt' : 'md';
-  return `vig-${stem}-${output.kind}.${ext}`;
+  return `vig-${stem}-${kind}.${ext}`;
 }
 
 async function fetchOutputContent(output: Output) {
@@ -56,6 +59,7 @@ function OutputCard({ job, output }: { job: Job; output: Output }) {
       const fullText = await fetchOutputContent(output);
       const mime = output.kind === 'raw_txt' ? 'text/plain' : 'text/markdown';
       downloadBlob(fullText, outputFilename(job, output), mime);
+      setActionState('idle');
     } catch {
       setActionState('download_failed');
     }
@@ -166,10 +170,10 @@ export default function DocDetail() {
       {err && <p className="text-sm text-status-error" role="alert">{err}</p>}
 
       <div className="flex flex-wrap gap-2">
-        <TelegramToggle jobId={job.id} value={job.telegram_delivery || 'off'} />
+        <TelegramToggle jobId={job.id} value={job.telegram_delivery} />
         <button onClick={clean} disabled={busy} className="rounded-md bg-signal px-4 py-2 text-sm text-onsignal disabled:opacity-50">Clean</button>
         <button onClick={() => setOpen(true)} disabled={busy} className="rounded-md border border-line px-4 py-2 text-sm text-ink disabled:opacity-50">Freestyle</button>
-        {rawParse && <a href={rawParse.content_url} target="_blank" className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>}
+        {rawParse && <a href={rawParse.content_url} target="_blank" rel="noopener noreferrer" className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>}
         {job.url && <span className="rounded-md border border-line px-4 py-2 font-mono text-xs text-muted">{job.url}</span>}
       </div>
 

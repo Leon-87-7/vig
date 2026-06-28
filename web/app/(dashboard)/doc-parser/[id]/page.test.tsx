@@ -103,8 +103,9 @@ describe('DocDetail', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: /download full output/i }))[0]);
 
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+    expect(fetch).toHaveBeenCalledWith('/api/parsed/job-1/outputs/raw', expect.anything());
     const clickMock = vi.mocked(HTMLAnchorElement.prototype.click);
-    const anchor = clickMock.mock.instances[0] as HTMLAnchorElement;
+    const anchor = clickMock.mock.contexts[0] as HTMLAnchorElement;
     expect(anchor.download).toBe('vig-13 things_ mentally_strong-raw_txt.txt');
   });
 });
