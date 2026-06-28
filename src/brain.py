@@ -543,7 +543,7 @@ async def list_links(limit: int = 50, offset: int = 0, q: str = "") -> dict[str,
                 FROM links l
                 LEFT JOIN jobs j ON j.id = l.source_job
                 WHERE {where}
-                ORDER BY COALESCE(l.last_seen_at, l.created_at) DESC, l.url ASC
+                ORDER BY l.last_seen_at DESC, l.url ASC
                 LIMIT ? OFFSET ?""",
             (*filter_params, limit, offset),
         )
