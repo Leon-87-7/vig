@@ -200,7 +200,7 @@ function LinksTable() {
             <thead className="bg-raised/70 text-xs text-muted">
               <tr>
                 <th scope="col" className="px-4 py-3 font-medium">URL</th>
-                <th scope="col" className="px-4 py-3 font-medium">First seen</th>
+                <th scope="col" className="px-4 py-3 font-medium">Last seen</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium">Appearances</th>
               </tr>
             </thead>
@@ -248,7 +248,7 @@ function LinksTable() {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-body">
-                      {formatDate(link.first_seen)}
+                      {formatDate(link.last_seen ?? link.first_seen)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-ink">
                       {link.seen_count}

@@ -333,7 +333,7 @@ async def test_get_graph_empty_corpus():
 
 
 @pytest.mark.asyncio
-async def test_list_links_orders_paginates_and_filters_cancelled_but_keeps_photo_rows():
+async def test_list_links_orders_by_last_seen_paginates_and_filters_cancelled_but_keeps_photo_rows():
     import aiosqlite
     import os
     import tempfile
@@ -362,9 +362,9 @@ async def test_list_links_orders_paginates_and_filters_cancelled_but_keeps_photo
                         "topic-a",
                         "job_done",
                         3,
+                        "2026-06-29T09:00:00+00:00",
                         "2026-06-27T10:00:00+00:00",
-                        "2026-06-27T10:00:00+00:00",
-                        "2026-06-27T10:00:00+00:00",
+                        "2026-06-29T09:00:00+00:00",
                     ),
                     (
                         "new",
@@ -410,13 +410,14 @@ async def test_list_links_orders_paginates_and_filters_cancelled_but_keeps_photo
 
         assert first_page["total"] == 3
         assert [item["url"] for item in first_page["items"]] == [
-            "https://example.com/photo",
-            "https://example.com/new",
-        ]
-        assert first_page["items"][0]["first_seen"] == "2026-06-28T12:00:00+00:00"
-        assert first_page["items"][0]["seen_count"] == 2
-        assert [item["url"] for item in second_page["items"]] == [
             "https://example.com/old",
+            "https://example.com/photo",
+        ]
+        assert first_page["items"][0]["first_seen"] == "2026-06-27T10:00:00+00:00"
+        assert first_page["items"][0]["last_seen"] == "2026-06-29T09:00:00+00:00"
+        assert first_page["items"][0]["seen_count"] == 3
+        assert [item["url"] for item in second_page["items"]] == [
+            "https://example.com/new",
         ]
     finally:
         os.unlink(db_path)
