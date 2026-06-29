@@ -330,3 +330,40 @@ independent of how many jobs a URL appears in.
   inline), the existing controls page, or both?
 - Migration: do existing `job_tags` rows get projected onto their URLs, or do URL
   tags start empty?
+
+## 12. Repalette: new signal orange + dark plate tokens
+
+The design tokens have a single source: `web/tailwind.config.ts` defines
+`signal.DEFAULT: '#f6921e'` plus the cool plate ladder `canvas: '#0b0c0f'` →
+`surface: '#14161a'` → `raised: '#1c1f25'` (`tailwind.config.ts:12-27`). The same
+values are normative in `DESIGN.md`'s frontmatter, and the ~39 `web/` consumers
+use Tailwind classes (`bg-signal`, `text-signal`, `bg-canvas`…), so they inherit
+the change without edits. `DESIGN.md` also pins a derived signal ramp:
+`signal-bright #ffa83d`, `signal-deep #b96a06`, `onsignal #16100a`.
+
+**Wanted:** the signal color becomes `#FFBE0B` and "the dark color" becomes
+`#2A2312`, applied at the token source so the whole console repalettes.
+
+**UI / Design tokens**
+
+- Update `web/tailwind.config.ts` and mirror into `DESIGN.md`'s frontmatter
+  (normative per CLAUDE.md) — one change at the source, not per-component.
+- DESIGN.md prose hardcodes the hexes in many places (the Signal Rule, button
+  specs, plate-ladder descriptions); those references and any logo SVGs under
+  `web/images/` / `web/public/images/` that bake in the orange need a sweep too.
+
+**Open questions** (resolve in grill)
+
+- "The dark color" is ambiguous — the plate ladder is three cool darks
+  (`canvas`/`surface`/`raised`). Does `#2A2312` replace `canvas` (the page floor),
+  the whole ladder (re-derive all three), or a specific plate?
+- `#2A2312` is a **warm** near-black (yellow/red cast), which breaks DESIGN.md's
+  stated "cool near-black chassis" identity. Intended pivot to a warm chassis, or
+  should the cool ladder stay and only the signal change?
+- `#FFBE0B` is brighter/yellower than `#f6921e` — does the derived ramp
+  (`signal-bright`, `signal-deep`, `onsignal`) get recomputed around it? The
+  "dark-on-orange ≥7:1" contrast (`onsignal #16100a`) and WCAG-AA bar must be
+  re-verified against the new hue.
+- Does `#FFBE0B` collide with the **pending-yellow** status hue? The Signal Rule
+  forbids signal and pending-yellow trading places — a yellower signal narrows
+  that gap.
