@@ -29,7 +29,7 @@ export function JobCard({ job }: JobCardProps) {
     <div className="relative rounded-lg border border-line bg-surface px-4 py-3 transition-ui hover:bg-raised">
       <Link href={`/jobs/${job.id}`} aria-label={display} className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-inset" />
       <div className="pointer-events-none flex items-start justify-between gap-3">
-        <p className="flex-1 truncate text-sm text-ink" title={display}>
+        <p className="min-w-0 flex-1 truncate text-sm text-ink">
           {display}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">

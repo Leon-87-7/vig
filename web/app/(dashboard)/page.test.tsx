@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@/test/render';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { JobSummary } from '@/components/job-card';
 import FeedPage from './page';

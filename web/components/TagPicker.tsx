@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { CornerDownLeft } from 'lucide-react';
 import type { TagFormState } from '@/lib/hooks/useTagList';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface TagSummary {
   id: string;
@@ -294,25 +295,23 @@ export function TagChips({
   return (
     <>
       {jobTags.map((tag) => (
-        <span
-          key={tag.id}
-          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink"
-          title={tag.meaning || undefined}
-        >
-          <span
-            className="inline-block h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: tag.color }}
-          />
-          {tag.name}
-          <button
-            type="button"
-            onClick={() => onRemove(tag.id)}
-            className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-1 focus-visible:ring-offset-canvas"
-            aria-label={`Remove tag ${tag.name}`}
-          >
-            &times;
-          </button>
-        </span>
+        <Tooltip key={tag.id} content={tag.meaning || undefined}>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink">
+            <span
+              className="inline-block h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: tag.color }}
+            />
+            {tag.name}
+            <button
+              type="button"
+              onClick={() => onRemove(tag.id)}
+              className="ml-0.5 rounded-full text-muted transition-ui hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-1 focus-visible:ring-offset-canvas"
+              aria-label={`Remove tag ${tag.name}`}
+            >
+              &times;
+            </button>
+          </span>
+        </Tooltip>
       ))}
     </>
   );

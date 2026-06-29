@@ -60,6 +60,10 @@ const config: Config = {
         overlay:
           "0px 2px 4px rgba(0,0,0,0.4), 0px 12px 24px -8px rgba(0,0,0,0.5)",
       },
+      animation: {
+        "tooltip-in": "tooltip-in 140ms ease-out both",
+        "tooltip-out": "tooltip-out 100ms ease-out both",
+      },
     },
   },
   plugins: [],

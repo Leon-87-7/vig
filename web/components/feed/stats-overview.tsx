@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { FeedStats } from '@/lib/hooks/useFeedData';
 
 // Total card label reflects the active content-type tab ("" = All).
@@ -11,6 +12,14 @@ const TOTAL_LABELS: Record<string, string> = {
   long: 'Total Long',
   article: 'Total Articles',
   repo: 'Total Repos',
+};
+
+const METRIC_TOOLTIPS: Record<string, string> = {
+  total: 'All jobs matching the current feed filters.',
+  done: 'Jobs that completed successfully.',
+  pending: 'Jobs queued but not started yet.',
+  error: 'Jobs that failed and may need recovery.',
+  processing: 'Jobs currently processing, enriching, or waiting on transcripts.',
 };
 
 // Full-breakdown rows: every status / content type the API can report, with its
@@ -60,7 +69,9 @@ function BreakdownGroup({
   if (rows.length === 0) return null;
   return (
     <div>
-      <p className="mb-1.5 text-xs font-medium text-muted">{title}</p>
+      <Tooltip content={title === 'Status' ? 'Counts grouped by processing status.' : 'Counts grouped by source content type.'}>
+        <p className="mb-1.5 w-fit text-xs font-medium text-muted">{title}</p>
+      </Tooltip>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {rows.map((r) => (
           <span
@@ -214,24 +225,29 @@ export function StatsOverview({
         <StatCard
           label={totalLabel}
           value={stats.total}
+          tooltip={METRIC_TOOLTIPS.total}
         />
         <StatCard
           label="Done"
+          tooltip={METRIC_TOOLTIPS.done}
           value={done}
           valueClass="text-status-done"
         />
         <StatCard
           label="Pending"
+          tooltip={METRIC_TOOLTIPS.pending}
           value={pending}
           valueClass="text-status-pending"
         />
         <StatCard
           label="Error"
+          tooltip={METRIC_TOOLTIPS.error}
           value={error}
           valueClass="text-status-error"
         />
         <StatCard
           label="Processing"
+          tooltip={METRIC_TOOLTIPS.processing}
           value={processing}
           valueClass="text-status-processing"
         />
