@@ -9,7 +9,8 @@ Canonical home for feature ideas, from one-line spark to grill-ready brief.
    into a technical brief (Context · Wanted · Scope · Open questions), moves it
    into `## Briefs`, and clears it from the Inbox.
 3. **Grill** the briefed tasks (`/grill-with-docs`, `/grill-with-search-docs`,
-   or `/grilling`) to resolve the Open questions, then `/to-issue-kanban`.
+   or `/grilling`) to resolve the Open questions, then `/to-issue-kanban` or
+   `/spec-to-kanban`.
 
 Status markers on a brief: `✅ DONE` · `✅ ISSUED #NNN`. `/pre-grill` never
 touches a marked task.
@@ -82,6 +83,10 @@ table in the dashboard.
 > **Grill together with task 5.** Web submissions need a `chat_id`, which is
 > exactly what #208's `OPERATOR_CHAT_ID` export gate keys on — the ownership
 > decision spans both tasks.
+>
+> **Grill together with task 9.** Both add a new caller of the create-job +
+> enqueue core: task 4 from the web surface, task 9 from the post-enrichment
+> repo follow-up. Decide the shape of the one shared service so neither forks it.
 
 Today URLs only enter through the Telegram webhook
 (`src/telegram/webhook.py`). PRODUCT.md calls for the operator to drive the
@@ -212,3 +217,52 @@ user-facing controls today (no zoom, recenter, or filtering).
   node-detail-on-click?
 - Touch/mobile gestures alongside buttons?
 - Is a fullscreen/expand mode wanted?
+
+## 9. Offer extracted GitHub repos as a follow-up repo analysis
+
+> **Grill together with task 4.** This is a third caller of the create-job +
+> enqueue core (alongside the Telegram webhook and task 4's web surface). Settle
+> the shared service shape so the repo follow-up reuses it instead of forking.
+
+When a short-form video finishes, enrichment (`src/processors/enrichment.py`,
+`enrich`) returns `tools_raw` — a list of `{name, type, url, description}` where
+`type` can be `"repo"`. Today those repo URLs are surfaced in the result text
+only; nothing offers to analyze them. The repo pipeline already exists end to
+end: `detect_pipeline()` (`src/utils/validators.py`) classifies
+`github.com/{org}/{repo}` as `"repo"`, and `_route_repo` /
+`_enqueue_simple_job` (`src/telegram/webhook.py`) create + enqueue a `"repo"`
+job processed by `enrich_repo` (`src/services/github.py`).
+
+**Wanted:** after a short video is processed, if its enrichment yielded one or
+more GitHub repos, the bot prompts the operator to pick which repo(s) to analyze
+next, and enqueues a repo job for each chosen one.
+
+**Backend**
+
+- In the short pipeline (`src/processors/short_video.py`), after enrichment,
+  collect candidate repo URLs from `tools_raw` and present them via the existing
+  inline-keyboard machinery (`send_inline_keyboard` + `CallbackCtx` /
+  `_handle_callback` / `answer_callback_query`, `src/telegram/sender.py` +
+  `webhook.py`). Validate each candidate with `detect_pipeline()` /
+  `normalize_repo_url` before offering it.
+- On selection, **reuse, don't fork** the repo create+enqueue path that
+  `_route_repo` already drives — route the chosen URL(s) through the same shared
+  service task 4 extracts, not a parallel copy.
+- The spawned repo job inherits the same `chat_id`; honor the existing
+  recent-job cache (`database.find_recent_job_by_url`) so an already-analyzed
+  repo isn't re-queued.
+
+**Open questions** (resolve in grill)
+
+- Multi-select on a Telegram inline keyboard is not native (one tap = one
+  callback). Toggle-state checkboxes + a "Confirm" button (re-render the keyboard
+  per tap), or one tap = enqueue that repo immediately and allow repeated taps?
+- Which `tools_raw` entries qualify — only `type == "repo"`, or any entry whose
+  `url` `detect_pipeline()` resolves to `"repo"` (Gemini sometimes labels a repo
+  as `"library"`)?
+- Cap on how many repo buttons to show when enrichment returns many; dedupe by
+  normalized URL.
+- Scope to the short pipeline only (as asked), or also offer this after long /
+  article jobs that extract repos?
+- Encoding selected repos in callback data given Telegram's 64-byte limit — index
+  into a cached candidate list, or pack the URL?
