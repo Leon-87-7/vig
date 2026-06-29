@@ -6,6 +6,7 @@ import { Check, Copy, Download, ExternalLink, Sparkles } from 'lucide-react';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
 import { downloadBlob } from '@/components/ExportModal';
 import { PageShell } from '@/components/page-shell';
+import { Tooltip } from '@/components/tooltip';
 
 const RANDOM_PROMPTS = [
   'Summarize into the 5 most important takeaways',
@@ -75,33 +76,37 @@ function OutputCard({ job, output }: { job: Job; output: Output }) {
       <div className="mb-2 flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-signal" />
         <h2 className="flex-1 text-sm font-semibold text-ink">{output.title || output.kind}</h2>
-        <button
-          type="button"
-          onClick={copyFullOutput}
-          aria-label="Copy full output"
-          title={copyLabel}
-          className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-md transition-ui hover:text-ink active:scale-[0.96] ${actionState === 'copy_failed' ? 'text-status-error' : 'text-muted'}`}
-        >
-          {actionState === 'copied' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        </button>
-        <button
-          type="button"
-          onClick={downloadFullOutput}
-          aria-label="Download full output"
-          title={downloadLabel}
-          className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-md transition-ui hover:text-ink active:scale-[0.96] ${actionState === 'download_failed' ? 'text-status-error' : 'text-muted'}`}
-        >
-          <Download className="h-4 w-4" />
-        </button>
-        <a
-          href={output.content_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open full output"
-          className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted transition-ui hover:text-ink active:scale-[0.96]"
-        >
-          <ExternalLink className="h-4 w-4" />
-        </a>
+        <Tooltip content={copyLabel}>
+          <button
+            type="button"
+            onClick={copyFullOutput}
+            aria-label="Copy full output"
+            className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-md transition-ui hover:text-ink active:scale-[0.96] ${actionState === 'copy_failed' ? 'text-status-error' : 'text-muted'}`}
+          >
+            {actionState === 'copied' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          </button>
+        </Tooltip>
+        <Tooltip content={downloadLabel}>
+          <button
+            type="button"
+            onClick={downloadFullOutput}
+            aria-label="Download full output"
+            className={`inline-flex min-h-10 min-w-10 items-center justify-center rounded-md transition-ui hover:text-ink active:scale-[0.96] ${actionState === 'download_failed' ? 'text-status-error' : 'text-muted'}`}
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </Tooltip>
+        <Tooltip content="Open full output">
+          <a
+            href={output.content_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open full output"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted transition-ui hover:text-ink active:scale-[0.96]"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </Tooltip>
       </div>
       <span role="status" className="sr-only">{liveMessage}</span>
       <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded bg-canvas p-3 font-mono text-xs text-body">{output.preview}</pre>

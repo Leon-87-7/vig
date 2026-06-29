@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { MessageSquareText } from 'lucide-react';
 import { useTemplateList } from '@/lib/hooks/useTemplateList';
 import { PageShell, PageHeader } from '@/components/page-shell';
+import { Tooltip } from '@/components/tooltip';
 import type {
   Template,
   TemplateFormState,
@@ -53,22 +54,23 @@ function CreateForm({
               (no spaces, no leading - or /)
             </span>
           </label>
-          <input
-            type="text"
-            required
-            maxLength={64}
-            pattern="[a-z0-9_-]+"
-            title="Lowercase letters, digits, hyphens, underscores only"
-            value={values.name}
-            onChange={(e) =>
-              setValues((v) => ({
-                ...v,
-                name: e.target.value.toLowerCase(),
-              }))
-            }
-            placeholder="e.g. startup-notes"
-            className="w-full sm:w-52 rounded-md border border-line bg-canvas px-3 py-1.5 font-mono text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
-          />
+          <Tooltip content="Lowercase letters, digits, hyphens, underscores only" mono>
+            <input
+              type="text"
+              required
+              maxLength={64}
+              pattern="[a-z0-9_-]+"
+              value={values.name}
+              onChange={(e) =>
+                setValues((v) => ({
+                  ...v,
+                  name: e.target.value.toLowerCase(),
+                }))
+              }
+              placeholder="e.g. startup-notes"
+              className="w-full sm:w-52 rounded-md border border-line bg-canvas px-3 py-1.5 font-mono text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
+            />
+          </Tooltip>
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-body">

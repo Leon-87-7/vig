@@ -23,6 +23,7 @@ import {
   parseLinks,
 } from "@/lib/job-detail-utils";
 import { PageShell } from "@/components/page-shell";
+import { Tooltip } from "@/components/tooltip";
 
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   ssr: false,
@@ -120,10 +121,12 @@ function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: str
     try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
   };
   return (
-    <button onClick={handleCopy} aria-label={ariaLabel} title={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink">
-      {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
-      {label && <span>{copied ? "Copied!" : label}</span>}
-    </button>
+    <Tooltip content={ariaLabel}>
+      <button onClick={handleCopy} aria-label={ariaLabel} className="inline-flex items-center gap-1.5 rounded border border-line px-2 py-1 text-xs font-medium text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink">
+        {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+        {label && <span>{copied ? "Copied!" : label}</span>}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -196,9 +199,13 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
       {/* URL on the left, tag row right-aligned under the badges. */}
       <div className="mt-1 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         {/^https?:\/\//i.test(job.url) ? (
-          <a href={job.url} target="_blank" rel="noopener noreferrer" title={job.url} className="min-w-0 flex-1 break-all font-mono text-xs text-muted transition-ui hover:text-signal hover:underline">{displayUrl}</a>
+          <Tooltip content={job.url} mono>
+            <a href={job.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 break-all font-mono text-xs text-muted transition-ui hover:text-signal hover:underline">{displayUrl}</a>
+          </Tooltip>
         ) : (
-          <p title={job.url} className="min-w-0 flex-1 break-all font-mono text-xs text-muted">{displayUrl}</p>
+          <Tooltip content={job.url} mono>
+            <p className="min-w-0 flex-1 break-all font-mono text-xs text-muted">{displayUrl}</p>
+          </Tooltip>
         )}
         {tags && <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{tags}</div>}
       </div>

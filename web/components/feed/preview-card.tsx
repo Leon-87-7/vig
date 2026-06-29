@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Tooltip } from '@/components/tooltip';
 import { useState, type ReactNode } from 'react';
 import { StatusBadge } from '@/components/badges';
 import { DateTime } from '@/components/date-time';
@@ -93,12 +94,11 @@ export function PreviewCard({
               {glyph}
             </span>
           )}
-          <p
-            className="flex-1 truncate text-sm font-medium leading-5 text-ink"
-            title={display}
-          >
-            {titleText}
-          </p>
+          <Tooltip content={display} mono>
+            <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-ink">
+              {titleText}
+            </p>
+          </Tooltip>
           <span className="shrink-0">
             <StatusBadge label={job.status} />
           </span>
@@ -106,12 +106,11 @@ export function PreviewCard({
 
         {/* date&time ; tags btn (count-only, no chips) */}
         <div className="mt-auto flex items-center justify-between gap-3">
-          <span
-            className="truncate font-mono text-xs text-muted"
-            title={job.created_at}
-          >
-            <DateTime iso={job.created_at} />
-          </span>
+          <Tooltip content={job.created_at} mono>
+            <span className="truncate font-mono text-xs text-muted">
+              <DateTime iso={job.created_at} />
+            </span>
+          </Tooltip>
           <span className="pointer-events-auto relative z-10 shrink-0">
             <JobCardTags
               jobId={job.id}

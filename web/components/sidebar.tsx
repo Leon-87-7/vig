@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Tooltip } from '@/components/tooltip';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -201,25 +202,26 @@ function NavLink({
     ? 'flex h-9 w-9 items-center justify-center'
     : 'flex items-center gap-3 px-3 py-2';
   return (
-    <Link
-      href={href}
-      title={collapsed ? label : undefined}
-      aria-label={collapsed ? label : undefined}
-      aria-current={active ? 'page' : undefined}
-      tabIndex={tabbable ? undefined : -1}
-      className={`${layout} rounded-md text-sm font-medium transition-ui ${
-        active
-          ? 'bg-raised text-signal'
-          : 'text-body hover:bg-raised hover:text-ink'
-      }`}
-    >
-      <Icon
-        className="h-[18px] w-[18px] shrink-0"
-        strokeWidth={2}
-        aria-hidden="true"
-      />
-      {!collapsed && label}
-    </Link>
+    <Tooltip content={collapsed ? label : undefined}>
+      <Link
+        href={href}
+        aria-label={collapsed ? label : undefined}
+        aria-current={active ? 'page' : undefined}
+        tabIndex={tabbable ? undefined : -1}
+        className={`${layout} rounded-md text-sm font-medium transition-ui ${
+          active
+            ? 'bg-raised text-signal'
+            : 'text-body hover:bg-raised hover:text-ink'
+        }`}
+      >
+        <Icon
+          className="h-[18px] w-[18px] shrink-0"
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+        {!collapsed && label}
+      </Link>
+    </Tooltip>
   );
 }
 
@@ -318,31 +320,34 @@ export function Sidebar() {
         </nav>
 
         <div className="mt-auto flex flex-col items-center gap-1">
-          <a
-            href="https://github.com/Leon-87-7/vig"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub repository"
-            title="GitHub repository"
-            tabIndex={open ? -1 : undefined}
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
-          >
-            <GithubIcon className="h-[18px] w-[18px]" />
-          </a>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Expand navigation"
-            aria-expanded={open}
-            aria-controls="vig-nav-panel"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
-          >
-            <ChevronRight
-              className="h-[18px] w-[18px]"
-              strokeWidth={2}
-              aria-hidden="true"
-            />
-          </button>
+          <Tooltip content="GitHub repository">
+            <a
+              href="https://github.com/Leon-87-7/vig"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub repository"
+              tabIndex={open ? -1 : undefined}
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
+            >
+              <GithubIcon className="h-[18px] w-[18px]" />
+            </a>
+          </Tooltip>
+          <Tooltip content="Expand navigation">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label="Expand navigation"
+              aria-expanded={open}
+              aria-controls="vig-nav-panel"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
+            >
+              <ChevronRight
+                className="h-[18px] w-[18px]"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+            </button>
+          </Tooltip>
         </div>
       </div>
 
