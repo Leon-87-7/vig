@@ -6,7 +6,7 @@ import { Check, Copy, Download, ExternalLink, Sparkles } from 'lucide-react';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
 import { downloadBlob } from '@/components/ExportModal';
 import { PageShell } from '@/components/page-shell';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 
 const RANDOM_PROMPTS = [
   'Summarize into the 5 most important takeaways',

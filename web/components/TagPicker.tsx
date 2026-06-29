@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { CornerDownLeft } from 'lucide-react';
 import type { TagFormState } from '@/lib/hooks/useTagList';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface TagSummary {
   id: string;

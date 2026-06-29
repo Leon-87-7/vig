@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen } from "@/test/render";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { JobCard, type JobSummary } from "./job-card";

@@ -39,7 +39,7 @@ export function Tooltip({
           align={align}
           sideOffset={8}
           collisionPadding={12}
-          className={`z-50 max-w-xs rounded-md border border-line bg-raised px-2 py-1 text-xs leading-snug text-ink shadow-overlay will-change-[transform,opacity] data-[state=closed]:animate-tooltip-out data-[state=delayed-open]:animate-tooltip-in data-[state=instant-open]:animate-tooltip-in data-[side=bottom]:origin-top data-[side=left]:origin-right data-[side=right]:origin-left data-[side=top]:origin-bottom motion-reduce:will-change-auto motion-reduce:data-[state=closed]:animate-tooltip-out-reduced motion-reduce:data-[state=delayed-open]:animate-tooltip-in-reduced motion-reduce:data-[state=instant-open]:animate-tooltip-in-reduced ${
+          className={`z-50 max-w-xs rounded-md border border-line bg-raised px-2 py-1 text-xs leading-snug text-ink shadow-overlay data-[state=closed]:animate-tooltip-out data-[state=delayed-open]:animate-tooltip-in data-[state=instant-open]:animate-tooltip-in motion-reduce:animate-none ${
             mono ? 'break-words font-mono [text-wrap:pretty]' : 'font-sans'
           }`}
         >

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 import type { FeedStats } from '@/lib/hooks/useFeedData';
 
 // Total card label reflects the active content-type tab ("" = All).
@@ -78,9 +78,7 @@ function BreakdownGroup({
             key={r.key}
             className="flex items-baseline gap-1.5 text-[13px]"
           >
-            <Tooltip content={`${r.label} count`}>
-              <span className="text-body">{r.label}</span>
-            </Tooltip>
+            <span className="text-body">{r.label}</span>
             <span
               className={`font-mono font-semibold tabular-nums ${r.cls}`}
             >

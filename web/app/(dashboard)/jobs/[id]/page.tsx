@@ -23,7 +23,7 @@ import {
   parseLinks,
 } from "@/lib/job-detail-utils";
 import { PageShell } from "@/components/page-shell";
-import { Tooltip } from "@/components/tooltip";
+import { Tooltip } from "@/components/ui/tooltip";
 
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   ssr: false,

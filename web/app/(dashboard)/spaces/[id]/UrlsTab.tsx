@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSpaceUrls } from '@/lib/hooks/useSpaceUrls';
 import { TypeBadge } from '@/components/badges';
 import { Spinner } from '@/components/ui';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export function UrlsTab({ spaceId }: { spaceId: string }) {
   const { spaceUrls, allJobs, loading, addJob, removeUrl, reorderUrl } = useSpaceUrls(spaceId);

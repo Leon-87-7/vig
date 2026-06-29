@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 import { useState, type ReactNode } from 'react';
 import { StatusBadge } from '@/components/badges';
 import { DateTime } from '@/components/date-time';

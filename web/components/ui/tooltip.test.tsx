@@ -61,6 +61,9 @@ describe('Tooltip', () => {
     );
 
     await user.hover(screen.getByRole('button', { name: 'URL' }));
-    expect(await screen.findByRole('tooltip')).toHaveClass('font-mono');
+    // role="tooltip" sits on Radix's visually-hidden a11y node; the styled
+    // content is its nearest ancestor carrying data-side.
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.closest('[data-side]')).toHaveClass('font-mono');
   });
 });

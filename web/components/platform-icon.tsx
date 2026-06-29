@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import { siGithub, siInstagram, siTiktok, siYoutube } from "simple-icons";
-import { Tooltip } from "@/components/tooltip";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type Platform = "youtube" | "youtube-short" | "instagram" | "tiktok" | "github" | "article" | "unknown";
 

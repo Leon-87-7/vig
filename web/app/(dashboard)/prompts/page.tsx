@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { MessageSquareText } from 'lucide-react';
 import { useTemplateList } from '@/lib/hooks/useTemplateList';
 import { PageShell, PageHeader } from '@/components/page-shell';
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 import type {
   Template,
   TemplateFormState,

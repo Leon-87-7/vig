@@ -1,6 +1,6 @@
 'use client';
 
-import { Tooltip } from '@/components/tooltip';
+import { Tooltip } from '@/components/ui/tooltip';
 
 interface StatCardProps {
   label: string;
