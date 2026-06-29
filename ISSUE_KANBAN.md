@@ -383,7 +383,7 @@ UI/UX makeover (source: docs/todo-notes.md — impeccable shape briefs 2026-06-2
 #192 enlarge mobile back-link on job detail — independent ✅-Done (PR #193)
 Critical path: #189 → {#190, #191}; all others independent (all ✅-Done)
 
-Per-user export isolation (epic #201; ADR-0027 + ADR-0022; CONTEXT.md `Operator`)
+Per-user export isolation (epic #201; ADR-0030 + ADR-0022; CONTEXT.md `Operator`)
 #202 operator-only export gate (the "now" fix — root, unblocked) ◄── also gates #158 (open: opt-in Document Analysis export hook)
 └── #204 per-user "Connect Google" (web): encrypted token store → /vig ◄── also #203
     ├── #205 Telegram Mini App surface (initData → shared OAuth backend)

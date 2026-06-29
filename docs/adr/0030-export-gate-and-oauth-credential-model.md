@@ -1,5 +1,5 @@
 ---
-adr: "0027"
+adr: "0030"
 title: Export gate now, per-user drive.file OAuth later — the multi-tenancy credential model
 status: accepted
 date: 2026-06-21
