@@ -22,6 +22,13 @@ No agent applies fixes.
 
 If the target has no UI / no React changes, agents 3 and 4 report "nothing to review" — still dispatch them.
 
-After all 4 return, synthesize ONE report grouped by severity (blocker → nit),
-de-duplicating overlapping findings and noting where reviewers disagree. Do not
-edit anything yourself — this command only reviews.
+After all 4 return, synthesize ONE report, de-duplicating overlapping findings
+and noting where reviewers disagree. Do not edit anything yourself — this command
+only reviews.
+
+Output format:
+
+- Group findings under `## Blocker`, `## Major`, `## Minor`, `## Nit` headings (omit empty groups).
+- One bullet per finding: `` `file:line` `` — one-line description — suggested fix — `(reviewer)` attribution.
+- Merge duplicates into a single bullet listing every reviewer that raised it; call out disagreements explicitly (e.g. "ponytail says delete, react says keep").
+- End with a one-line **Suggested order** of what to fix first.

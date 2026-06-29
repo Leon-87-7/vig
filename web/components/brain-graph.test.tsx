@@ -99,6 +99,26 @@ describe('BrainGraph', () => {
     expect(filteredFocus[2](payload.nodes[1])).toBe(true);
   });
 
+  it('refocuses when the match set changes but its size stays the same', async () => {
+    const { rerender } = render(
+      <BrainGraph results={[{ url: 'https://example.com/ai' }, { url: 'https://example.com/docs' }]} searchState="results" />,
+    );
+
+    await waitFor(() => expect(graphMethods.zoomToFit).toHaveBeenCalled());
+    const before = graphMethods.zoomToFit.mock.calls.length;
+    expect(graphMethods.zoomToFit.mock.calls.at(-1)![2](payload.nodes[1])).toBe(true); // docs matches
+
+    // Same count (2), different set: drop docs, add loose.
+    rerender(
+      <BrainGraph results={[{ url: 'https://example.com/ai' }, { url: 'https://example.com/loose' }]} searchState="results" />,
+    );
+
+    await waitFor(() => expect(graphMethods.zoomToFit.mock.calls.length).toBeGreaterThan(before));
+    const refocus = graphMethods.zoomToFit.mock.calls.at(-1)!;
+    expect(refocus[2](payload.nodes[2])).toBe(true); // loose now matches
+    expect(refocus[2](payload.nodes[1])).toBe(false); // docs no longer matches
+  });
+
   it('wires zoom and recenter controls to the ForceGraph ref', async () => {
     render(<BrainGraph results={[]} searchState="idle" />);
 
