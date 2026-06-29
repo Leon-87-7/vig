@@ -41,6 +41,21 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('makes a non-interactive trigger focusable so keyboard users can reveal it', async () => {
+    const user = userEvent.setup();
+    renderTooltip(
+      <Tooltip content="Full label">
+        <span>Truncated</span>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByText('Truncated');
+    expect(trigger).toHaveAttribute('tabindex', '0');
+    await user.tab();
+    expect(trigger).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Full label');
+  });
+
   it('renders the child bare when content is nullish', () => {
     const { container } = renderTooltip(
       <Tooltip content={undefined}>

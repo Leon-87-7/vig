@@ -60,6 +60,7 @@ function CreateForm({
               required
               maxLength={64}
               pattern="[a-z0-9_-]+"
+              title="Lowercase letters, digits, hyphens, underscores only"
               value={values.name}
               onChange={(e) =>
                 setValues((v) => ({

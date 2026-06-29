@@ -336,6 +336,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => setOpen(true)}
+              tabIndex={open ? -1 : undefined}
               aria-label="Expand navigation"
               aria-expanded={open}
               aria-controls="vig-nav-panel"

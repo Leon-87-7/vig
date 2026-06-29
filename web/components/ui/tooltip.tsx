@@ -1,7 +1,21 @@
 'use client';
 
 import * as RadixTooltip from '@radix-ui/react-tooltip';
+import { cloneElement } from 'react';
 import type { ComponentPropsWithoutRef, ReactElement, ReactNode } from 'react';
+
+const FOCUSABLE_TAGS = new Set(['a', 'button', 'input', 'select', 'textarea']);
+
+// A tooltip trigger must be focusable so keyboard users can reveal it (WCAG
+// 1.4.13). Natively-interactive children already are; give non-interactive
+// intrinsic elements (span, p, …) a tabIndex so focus opens the tooltip too.
+function focusableTrigger(child: ReactElement): ReactElement {
+  const { tabIndex } = child.props as { tabIndex?: number };
+  if (typeof child.type === 'string' && !FOCUSABLE_TAGS.has(child.type) && tabIndex === undefined) {
+    return cloneElement(child, { tabIndex: 0 } as { tabIndex: number });
+  }
+  return child;
+}
 
 type TooltipContentProps = ComponentPropsWithoutRef<typeof RadixTooltip.Content>;
 
@@ -32,7 +46,7 @@ export function Tooltip({
 
   return (
     <RadixTooltip.Root>
-      <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
+      <RadixTooltip.Trigger asChild>{focusableTrigger(children)}</RadixTooltip.Trigger>
       <RadixTooltip.Portal>
         <RadixTooltip.Content
           side={side}

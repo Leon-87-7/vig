@@ -109,6 +109,7 @@ export function TagMenu({
                     checked={isOn}
                     onCheckedChange={() => onToggle(tag.id, isOn)}
                     onSelect={(e) => e.preventDefault()}
+                    title={tag.meaning || undefined}
                     className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-body outline-none transition-ui data-[highlighted]:bg-raised data-[highlighted]:text-ink"
                   >
                     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-signal">
@@ -118,9 +119,7 @@ export function TagMenu({
                       className="inline-block h-2 w-2 shrink-0 rounded-full"
                       style={{ backgroundColor: tag.color }}
                     />
-                    <Tooltip content={tag.meaning || undefined}>
-                      <span className="truncate">{tag.name}</span>
-                    </Tooltip>
+                    <span className="truncate">{tag.name}</span>
                   </DropdownMenu.CheckboxItem>
                 );
               })}
