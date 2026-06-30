@@ -1,5 +1,6 @@
 ---
 name: to-issue-kanban
+disable-model-invocation: true
 description: Break a plan, spec, or PRD into independently-grabbable issues on the project issue tracker AND reflect the new issues into the project's ISSUE_KANBAN.md board (rows + Dependency Map). Use only when explicitly invoked as /to-issue-kanban — the kanban-aware variant of /to-issues for repos that keep an ISSUE_KANBAN.md.
 ---
 

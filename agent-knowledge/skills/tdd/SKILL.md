@@ -1,5 +1,6 @@
 ---
 name: tdd
+disable-model-invocation: true
 description: Test-driven development. Use when implementing features or fixing bugs with a red-green-refactor cycle.
 ---
 

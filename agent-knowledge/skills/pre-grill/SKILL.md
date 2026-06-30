@@ -1,5 +1,6 @@
 ---
 name: pre-grill
+disable-model-invocation: true
 description: Fatten one-line feature ideas in docs/TASK.md into grounded technical briefs ready for a grilling session — anchored to real files via codegraph, with scope split by layer and the genuinely undecided calls surfaced as Open questions (not resolved). Use only when explicitly invoked as /pre-grill, or when the user asks to "fatten", "flesh out", "brief up", or "prep my ideas for grilling".
 ---
 

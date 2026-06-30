@@ -1,5 +1,6 @@
 ---
 name: triage-kanban
+disable-model-invocation: true
 description: Triage issues through the triage state machine AND reflect each state change into the project's ISSUE_KANBAN.md board (move rows between columns, sync closed issues to Done, mark dep-map nodes done). Use only when explicitly invoked as /triage-kanban — the kanban-aware variant of /triage for repos that keep an ISSUE_KANBAN.md.
 ---
 

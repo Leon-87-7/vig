@@ -1,5 +1,6 @@
 ---
 name: grill-with-search-docs
+disable-model-invocation: true
 description: Grilling session that challenges your plan against the existing domain model and the *current* docs of any third-party tool it depends on — probing context7 first and falling back to web search whenever a challenge hinges on how an external API/SDK/library actually behaves. Sharpens terminology and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when a plan leans on third-party integrations (greenfield or existing) and you want it stress-tested against real, up-to-date tool behavior rather than stale memory.
 ---
 

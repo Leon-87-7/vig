@@ -1,5 +1,6 @@
 ---
 name: code-health
+disable-model-invocation: true
 description: Use when running a periodic codebase health check, when pyscn or fallow report failing gates (complexity, duplication, dead code, architecture, CRAP), or before merging refactors that must keep static-analysis scores green. Applies to this repo's Python source and the web/ Next.js dashboard.
 ---
 

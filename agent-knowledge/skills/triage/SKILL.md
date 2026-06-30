@@ -1,5 +1,6 @@
 ---
 name: triage
+disable-model-invocation: true
 description: Move issues on the project issue tracker through a small state machine of triage roles.
 ---
 

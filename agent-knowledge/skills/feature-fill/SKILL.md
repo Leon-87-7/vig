@@ -1,5 +1,6 @@
 ---
 name: feature-fill
+disable-model-invocation: true
 description: Reads the codebase state (PRD, ADRs, ISSUE_KANBAN.md, CONTEXT.md, open issues) and surfaces gaps, missing features, stale decisions, and next-move suggestions. The opposite of ponytail — additive, not reductive. Use when explicitly invoked as /feature-fill.
 ---
 
