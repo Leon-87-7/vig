@@ -36,10 +36,14 @@ columns: `email TEXT` and `status TEXT` (`pending` | `approved` | `blocked`).
 - **Enforcement.** Bot: a non-`approved` chat_id is refused at the **inbound
   message handler**, before any feature dispatch — job creation, the inline
   photo pipeline, `/find`, `/download_md`, and other commands — so "can do
-  nothing" holds across every surface, not just job creation. The only paths
-  open to a `pending` user are the one-time email capture and the Operator's
-  own approve/block callbacks. Dashboard: the session still mints (identity),
-  but `/api/*` returns 403 until `approved`. The URL in a pre-approval first message is dropped — the friend
+  nothing" holds across every surface, not just job creation. **Ordering:** the
+  handler dispatches an `awaiting_email` `chat_state` (the one-time email
+  capture) *before* applying the gate, and the Operator's approve/block
+  callbacks are always allowed; everything else is refused. Dashboard: the
+  session still mints (identity), and `/api/*` returns 403 until `approved` —
+  **except** the email-submission endpoint (e.g. `POST /api/onboard`), which is
+  exempt from the gate so a `pending` user can complete the one-time-ask. That
+  onboarding endpoint authorizes on a valid session alone, never on `status`. The URL in a pre-approval first message is dropped — the friend
   resends after approval (no held-job store).
 - **Cutover.** `OPERATOR_CHAT_ID` is auto-approved unconditionally (the Operator
   cannot be locked out of their own bot). The migration grandfathers every
