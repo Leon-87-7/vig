@@ -59,3 +59,25 @@ Default canonical vocabulary — `needs-triage`, `needs-info`, `ready-for-agent`
 ### Domain docs
 
 Single-context layout — one `CONTEXT.md` + `docs/adr/` at the repo root (neither yet exists; `/grill-with-docs` creates them lazily as terms/decisions get resolved). See `docs/agents/domain.md`.
+
+## Shared agent knowledge
+
+Project-specific skills live in `agent-knowledge/`. Rules are in `.claude/rules/`
+(auto-loaded) and commands in `.claude/commands/`.
+
+Before making changes, inspect these folders for relevant guidance.
+
+### Skill discovery
+
+When a task matches one of the skill folders in `agent-knowledge/`, read that skill’s `SKILL.md` first.
+
+A skill folder should follow this shape:
+
+```txt
+agent-knowledge/
+  skill-name/
+    SKILL.md
+    reference.md
+    heuristics.md
+    examples.md
+```
