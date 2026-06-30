@@ -33,9 +33,13 @@ columns: `email TEXT` and `status TEXT` (`pending` | `approved` | `blocked`).
   pushes the Operator (`OPERATOR_CHAT_ID`) a message with inline
   ✅ Approve / 🚫 Block, reusing the existing inline-keyboard + callback
   machinery. One tap flips `status` and notifies the user.
-- **Enforcement.** Bot: no `jobs` row is created for a non-`approved` chat_id.
-  Dashboard: the session still mints (identity), but `/api/*` returns 403 until
-  `approved`. The URL in a pre-approval first message is dropped — the friend
+- **Enforcement.** Bot: a non-`approved` chat_id is refused at the **inbound
+  message handler**, before any feature dispatch — job creation, the inline
+  photo pipeline, `/find`, `/download_md`, and other commands — so "can do
+  nothing" holds across every surface, not just job creation. The only paths
+  open to a `pending` user are the one-time email capture and the Operator's
+  own approve/block callbacks. Dashboard: the session still mints (identity),
+  but `/api/*` returns 403 until `approved`. The URL in a pre-approval first message is dropped — the friend
   resends after approval (no held-job store).
 - **Cutover.** `OPERATOR_CHAT_ID` is auto-approved unconditionally (the Operator
   cannot be locked out of their own bot). The migration grandfathers every
