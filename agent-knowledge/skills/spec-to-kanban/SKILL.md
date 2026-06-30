@@ -1,3 +1,9 @@
+---
+name: spec-to-kanban
+description: Run the plan-to-board pipeline by creating GitHub issues, triaging them, and reconciling ISSUE_KANBAN.md in one sequence.
+disable-model-invocation: true
+---
+
 # spec-to-kanban
 
 Wrapper that runs the full plan→board pipeline in one invocation:
