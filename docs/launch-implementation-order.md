@@ -7,9 +7,20 @@ sign in and use it, then reach full per-user export parity.
 Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 **ADR-0031** (invite-only gate + onboarding).
 
-> **Status (2026-06-30):** #207 ✅ merged. #208 ✅ merged (auto-closed spec #202).
-> #258 still open. New: #259 stored-XSS fix slotted as a pre-launch security
-> must-fix (see below).
+## At a glance (2026-06-30)
+
+| #           | What                                        | Status            | When                                   |
+| ----------- | ------------------------------------------- | ----------------- | -------------------------------------- |
+| #207        | export-isolation docs / ADR-0030            | ✅ merged          | done                                   |
+| #208        | `OPERATOR_CHAT_ID` export gate (closed #202) | ✅ merged          | done — keystone                        |
+| #258        | ADR-0031 invite-gate docs                   | open              | next on path                           |
+| #259        | stored XSS in `brain-graph.tsx`             | open, **new**     | **before first invite** (independent)  |
+| #254        | `users.email`/`status` schema + cutover     | open              | Phase 1, after #208                    |
+| #255        | bot email capture + pending gate            | open              | after #254                             |
+| #256        | web email modal + `/api/*` gate             | open              | after #254 → 🚀 launchable             |
+| #203        | Google Cloud OAuth app verification         | open              | **start now, in parallel** (external)  |
+| #204        | web "Connect Google" → per-user export      | open              | Phase 2, after #203                    |
+| #205 / #206 | Mini App surface · connection lifecycle     | open              | parallel, after #204                   |
 
 ---
 
