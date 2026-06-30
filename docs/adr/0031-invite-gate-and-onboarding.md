@@ -62,6 +62,9 @@ columns: `email TEXT` and `status TEXT` (`pending` | `approved` | `blocked`).
 
 - `chat_state.mode` has a `CHECK` constraint; adding `awaiting_email` needs a
   schema migration to that constraint.
+- The new `users.status` column must ship with its own
+  `CHECK(status IN ('pending', 'approved', 'blocked'))` (same pattern as
+  `mode`), so #254 can't leave invalid status values silently writable.
 - The gate lands at exactly two enforcement points (bot job-creation, dashboard
   `/api/*` middleware) — both must honor `users.status`.
 - `OPERATOR_CHAT_ID` (ADR-0030) is load-bearing as the admin identity; this
