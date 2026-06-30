@@ -48,6 +48,18 @@ function topicLabel(topic: string): string {
   return topic === '' ? 'Untagged' : topic;
 }
 
+const HTML_ESCAPE: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+function escapeHtml(value: unknown): string {
+  return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPE[char]);
+}
+
 function linkEndpointId(endpoint: unknown): string | undefined {
   if (endpoint == null) return undefined;
   return typeof endpoint === 'object' && 'id' in endpoint ? String(endpoint.id) : String(endpoint);
@@ -236,7 +248,7 @@ export function BrainGraph({ results, searchState }: { results: SearchResult[]; 
           backgroundColor="rgba(0,0,0,0)"
           nodeRelSize={4}
           nodeVal={(n: RenderNode) => Math.max(1, n.seen_count || 1)}
-          nodeLabel={(n: RenderNode) => `${n.title}${n.stars != null ? ` · ★${n.stars}` : ''}`}
+          nodeLabel={(n: RenderNode) => `${escapeHtml(n.title)}${n.stars != null ? ` · ★${escapeHtml(n.stars)}` : ''}`}
           nodeVisibility={isNodeVisible}
           nodeColor={(n: RenderNode) => (hasMatches ? (matchedIds.has(n.url) ? MATCH : DIM) : topicColor(topicKey(n.topic)))}
           linkVisibility={isLinkVisible}

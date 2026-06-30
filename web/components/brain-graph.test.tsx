@@ -82,6 +82,19 @@ describe('BrainGraph', () => {
     expect(screen.queryByTestId('force-graph')).toBeNull();
   });
 
+  it('escapes node labels before ForceGraph renders them as HTML tooltips', async () => {
+    render(<BrainGraph results={[]} searchState="idle" />);
+
+    await screen.findByTestId('force-graph');
+    const label = latestGraphPropsRef.current.nodeLabel({
+      ...payload.nodes[0],
+      title: '<img src=x onerror="alert(1)"> & \'quoted\'',
+      stars: '<svg/onload=alert(1)>',
+    });
+
+    expect(label).toBe('&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; &#39;quoted&#39; \u00b7 \u2605&lt;svg/onload=alert(1)&gt;');
+  });
+
   it('focuses only visible search matches and honors reduced motion', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
 
