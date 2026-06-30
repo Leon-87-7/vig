@@ -17,6 +17,9 @@ under `## Inbox`, or a numbered task with no **Context / Wanted / Scope** body.
 
 ## Workflow
 
+0. **If invoked with an argument** (`/pre-grill "<one-line idea>"`), append it as a
+   new `- ` bullet under `## Inbox` in `docs/TASK.md` first, then continue. With no
+   argument, skip straight to step 1.
 1. **Read `docs/TASK.md`.** Collect every raw idea. If there are none, say so and stop.
 2. **Ground each idea before writing a word.** Never guess a path or symbol.
    Per idea, find the real code/docs it touches:
