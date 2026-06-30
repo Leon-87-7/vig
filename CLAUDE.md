@@ -44,7 +44,7 @@ Operator's Console": dark plate ladder, one rationed signal orange (`#f6921e`)
 that always means _act here_, JetBrains Mono for machine facts, flat-by-default
 elevation. Read both before any UI work; DESIGN.md's frontmatter tokens are
 normative. Reference inspirations are archived in `designs/`.
-The `impeccable` design skill lives at `.claude/skills/impeccable/` (run `/impeccable`).
+The `impeccable` design skill lives at `agent-knowledge/skills/impeccable/` — read its `SKILL.md` before any UI work.
 
 ## Agent skills
 
