@@ -7,17 +7,25 @@ sign in and use it, then reach full per-user export parity.
 Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 **ADR-0031** (invite-only gate + onboarding).
 
+> **Status (2026-06-30):** #207 ✅ merged. #208 ✅ merged (auto-closed spec #202).
+> #258 still open. New: #259 stored-XSS fix slotted as a pre-launch security
+> must-fix (see below).
+
 ---
 
 ## Phase 0 — land the foundation (you merge)
 
-1. **#207** — rebase on `main` (it predates #199/doc-parser); resolve the
-   `CONTEXT.md` / `ISSUE_KANBAN.md` glossary overlap → merge. Docs only;
-   establishes ADR-0030.
-2. **#208** — rebase on `main`, confirm gate tests green → merge. **Keystone:**
-   `OPERATOR_CHAT_ID` is the admin identity everything below keys on.
+1. ~~**#207**~~ — ✅ **merged** (PR #207, squash → `main`). Docs only;
+   established ADR-0030, the `Operator` glossary term, and the issue breakdown.
+2. ~~**#208**~~ — ✅ **merged** (squash → `main`, auto-closed spec #202).
+   **Keystone:** `OPERATOR_CHAT_ID` is the admin identity everything below keys
+   on; gate enforced at the API layer and the Drive/Sheets service boundary.
 3. **#258** — rebase on `main` (resolve glossary overlap with #207's `Operator`
    row) → merge ADR-0031 + this doc.
+4. **#259** — stored XSS via `nodeLabel` in `web/components/brain-graph.tsx`
+   (external video titles → `innerHTML`). **Independent, no deps — fix before
+   inviting anyone**, since friends will load the dashboard. Small, slot it
+   anywhere in Phase 0.
 
 ## Phase 1 — invite gate (the actual launch gate; depends on #208)
 
@@ -52,5 +60,7 @@ Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 
 ---
 
-**Critical path to launch:** #207 → #208 → #258 → #254 → #255 → #256.
+**Critical path to launch:** ~~#207~~ ✅ → ~~#208~~ ✅ → **#258** → #254 → #255 → #256.
 **Start #203 in parallel immediately** so parity is not gated on Google later.
+**Land #259 (XSS) before the first invite** — independent of the path, but a
+launch blocker on its own.
