@@ -27,9 +27,9 @@ Glob `**/ISSUE_KANBAN.md` from the repo root:
 | `ready-for-agent`   | **Ready for Agent**                       |
 | `ready-for-human`   | **Ready for Human**                       |
 | `wontfix`           | **remove the row** (closed, not actioned) |
-| closed-as-completed | **Done**                                  |
+| closed-as-completed | **Done**, routed through the §9 window    |
 
-`triage-kanban` also **syncs already-closed issues into Done** whenever it encounters one. Distinguish closed-as-completed (→ Done) from closed-as-`wontfix` (→ remove row). For Done Notes, pull PR #/commit/`closed on GH` from the close event + linked PR via `gh`.
+`triage-kanban` also **syncs already-closed issues into Done** whenever it encounters one. Distinguish closed-as-completed (→ Done) from closed-as-`wontfix` (→ remove row). For Done Notes, pull PR #/commit/`closed on GH` from the close event + linked PR via `gh`. "→ Done" means the row lands on the live board and immediately passes through the §9 rolling-window check — a newly-closed issue can appear on the live board and archive back out on the very next sync if its Dependency Map group has already aged out.
 
 ## 3. Row fields
 
@@ -68,7 +68,7 @@ The board is git-tracked — `git diff` / `git checkout` is the undo. The AI-dis
 
 ## 8. PR section (opt-in)
 
-Rendered **only when the caller asks for it** — `update-kanban` does; `to-issue-kanban` / `triage-kanban` do **not** (they leave any existing PR section untouched). Unlike Notes and the Dependency Map, this block is **fully derived from `gh`** — there is nothing hand-written to protect, so **blow it away and rebuild it every run** from `gh pr list --state all`.
+Rendered **only when the caller asks for it** — `update-kanban` does; `to-issue-kanban` / `triage-kanban` do **not** (they leave any existing PR section untouched).
 
 It lives **after the Dependency Map**, as two tables:
 
@@ -87,6 +87,10 @@ It lives **after the Dependency Map**, as two tables:
 - **Branch→Base** — `headRefName→baseRefName`.
 - **Linked Issue** — the issue(s) the PR closes. Prefer the GraphQL `closingIssuesReferences` field; fall back to parsing `Closes #N` / `Fixes #N` / `Resolves #N` from the PR body. `—` if none. (One-directional: the issue rows get **no** back-reference to their PR — Done-row Notes already carry the PR # per §3.)
 - **Status** — Open table: `Open` / `Draft`. Closed table: ✅ **Merged** vs ❌ **Closed** (unmerged), from the PR `state`.
+
+**Open PRs** stays small by nature (a PR closes or merges out of it quickly) — **blow it away and rebuild it every run** from `gh pr list --state open`.
+
+**Closed PRs no longer full-rebuilds** — that was the unbounded-growth root cause an archive split would otherwise resurrect every run. Instead: diff `gh pr list --state closed` against the union of (live Closed PRs ∪ the archive file's Closed PRs) by PR number; append only genuinely new closed PRs to the live table; then apply the §9 rolling window.
 
 ## 7. Bootstrap skeleton
 
@@ -148,3 +152,15 @@ Critical path: (seeded on bootstrap; grows as to-issue-kanban runs)
 ```
 
 > The PR tables are populated by `update-kanban` (§8); a bootstrap triggered by `to-issue-kanban` / `triage-kanban` leaves them empty until the first `/update-kanban` run.
+
+## 9. Archive rolling window
+
+The live board keeps only a rolling window of history; everything that ages out moves to `docs/archive/ISSUE_KANBAN-archive.md` — same table shapes as the live board (a Done table, a Closed PRs table), so rows move verbatim with no reformatting. GitHub Issues stays authoritative; the archive is just the other half of the read-only snapshot. Applied at the end of every Done-row write and every Closed-PR-row write, inside this shared helper — so `to-issue-kanban`, `triage-kanban`, and `update-kanban` all inherit it automatically with no per-caller logic.
+
+- **Done window — last 3 Dependency Map groups with a done issue.** A "group" is one of the blank-line-delimited blocks in the Dependency Map (the unit §5 appends per `to-issue-kanban` run — e.g. "Tooltip system", "Brain Links nav + graph controls"). After inserting/updating a Done row, walk the Dependency Map bottom-up and take the last 3 groups that contain at least one `✅-Done` issue. For every Done row on the live board whose issue is not in one of those 3 groups (and is not an orphan attached to one — below), remove it from the live Done table and append it to the archive file's Done table. **Skip the append if that `#N` is already present in the archive — idempotent.**
+- **Closed PRs window — the 4 highest PR numbers, flat (no grouping).** After inserting a Closed-PR row, keep only the 4 highest-numbered rows on the live board; move any others to the archive file's Closed PRs table the same append-if-absent way.
+- **Orphan Done rows** — a Done issue with no corresponding Dependency Map node — inherit the group of the nearest **preceding** row in the live Done table's current order that does have a node. This is recomputed on every walk, not a fixed assignment: if the board is later reordered it re-resolves, but in practice rows are appended in encounter order so it stays stable in practice. An orphan travels with its inherited group — live while that group is in-window, archived in the same batch when the group ages out.
+
+A newly-closed issue or newly-closed PR can therefore land on the live board and archive back out on the very next sync, if its group (or PR-number rank) has already aged out — see §2 and §8.
+
+`update-kanban`'s delta computation checks the archive file for `#N` before backfilling a closed-completed issue that's absent from the live board (`update-kanban/SKILL.md` step 2) — an issue already in the archive is already accounted for, not a resurrection candidate.

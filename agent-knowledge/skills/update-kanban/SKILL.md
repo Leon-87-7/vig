@@ -10,7 +10,7 @@ description: On-demand reconcile of the project's ISSUE_KANBAN.md board against 
 
 Unlike `to-issue-kanban` / `triage-kanban` — which know exactly which issues they touched and hand that set to the sync helper — `/update-kanban` is handed **nothing**. It _discovers_ the delta by diffing the whole board against GitHub, then applies it through the same shared helper. Use it when something changed on GitHub outside the normal flow (issues closed manually, labels edited, PRs merged) or when you just want a fresh sync.
 
-**GitHub Issues is authoritative; the board is a snapshot.** This reconciles the board _toward_ GitHub. Hand-curated content (Done Notes, the Dependency Map, manual Ready-for-Agent ordering) is preserved — see `kanban-sync.md` §4–§5. The PR section is the one fully-derived block and is rebuilt every run.
+**GitHub Issues is authoritative; the board is a snapshot.** This reconciles the board _toward_ GitHub. Hand-curated content (Done Notes, the Dependency Map, manual Ready-for-Agent ordering) is preserved — see `kanban-sync.md` §4–§5. The PR section is the one fully-derived block: Open PRs is rebuilt every run; Closed PRs is diffed against `gh` + the archive and only grows by genuinely new rows (`kanban-sync.md` §8).
 
 ## 1. Build the picture
 
@@ -28,9 +28,12 @@ Classify each issue by comparing GitHub state against the board. Column targets 
 | Open on GH, on board, correct column                                             | no-op                                                                                              |
 | Open on GH, **no triage label**                                                  | **add/move → Needs Triage** (the untriaged bucket)                                                 |
 | Closed-completed, on board but not Done                                          | **move → Done** + ` ✅-Done` on its dep-map node (§5); fill Notes from the close event / linked PR |
-| Closed-completed, **not** on board                                               | **backfill → Done** with Notes                                                                     |
+| Closed-completed, **not** on board, **not** in the archive                       | **backfill → Done** with Notes                                                                     |
+| Closed-completed, **not** on board, **already in** `docs/archive/ISSUE_KANBAN-archive.md` | **no-op** — already accounted for, not a resurrection candidate                              |
 | Closed-as-`wontfix`                                                              | **remove the row** (§2)                                                                            |
 | On board but `#N` **absent from `gh issue list`** entirely (deleted/transferred) | **orphan** — **move → Needs Triage and flag loudly** in the report; never silently delete          |
+
+Before applying either "move → Done" or "backfill → Done" for a closed-completed issue, check `docs/archive/ISSUE_KANBAN-archive.md` for that `#N` first. Only issues closed-completed and absent from **both** the live board and the archive get backfilled — the "move → Done" row still routes through `kanban-sync.md` §9's rolling window immediately after landing, so it can archive right back out on this same run if its group has aged out.
 
 Derive **Area** silently (§3); carry **Depends On** over unchanged.
 
@@ -47,6 +50,6 @@ Then ask: **"Apply these N changes?"** Write only on confirmation.
 
 ## 4. Apply
 
-On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write). Then **rebuild the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away the old open/closed PR tables and regenerate from `gh pr list`. Finally print the §6 diff summary.
+On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write); Done-row and Closed-PR-row writes pass through the §9 archive window as part of that. Then **refresh the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away and rebuild Open PRs; diff Closed PRs against `gh pr list` + the archive and append only new ones, then apply the §9 window. Finally print the §6 diff summary.
 
 The board is git-tracked — `git diff` / `git checkout ISSUE_KANBAN.md` is the undo. The AI-disclaimer applies to GitHub comments only, never to this file.
