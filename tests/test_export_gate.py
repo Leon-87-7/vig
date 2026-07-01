@@ -243,3 +243,20 @@ async def test_google_oauth_state_consumes_once(tmp_path, monkeypatch):
 
     await store_google_oauth_state("expired", OPERATOR, ttl_seconds=-1)
     assert await consume_google_oauth_state("expired") is None
+
+@pytest.mark.asyncio
+async def test_export_blocked_allows_user_with_readable_google_token(tmp_path, monkeypatch):
+    from src import database
+    from src.services.google_tokens import store_google_token
+
+    db_file = tmp_path / "export_gate_token.db"
+    monkeypatch.setattr("src.config.settings.DB_PATH", str(db_file))
+    monkeypatch.setattr("src.database.settings.DB_PATH", str(db_file))
+    monkeypatch.setattr("src.config.settings.GOOGLE_TOKEN_ENCRYPTION_KEY", "test-google-token-key")
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", OPERATOR)
+
+    await database.init_db()
+
+    assert settings.export_blocked(INTRUDER) is True
+    await store_google_token(INTRUDER, {"refresh_token": "refresh", "scopes": []})
+    assert settings.export_blocked(INTRUDER) is False

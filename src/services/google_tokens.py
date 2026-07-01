@@ -1,8 +1,6 @@
 """Encrypted per-user Google OAuth token store."""
 from __future__ import annotations
 
-import base64
-import hashlib
 import json
 from typing import Any
 
@@ -11,17 +9,14 @@ from cryptography.fernet import Fernet, InvalidToken
 
 from src import database
 from src.config import settings
+from src.utils.google_token_crypto import google_token_fernet
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
 
 def _fernet() -> Fernet:
-    raw = settings.GOOGLE_TOKEN_ENCRYPTION_KEY
-    if not raw:
-        raise RuntimeError("GOOGLE_TOKEN_ENCRYPTION_KEY is required for per-user Google tokens")
-    key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
-    return Fernet(key)
+    return google_token_fernet(settings.GOOGLE_TOKEN_ENCRYPTION_KEY)
 
 
 def encrypt_token(payload: dict[str, Any]) -> str:

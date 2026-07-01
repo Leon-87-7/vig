@@ -1,12 +1,11 @@
-import base64
-import hashlib
 import json
 import sqlite3
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from src.utils.google_token_crypto import google_token_fernet
 
 
 class Settings(BaseSettings):
@@ -88,15 +87,15 @@ class Settings(BaseSettings):
     OPERATOR_CHAT_ID: int | None = None
 
     def _google_token_readable(self, encrypted_token: str) -> bool:
-        raw = self.GOOGLE_TOKEN_ENCRYPTION_KEY
-        if not raw:
-            return False
         try:
-            key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
-            payload = Fernet(key).decrypt(encrypted_token.encode()).decode()
+            payload = (
+                google_token_fernet(self.GOOGLE_TOKEN_ENCRYPTION_KEY)
+                .decrypt(encrypted_token.encode())
+                .decode()
+            )
             json.loads(payload)
             return True
-        except (InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
+        except (RuntimeError, InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
             return False
 
     def export_blocked(self, chat_id: int | None) -> bool:

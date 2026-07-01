@@ -10,7 +10,6 @@ from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from src import database
 from src.config import settings
 from src.services.google_tokens import delete_google_token, load_google_token, load_google_token_sync
 from src.telegram import sender
@@ -27,19 +26,6 @@ GOOGLE_EXPORT_SCOPES = [
 def google_connected(chat_id: int) -> bool:
     return load_google_token_sync(chat_id) is not None
 
-
-async def mark_reconnect_notified_once(chat_id: int) -> bool:
-    async with database.connection() as conn:
-        cur = await conn.execute(
-            """
-            UPDATE google_oauth_tokens
-            SET revoked_notified_at = CURRENT_TIMESTAMP
-            WHERE chat_id = ? AND revoked_notified_at IS NULL
-            """,
-            (chat_id,),
-        )
-        await conn.commit()
-        return cur.rowcount > 0
 
 
 async def handle_google_refresh_error(chat_id: int | None) -> bool:
