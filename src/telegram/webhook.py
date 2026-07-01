@@ -37,14 +37,13 @@ from src.telegram.sender import (
 from src.templates import PROMPT_TEMPLATES
 from src.utils import job_tag
 from src.utils.logger import get_logger
-from src.utils.validators import detect_pipeline, normalize_repo_url, _ARTICLE_HINT, _REPO_HINT
+from src.utils.validators import detect_pipeline, normalize_email, normalize_repo_url, _ARTICLE_HINT, _REPO_HINT
 
 log = get_logger(__name__)
 router = APIRouter()
 
 _BATCH_TASKS: dict[str, asyncio.Task] = {}
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _INVITE_EMAIL_PROMPT = "VIG is invite-only — what's your email so Leon can approve you?"
 _INVITE_WAITING_MESSAGE = "still waiting on Leon."
 _INVITE_APPROVED_MESSAGE = "You're in, send a link."
@@ -430,7 +429,13 @@ async def _handle_callback(callback: dict) -> None:
         return
 
     if chat_id and prefix not in {"invite_approve", "invite_block"}:
-        identity = _telegram_identity({"from": callback.get("from") or {}}, cb_message.get("chat") or {})
+        sender = callback.get("from") or {}
+        chat = cb_message.get("chat") or {}
+        identity = {
+            "first_name": sender.get("first_name") or chat.get("first_name") or "",
+            "last_name": sender.get("last_name") or chat.get("last_name"),
+            "username": sender.get("username") or chat.get("username"),
+        }
         if not await _invite_gate_allows(chat_id, "", identity):
             await answer_callback_query(cq_id, text="Access restricted.")
             return
@@ -1106,22 +1111,20 @@ def _resolve_chat_state(state: dict) -> bool:
     return bool(expires_at and expires_at > _dt.now(_tz.utc))
 
 
-def _telegram_identity(message: dict, chat: dict) -> dict[str, str | None]:
-    sender = message.get("from") or {}
-    return {
-        "first_name": sender.get("first_name") or chat.get("first_name") or "",
-        "last_name": sender.get("last_name") or chat.get("last_name"),
-        "username": sender.get("username") or chat.get("username"),
-    }
 
 
-def _normalize_email(text: str) -> str | None:
-    email = text.strip().lower()
-    return email if _EMAIL_RE.fullmatch(email) else None
-
-
-async def _remember_invite_identity(chat_id: int, identity: dict[str, str | None] | None) -> None:
+async def _remember_invite_identity(
+    chat_id: int,
+    identity: dict[str, str | None] | None,
+    existing_user: dict | None = None,
+) -> None:
     if identity is None:
+        return
+    if existing_user and (
+        (existing_user.get("first_name") or "") == (identity.get("first_name") or "")
+        and existing_user.get("last_name") == identity.get("last_name")
+        and existing_user.get("username") == identity.get("username")
+    ):
         return
     await database.upsert_user(
         tg_id=chat_id,
@@ -1133,7 +1136,8 @@ async def _remember_invite_identity(chat_id: int, identity: dict[str, str | None
 
 async def _notify_operator_invite(chat_id: int, email: str) -> None:
     operator_chat_id = settings.OPERATOR_CHAT_ID
-    if operator_chat_id is None:
+    if not operator_chat_id:
+        log.warning("invite.operator_chat_id_unset", chat_id=chat_id)
         return
     user = await database.get_user(chat_id) or {}
     first = (user.get("first_name") or "").strip()
@@ -1155,8 +1159,9 @@ async def _invite_gate_allows(
     text: str,
     identity: dict[str, str | None] | None,
 ) -> bool:
-    await _remember_invite_identity(chat_id, identity)
     status = await database.get_user_status(chat_id)
+    user = await database.get_user(chat_id) if status == "approved" else None
+    await _remember_invite_identity(chat_id, identity, user)
     if status == "approved":
         return True
     if status == "blocked":
@@ -1166,7 +1171,7 @@ async def _invite_gate_allows(
     user = await database.get_user(chat_id)
     state = await database.get_chat_state(chat_id)
     if state and state.get("mode") == "awaiting_email" and _resolve_chat_state(state):
-        email = _normalize_email(text)
+        email = normalize_email(text)
         if email is None:
             await send_message(chat_id, "Please send a valid email address.")
             return False
@@ -1447,7 +1452,12 @@ async def webhook(
     chat_id = chat.get("id")
     text = (message.get("text") or "").strip()
     message_id = message.get("message_id")
-    identity = _telegram_identity(message, chat)
+    sender = message.get("from") or {}
+    identity = {
+        "first_name": sender.get("first_name") or chat.get("first_name") or "",
+        "last_name": sender.get("last_name") or chat.get("last_name"),
+        "username": sender.get("username") or chat.get("username"),
+    }
 
     log.info("webhook_received", chat_id=chat_id, message_id=message_id, text_len=len(text))
 

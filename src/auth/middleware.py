@@ -36,6 +36,7 @@ class SessionMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Invalid or expired session"}, status_code=401)
 
         request.state.user = user
+        # Only /api/auth/me and /api/auth/email are intentionally reachable before approval.
         if path.startswith("/api/auth/"):
             return await call_next(request)
 

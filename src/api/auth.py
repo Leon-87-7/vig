@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
@@ -14,6 +13,7 @@ from src.auth.hmac_verify import verify_telegram_auth
 from src.auth.middleware import COOKIE_NAME
 from src.config import settings
 from src.utils.logger import get_logger
+from src.utils.validators import normalize_email
 
 log = get_logger(__name__)
 
@@ -35,13 +35,6 @@ class TelegramPayload(BaseModel):
 class EmailPayload(BaseModel):
     email: str
 
-
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-def _normalize_email(email: str) -> str | None:
-    normalized = email.strip().lower()
-    return normalized if _EMAIL_RE.fullmatch(normalized) else None
 
 
 @auth_router.post("/telegram")
@@ -111,7 +104,7 @@ async def me(request: Request) -> dict:
 
 @auth_router.put("/email")
 async def set_email(payload: EmailPayload, request: Request) -> dict:
-    email = _normalize_email(payload.email)
+    email = normalize_email(payload.email)
     if email is None:
         raise HTTPException(status_code=422, detail="Invalid email")
     tg_id = int(request.state.user["id"])

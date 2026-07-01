@@ -17,6 +17,14 @@ _GITHUB_RESERVED_PATHS: frozenset[str] = frozenset({
 
 _REPO_HINT = "If you meant a repository, the URL should look like https://github.com/<owner>/<repo>."
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def normalize_email(email: str) -> str | None:
+    normalized = email.strip().lower()
+    return normalized if _EMAIL_RE.fullmatch(normalized) else None
+
+
 ARTICLE_DEFAULT_DOMAINS: frozenset[str] = frozenset({
     "substack.com",
     "medium.com",
@@ -127,7 +135,6 @@ def _match_article(host: str, extra_domains: frozenset[str]) -> bool:
     """Default article domains plus the per-chat allowlist (subdomains included)."""
     all_article_domains = ARTICLE_DEFAULT_DOMAINS | extra_domains
     return any(host == d or host.endswith("." + d) for d in all_article_domains)
-
 
 def normalize_repo_url(url: str) -> str:
     """Strip subpaths from a github.com URL, returning canonical https://github.com/{owner}/{repo}."""
