@@ -9,6 +9,15 @@ Pipeline = Literal["short", "long", "article", "repo", "document", "rejected"]
 
 _TIKTOK_VIDEO_PATH = re.compile(r"^/@[^/]+/video/\d+", re.IGNORECASE)
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def normalize_email(email: str) -> str | None:
+    """Return normalized email when it matches VIG's shared email policy."""
+    normalized = email.strip().lower()
+    return normalized if _EMAIL_RE.fullmatch(normalized) else None
+
+
 _GITHUB_RESERVED_PATHS: frozenset[str] = frozenset({
     "features", "pricing", "marketplace", "sponsors", "topics", "explore",
     "settings", "notifications", "codespaces", "login", "signup", "apps",
@@ -127,7 +136,6 @@ def _match_article(host: str, extra_domains: frozenset[str]) -> bool:
     """Default article domains plus the per-chat allowlist (subdomains included)."""
     all_article_domains = ARTICLE_DEFAULT_DOMAINS | extra_domains
     return any(host == d or host.endswith("." + d) for d in all_article_domains)
-
 
 def normalize_repo_url(url: str) -> str:
     """Strip subpaths from a github.com URL, returning canonical https://github.com/{owner}/{repo}."""

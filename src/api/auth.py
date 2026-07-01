@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -12,6 +13,7 @@ from src.auth.hmac_verify import verify_telegram_auth
 from src.auth.middleware import COOKIE_NAME
 from src.config import settings
 from src.utils.logger import get_logger
+from src.utils.validators import normalize_email
 
 log = get_logger(__name__)
 
@@ -30,14 +32,14 @@ class TelegramPayload(BaseModel):
     hash: str
 
 
+class EmailPayload(BaseModel):
+    email: str
+
+
 @auth_router.post("/telegram")
 async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
     # Build string-typed dict for HMAC verification (Telegram uses string values)
-    raw: dict = {
-        k: str(v)
-        for k, v in payload.model_dump().items()
-        if v is not None
-    }
+    raw: dict = {k: str(v) for k, v in payload.model_dump().items() if v is not None}
 
     user = verify_telegram_auth(raw, settings.TELEGRAM_BOT_TOKEN)
     if user is None:
@@ -84,4 +86,23 @@ async def logout(request: Request) -> RedirectResponse:
 
 @auth_router.get("/me")
 async def me(request: Request) -> dict:
-    return request.state.user
+    session_user = request.state.user
+    tg_id = int(session_user["id"])
+    db_user = await database.get_user(tg_id)
+    status = await database.get_user_status(tg_id)
+    return {
+        **session_user,
+        "email": db_user.get("email") if db_user else None,
+        "status": status,
+    }
+
+
+@auth_router.put("/email")
+async def set_email(payload: EmailPayload, request: Request) -> dict:
+    email = normalize_email(payload.email)
+    if email is None:
+        raise HTTPException(status_code=422, detail="Invalid email")
+    tg_id = int(request.state.user["id"])
+    await database.set_user_email(tg_id, email)
+    status = await database.get_user_status(tg_id)
+    return {"email": email, "status": status}

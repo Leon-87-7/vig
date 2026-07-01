@@ -94,6 +94,7 @@ async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("src.config.settings.DB_PATH", str(db_file))
     monkeypatch.setattr("src.database.settings.DB_PATH", str(db_file))
     await database.init_db()
+    await database.set_user_status(12345, "approved")
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(queue_module, "_redis", fake_redis)
@@ -235,10 +236,18 @@ async def _seed_job(path: str, job_id: str, chat_id: int = 1, **fields) -> None:
         await conn.commit()
 
 
+async def _approve_user(chat_id: int, email: str | None = None) -> None:
+    from src import database as db
+
+    await db.set_user_email(chat_id, email or f"user{chat_id}@example.com")
+    await db.set_user_status(chat_id, "approved")
+
+
 @pytest.mark.asyncio
 async def test_callback_prd_build_spec_sends_submenu(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
     monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
@@ -257,6 +266,7 @@ async def test_callback_prd_build_spec_sends_submenu(temp_db, monkeypatch):
 async def test_callback_prd_auto_resend_when_status_done(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DONE", chat_id=100, prd_auto_status="done", prd_auto_json='{"x":1}')
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -272,6 +282,7 @@ async def test_callback_prd_auto_resend_when_status_done(temp_db, monkeypatch):
 async def test_callback_prd_auto_lazy_when_status_null(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_NULL", chat_id=100)
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -294,6 +305,7 @@ async def test_callback_prd_auto_already_generating(temp_db, monkeypatch):
     """If status='generating', reply 'already generating' and skip enqueue."""
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_GEN", chat_id=100, prd_auto_status="generating")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -312,6 +324,7 @@ async def test_callback_prd_intent_prompt_arms_state(temp_db, monkeypatch):
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_ARM", chat_id=100)
     fr = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_force_reply", fr)
@@ -330,6 +343,7 @@ async def test_callback_prd_intent_prompt_debounces_same_job(temp_db, monkeypatc
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DBN", chat_id=100)
     await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_DBN")
     fr = AsyncMock()
@@ -347,6 +361,7 @@ async def test_callback_document_md_rejects_foreign_chat(temp_db, monkeypatch):
     job is denied before any markdown delivery (CodeRabbit, PR #200)."""
     from src.telegram import webhook
 
+    await _approve_user(200)
     await _seed_job(temp_db, "J_DOC", chat_id=100, content_type="document")
     answered = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
@@ -362,7 +377,14 @@ async def test_callback_document_md_rejects_foreign_chat(temp_db, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-async def _post_webhook(text: str, chat_id: int = 100, secret: str = "S"):
+async def _post_webhook(
+    text: str,
+    chat_id: int = 100,
+    secret: str = "S",
+    *,
+    approved: bool = True,
+    from_user: dict | None = None,
+):
     """Helper that invokes the webhook handler with a text message."""
 
     class _Req:
@@ -373,8 +395,17 @@ async def _post_webhook(text: str, chat_id: int = 100, secret: str = "S"):
             return self._body
 
     from src.telegram.webhook import webhook
+    if approved:
+        await database.set_user_status(chat_id, "approved")
 
-    body = {"message": {"chat": {"id": chat_id}, "text": text, "message_id": 1}}
+    body = {
+        "message": {
+            "chat": {"id": chat_id},
+            "from": from_user or {"id": chat_id, "first_name": "Test", "username": "tester"},
+            "text": text,
+            "message_id": 1,
+        }
+    }
     return await webhook(_Req(body), x_telegram_bot_api_secret_token=secret)
 
 
@@ -388,6 +419,297 @@ def _patch_redis(monkeypatch):
     fake = FakeRedis()
     monkeypatch.setattr(queue_module, "_redis", fake)
     return fake
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_prompts_for_email_and_drops_first_url(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    enq = AsyncMock()
+    sent = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+
+    await _post_webhook("https://youtu.be/dQw4w9WgXcQ", approved=False)
+
+    enq.assert_not_awaited()
+    assert await db.get_recent_jobs(100, 5) == []
+    state = await db.get_chat_state(100)
+    assert state is not None
+    assert state["mode"] == "awaiting_email"
+    assert "what's your email" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_captures_email_notifies_operator_and_keeps_pending(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    monkeypatch.setattr("src.database.settings.OPERATOR_CHAT_ID", 999)
+    sent = AsyncMock()
+    keyboard = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", keyboard)
+
+    await _post_webhook("hello", approved=False)
+    await _post_webhook(
+        "User@Example.COM",
+        approved=False,
+        from_user={"id": 100, "first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    user = await db.get_user(100)
+    assert user is not None
+    assert user["email"] == "user@example.com"
+    assert user["status"] == "pending"
+    keyboard.assert_awaited_once()
+    args, kwargs = keyboard.await_args
+    assert args[0] == 999
+    assert "Ada Lovelace" in args[1]
+    assert "user@example.com" in args[1]
+    buttons = kwargs["buttons"]
+    assert buttons[0][0]["callback_data"] == "invite_approve:100"
+    assert buttons[0][1]["callback_data"] == "invite_block:100"
+    assert "still waiting on Leon" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_approve_flips_status_and_notifies_user(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_approve:100",
+            "message": {"message_id": 7, "chat": {"id": 999}},
+        }
+    )
+
+    assert await db.get_user_status(100) == "approved"
+    sent.assert_awaited_once_with(100, "You're in, send a link.")
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_block_flips_status_and_notifies_user(temp_db, monkeypatch):
+    """Operator-chat block callback still works after the auth-gate change (mirrors approve test)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_block:100",
+            "message": {"message_id": 7, "chat": {"id": 999}},
+        }
+    )
+
+    assert await db.get_user_status(100) == "blocked"
+    sent.assert_awaited_once_with(100, "Access blocked.")
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_approve_rejects_non_operator_chat(temp_db, monkeypatch):
+    """A chat that isn't the operator must not be able to approve invites (blocker fix)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "pending")
+    set_status = AsyncMock(wraps=db.set_user_status)
+    monkeypatch.setattr("src.telegram.webhook.database.set_user_status", set_status)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_approve:100",
+            "message": {"message_id": 7, "chat": {"id": 111}},
+        }
+    )
+
+    set_status.assert_not_awaited()
+    sent.assert_not_awaited()
+    answered.assert_awaited_once_with("CB", text="Not authorized.")
+    assert await db.get_user_status(100) == "pending"
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_approve_rejects_unset_operator_and_missing_chat(
+    temp_db, monkeypatch
+):
+    """Unset operator config plus missing chat id must not approve invites."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", None)
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "pending")
+    set_status = AsyncMock(wraps=db.set_user_status)
+    monkeypatch.setattr("src.telegram.webhook.database.set_user_status", set_status)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_approve:100",
+            "message": {"message_id": 7},
+        }
+    )
+
+    set_status.assert_not_awaited()
+    sent.assert_not_awaited()
+    answered.assert_awaited_once_with("CB", text="Not authorized.")
+    assert await db.get_user_status(100) == "pending"
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_block_rejects_non_operator_chat(temp_db, monkeypatch):
+    """A chat that isn't the operator must not be able to block invites (blocker fix)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "pending")
+    set_status = AsyncMock(wraps=db.set_user_status)
+    monkeypatch.setattr("src.telegram.webhook.database.set_user_status", set_status)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_block:100",
+            "message": {"message_id": 7, "chat": {"id": 111}},
+        }
+    )
+
+    set_status.assert_not_awaited()
+    sent.assert_not_awaited()
+    answered.assert_awaited_once_with("CB", text="Not authorized.")
+    assert await db.get_user_status(100) == "pending"
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_skips_unchanged_approved_upsert_but_keeps_pending_upsert(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    identity = {"first_name": "Ada", "last_name": "Lovelace", "username": "ada"}
+    await db.upsert_user(tg_id=100, first_name="Ada", last_name="Lovelace", username="ada")
+    await db.set_user_status(100, "approved")
+    upsert = AsyncMock(wraps=db.upsert_user)
+    monkeypatch.setattr("src.telegram.webhook.database.upsert_user", upsert)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+
+    assert await webhook._invite_gate_allows(100, "", identity) is True
+    upsert.assert_not_awaited()
+
+    pending_identity = {"first_name": "Grace", "last_name": "Hopper", "username": "grace"}
+    assert await webhook._invite_gate_allows(101, "", pending_identity) is False
+    upsert.assert_awaited_once_with(
+        tg_id=101,
+        first_name="Grace",
+        last_name="Hopper",
+        username="grace",
+    )
+
+
+@pytest.mark.asyncio
+async def test_callback_reprocess_rejects_blocked_chat(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "blocked")
+    await _seed_job(temp_db, "J_BLOCKED", chat_id=100, status="error", content_type="short")
+    create_job = AsyncMock(wraps=db.create_job)
+    monkeypatch.setattr("src.telegram.webhook.database.create_job", create_job)
+    sent = AsyncMock()
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.queue.enqueue", AsyncMock())
+
+    await webhook._handle_callback(
+        {"id": "CB", "data": "reprocess:J_BLOCKED", "message": {"chat": {"id": 100}}}
+    )
+
+    create_job.assert_not_awaited()
+    sent.assert_awaited_once_with(100, "Access blocked.")
+    answered.assert_awaited_once_with("CB", text="Access restricted.")
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_skips_upsert_for_unchanged_approved_identity(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.upsert_user(tg_id=100, first_name="Ada", last_name="Lovelace", username="ada")
+    await db.set_user_status(100, "approved")
+    upsert = AsyncMock(wraps=db.upsert_user)
+    monkeypatch.setattr("src.telegram.webhook.database.upsert_user", upsert)
+
+    allowed = await webhook._invite_gate_allows(
+        100,
+        "https://youtu.be/dQw4w9WgXcQ",
+        {"first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    assert allowed is True
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_still_upserts_pending_identity(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.upsert_user(tg_id=100, first_name="Ada", last_name="Lovelace", username="ada")
+    await db.set_user_status(100, "pending")
+    upsert = AsyncMock(wraps=db.upsert_user)
+    monkeypatch.setattr("src.telegram.webhook.database.upsert_user", upsert)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+
+    allowed = await webhook._invite_gate_allows(
+        100,
+        "",
+        {"first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    assert allowed is False
+    upsert.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -564,6 +886,7 @@ async def test_spec_with_intent_enqueues_intent(
 async def test_callback_enrichment_retry_enqueues_on_error_status(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_ERR", chat_id=100, status="error")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -583,6 +906,7 @@ async def test_callback_enrichment_retry_enqueues_on_error_status(temp_db, monke
 async def test_callback_enrichment_retry_rejects_on_done_status(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DONE2", chat_id=100, status="done")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -606,6 +930,7 @@ async def test_gemini_yes_sends_template_picker_keyboard(temp_db, monkeypatch):
     """Tapping Run Gemini now shows the template picker, not directly enqueuing."""
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_KB", chat_id=100, status="transcript_done")
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
@@ -632,6 +957,7 @@ async def test_gemini_yes_sends_template_picker_keyboard(temp_db, monkeypatch):
 async def test_gemini_yes_rejects_job_not_ready(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_PROC", chat_id=100, status="processing")
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
@@ -650,6 +976,7 @@ async def test_template_pick_collapses_keyboard_and_enqueues(temp_db, monkeypatc
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_PICK", chat_id=100, status="transcript_done")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -672,6 +999,7 @@ async def test_template_pick_collapses_keyboard_and_enqueues(temp_db, monkeypatc
 async def test_template_pick_rejects_job_not_ready(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_NR", chat_id=100, status="processing")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -690,6 +1018,7 @@ async def test_template_freestyle_arms_state_and_sends_force_reply(temp_db, monk
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_FS", chat_id=100, status="transcript_done")
     fr = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_force_reply", fr)
