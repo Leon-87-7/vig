@@ -9,18 +9,18 @@ Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 
 ## At a glance (2026-06-30)
 
-| #           | What                                        | Status            | When                                   |
-| ----------- | ------------------------------------------- | ----------------- | -------------------------------------- |
-| #207        | export-isolation docs / ADR-0030            | ✅ merged          | done                                   |
-| #208        | `OPERATOR_CHAT_ID` export gate (closed #202) | ✅ merged          | done — keystone                        |
-| #258        | ADR-0031 invite-gate docs                   | open              | next on path                           |
-| #259        | stored XSS in `brain-graph.tsx`             | open, **new**     | **before first invite** (independent)  |
-| #254        | `users.email`/`status` schema + cutover     | open              | Phase 1, after #208                    |
-| #255        | bot email capture + pending gate            | open              | after #254                             |
-| #256        | web email modal + `/api/*` gate             | open              | after #254 → 🚀 launchable             |
-| #203        | Google Cloud OAuth app verification         | open              | **start now, in parallel** (external)  |
-| #204        | web "Connect Google" → per-user export      | open              | Phase 2, after #203                    |
-| #205 / #206 | Mini App surface · connection lifecycle     | open              | parallel, after #204                   |
+| #           | What                                         | Status    | When                                  |
+| ----------- | -------------------------------------------- | --------- | ------------------------------------- |
+| #207        | export-isolation docs / ADR-0030             | ✅ merged | done                                  |
+| #208        | `OPERATOR_CHAT_ID` export gate (closed #202) | ✅ merged | done — keystone                       |
+| #258        | ADR-0031 invite-gate docs                    | ✅ merged | next on path                          |
+| #259        | stored XSS in `brain-graph.tsx`              | ✅ done   | **before first invite** (independent) |
+| #254        | `users.email`/`status` schema + cutover      | ✅ done   | Phase 1, after #208                   |
+| #255        | bot email capture + pending gate             | open      | after #254                            |
+| #256        | web email modal + `/api/*` gate              | open      | after #254 → 🚀 launchable            |
+| #203        | Google Cloud OAuth app verification          | open      | **start now, in parallel** (external) |
+| #204        | web "Connect Google" → per-user export       | open      | Phase 2, after #203                   |
+| #205 / #206 | Mini App surface · connection lifecycle      | open      | parallel, after #204                  |
 
 ---
 
@@ -41,9 +41,9 @@ Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 ## Phase 1 — invite gate (the actual launch gate; depends on #208)
 
 4. **#254** — schema + cutover: `users.email`/`status`, `awaiting_email` CHECK
-   migration, operator auto-approve, grandfather existing rows. *Gates 5 & 6.*
+   migration, operator auto-approve, grandfather existing rows. _Gates 5 & 6._
 5. **#255** — bot onboarding + gate: first-contact email capture, pending gate,
-   push one-tap approve. *Before #256 — the bot is the primary ingestion door.*
+   push one-tap approve. _Before #256 — the bot is the primary ingestion door._
 6. **#256** — web onboarding + gate: email modal, `/api/*` status gate, pending
    screen.
 
@@ -64,7 +64,7 @@ Decisions are pinned in **ADR-0030** (export gate + OAuth credential model) and
 
 ## Phase 3 — open decision still owed
 
-10. **Global Brain.** Friends' extracted *links* still flow into the
+10. **Global Brain.** Friends' extracted _links_ still flow into the
     operator-owned brain (the Obsidian sync — ungated by design). Not covered by
     epic #201. Decide the "Brain tiers" (private / community / group) track when
     it matters; independent of everything above.
