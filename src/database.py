@@ -161,6 +161,13 @@ CREATE TABLE IF NOT EXISTS google_oauth_tokens (
     updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS google_oauth_states (
+    state      TEXT PRIMARY KEY,
+    chat_id    INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Second Brain semantic link graph (src/brain.py data-access layer).
 CREATE TABLE IF NOT EXISTS links (
     id            TEXT PRIMARY KEY,
@@ -1041,6 +1048,16 @@ _MIGRATIONS.append([
         revoked_notified_at TEXT,
         created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+])
+
+# v25 → v26: DB-backed Google OAuth state tokens for multi-worker callbacks.
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS google_oauth_states (
+        state      TEXT PRIMARY KEY,
+        chat_id    INTEGER NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
 ])
 

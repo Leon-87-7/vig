@@ -184,36 +184,59 @@ async def test_google_connect_forces_consent(monkeypatch):
         state=SimpleNamespace(user={"id": OPERATOR}),
         url_for=lambda name: Url("https://api.example.com/api/google/callback"),
     )
+    stored_state: dict[str, object] = {}
+
+    async def store_state(state: str, chat_id: int) -> None:
+        stored_state.update({"state": state, "chat_id": chat_id})
+
     monkeypatch.setattr("src.config.settings.GOOGLE_OAUTH_CLIENT_ID", "client")
+    monkeypatch.setattr(google_oauth, "store_google_oauth_state", store_state)
 
     response = await google_oauth.connect_google(request)  # type: ignore[arg-type]
     location = response.headers["location"]
     assert "prompt=consent" in location
     assert "access_type=offline" in location
+    assert stored_state["chat_id"] == OPERATOR
+    assert f"state={stored_state['state']}" in location
 
 
 @pytest.mark.asyncio
 async def test_google_refresh_handler_deletes_token_and_notifies_once(monkeypatch):
     from src.services import google_auth
 
-    calls = {"deleted": 0, "marked": 0, "sent": 0}
-
-    async def mark_once(chat_id):
-        calls["marked"] += 1
-        return calls["marked"] == 1
+    calls = {"deleted": 0, "sent": 0}
 
     async def delete_token(chat_id):
         calls["deleted"] += 1
+        return calls["deleted"] == 1
 
     async def send_message(chat_id, text, **kwargs):
         calls["sent"] += 1
         assert chat_id == OPERATOR
         assert "/connect" in text
 
-    monkeypatch.setattr(google_auth, "mark_reconnect_notified_once", mark_once)
     monkeypatch.setattr(google_auth, "delete_google_token", delete_token)
     monkeypatch.setattr(google_auth.sender, "send_message", send_message)
 
     assert await google_auth.handle_google_refresh_error(OPERATOR) is True
     assert await google_auth.handle_google_refresh_error(OPERATOR) is False
-    assert calls == {"deleted": 2, "marked": 2, "sent": 1}
+    assert calls == {"deleted": 2, "sent": 1}
+
+
+@pytest.mark.asyncio
+async def test_google_oauth_state_consumes_once(tmp_path, monkeypatch):
+    from src import database
+    from src.services.google_tokens import consume_google_oauth_state, store_google_oauth_state
+
+    db_file = tmp_path / "oauth_state.db"
+    monkeypatch.setattr("src.config.settings.DB_PATH", str(db_file))
+    monkeypatch.setattr("src.database.settings.DB_PATH", str(db_file))
+
+    await database.init_db()
+    await store_google_oauth_state("state-1", OPERATOR)
+
+    assert await consume_google_oauth_state("state-1") == OPERATOR
+    assert await consume_google_oauth_state("state-1") is None
+
+    await store_google_oauth_state("expired", OPERATOR, ttl_seconds=-1)
+    assert await consume_google_oauth_state("expired") is None

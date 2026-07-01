@@ -62,10 +62,8 @@ def verify_init_data(init_data: str, bot_token: str, *, now: float | None = None
 def trusted_chat_id(verified: dict[str, Any]) -> int:
     """Resolve the Telegram identity used to scope stored tokens.
 
-    Private-chat Mini Apps often omit ``chat``; in that case user.id is the
-    trusted one-to-one chat id used by the existing web/session model.
+    The Google token store is per-user, not per-chat. Telegram may include a
+    group `chat.id` when the Mini App is launched from a group context, so
+    always use the verified individual `user.id` as the canonical key.
     """
-    chat = verified.get("chat")
-    if isinstance(chat, dict) and isinstance(chat.get("id"), int):
-        return int(chat["id"])
     return int(verified["user"]["id"])

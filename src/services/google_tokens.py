@@ -17,11 +17,8 @@ def _fernet() -> Fernet:
     raw = settings.GOOGLE_TOKEN_ENCRYPTION_KEY or settings.TELEGRAM_WEBHOOK_SECRET
     if not raw:
         raise RuntimeError("GOOGLE_TOKEN_ENCRYPTION_KEY is required for per-user Google tokens")
-    try:
-        return Fernet(raw.encode())
-    except Exception:
-        key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
-        return Fernet(key)
+    key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
+    return Fernet(key)
 
 
 def encrypt_token(payload: dict[str, Any]) -> str:
@@ -57,8 +54,37 @@ async def load_google_token(chat_id: int) -> dict[str, Any] | None:
     return decrypt_token(row["encrypted_token"])
 
 
-async def delete_google_token(chat_id: int) -> None:
-    await database._execute("DELETE FROM google_oauth_tokens WHERE chat_id = ?", (chat_id,))
+async def delete_google_token(chat_id: int) -> bool:
+    return await database._execute_rowcount("DELETE FROM google_oauth_tokens WHERE chat_id = ?", (chat_id,)) > 0
+
+
+async def store_google_oauth_state(state: str, chat_id: int, *, ttl_seconds: int = 600) -> None:
+    async with database.connection() as conn:
+        await conn.execute("DELETE FROM google_oauth_states WHERE expires_at <= CURRENT_TIMESTAMP")
+        await conn.execute(
+            """
+            INSERT OR REPLACE INTO google_oauth_states (state, chat_id, expires_at)
+            VALUES (?, ?, datetime('now', ? || ' seconds'))
+            """,
+            (state, chat_id, ttl_seconds),
+        )
+        await conn.commit()
+
+
+async def consume_google_oauth_state(state: str) -> int | None:
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            """
+            SELECT chat_id FROM google_oauth_states
+            WHERE state = ? AND expires_at > CURRENT_TIMESTAMP
+            LIMIT 1
+            """,
+            (state,),
+        )
+        row = await cur.fetchone()
+        await conn.execute("DELETE FROM google_oauth_states WHERE state = ? OR expires_at <= CURRENT_TIMESTAMP", (state,))
+        await conn.commit()
+        return int(row["chat_id"]) if row else None
 
 
 def load_google_token_sync(chat_id: int) -> dict[str, Any] | None:

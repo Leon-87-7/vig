@@ -1,3 +1,5 @@
+import sqlite3
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -88,12 +90,12 @@ class Settings(BaseSettings):
         """
         if chat_id is not None:
             try:
-                from src.services.google_tokens import has_google_connection_sync
-
-                if has_google_connection_sync(chat_id):
-                    return False
-            except Exception:
-                pass
+                with sqlite3.connect(self.DB_PATH) as conn:
+                    cur = conn.execute("SELECT 1 FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
+                    if cur.fetchone() is not None:
+                        return False
+            except sqlite3.Error:
+                return False if self.OPERATOR_CHAT_ID is None else chat_id != self.OPERATOR_CHAT_ID
         return (
             self.OPERATOR_CHAT_ID is not None
             and chat_id is not None

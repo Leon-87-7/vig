@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 
 from src import database
 from src.config import settings
-from src.services.google_tokens import delete_google_token, load_google_token_sync
+from src.services.google_tokens import delete_google_token, load_google_token, load_google_token_sync
 from src.telegram import sender
 from src.utils.logger import get_logger
 
@@ -46,8 +46,7 @@ async def handle_google_refresh_error(chat_id: int | None) -> bool:
     """Delete a revoked Google token and send the reconnect prompt at most once."""
     if chat_id is None:
         return False
-    should_notify = await mark_reconnect_notified_once(chat_id)
-    await delete_google_token(chat_id)
+    should_notify = await delete_google_token(chat_id)
     if should_notify:
         try:
             await sender.send_message(
@@ -69,7 +68,7 @@ async def revoke_google_refresh_token(refresh_token: str) -> None:
 
 
 async def disconnect_google(chat_id: int) -> None:
-    token_payload = load_google_token_sync(chat_id)
+    token_payload = await load_google_token(chat_id)
     if token_payload and token_payload.get("refresh_token"):
         await revoke_google_refresh_token(token_payload["refresh_token"])
     await delete_google_token(chat_id)

@@ -294,7 +294,7 @@ def test_verify_miniapp_init_data_accepts_fresh_signed_payload() -> None:
 
     assert verified is not None
     assert verified["user"]["id"] == 4242
-    assert trusted_chat_id(verified) == 7777
+    assert trusted_chat_id(verified) == 4242
 
 
 def test_verify_miniapp_init_data_rejects_tampering_and_stale_payloads() -> None:
@@ -324,7 +324,7 @@ def test_miniapp_session_mints_same_shape_as_web_login(monkeypatch: pytest.Monke
     monkeypatch.setattr(auth_api.settings, "SESSION_COOKIE_SECURE", True)
 
     response = Response()
-    payload = auth_api.MiniAppSessionPayload(init_data=_make_init_data(TOKEN, auth_date=int(time.time())))
+    payload = auth_api.MiniAppSessionPayload(init_data=_make_init_data(TOKEN, auth_date=int(time.time()), chat_id=-7777))
     import asyncio
     result = asyncio.run(auth_api.miniapp_session(payload, response))
 

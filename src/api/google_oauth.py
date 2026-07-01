@@ -10,12 +10,11 @@ from fastapi.responses import RedirectResponse
 
 from src.config import settings
 from src.services.google_auth import disconnect_google, google_connected
-from src.services.google_tokens import store_google_token
+from src.services.google_tokens import consume_google_oauth_state, store_google_oauth_state, store_google_token
 
 GOOGLE_SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"]
 
 google_oauth_router = APIRouter(prefix="/api/google", tags=["google-oauth"])
-_STATE: dict[str, int] = {}
 
 
 def _redirect_uri(request: Request) -> str:
@@ -26,7 +25,7 @@ def _redirect_uri(request: Request) -> str:
 async def connect_google(request: Request) -> RedirectResponse:
     chat_id = int(request.state.user["id"])
     state = secrets.token_urlsafe(24)
-    _STATE[state] = chat_id
+    await store_google_oauth_state(state, chat_id)
     params = {
         "client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
         "redirect_uri": _redirect_uri(request),
@@ -41,7 +40,7 @@ async def connect_google(request: Request) -> RedirectResponse:
 
 @google_oauth_router.get("/callback", name="google_oauth_callback")
 async def google_oauth_callback(request: Request, code: str, state: str) -> RedirectResponse:
-    chat_id = _STATE.pop(state, None)
+    chat_id = await consume_google_oauth_state(state)
     if chat_id is None:
         raise HTTPException(status_code=400, detail="Invalid OAuth state")
     async with httpx.AsyncClient(timeout=15) as client:
