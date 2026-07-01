@@ -373,15 +373,46 @@ _V6_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v6 (
 )"""
 
 _V6_COLS = [
-    "id", "chat_id", "message_id", "url", "content_type", "status", "attempt",
-    "error_msg", "drive_url", "title", "transcript", "ai_category", "ai_topic",
-    "ai_objective", "ai_action_points", "ai_tools", "ai_market_data",
-    "prd_auto_status", "prd_auto_drive_file_id", "prd_auto_drive_url", "prd_auto_json",
-    "prd_intent_status", "prd_intent_drive_file_id", "prd_intent_drive_url",
-    "prd_intent_json", "prd_intent_text", "prd_intent_completed_at", "sheets_row_id",
-    "template", "template_analysis", "key_phrases", "validation_warning_sent",
-    "template_detection_method", "processing_time_ms", "promise_gap", "bot_message_id",
-    "freestyle_prompt", "created_at", "updated_at", "completed_at",
+    "id",
+    "chat_id",
+    "message_id",
+    "url",
+    "content_type",
+    "status",
+    "attempt",
+    "error_msg",
+    "drive_url",
+    "title",
+    "transcript",
+    "ai_category",
+    "ai_topic",
+    "ai_objective",
+    "ai_action_points",
+    "ai_tools",
+    "ai_market_data",
+    "prd_auto_status",
+    "prd_auto_drive_file_id",
+    "prd_auto_drive_url",
+    "prd_auto_json",
+    "prd_intent_status",
+    "prd_intent_drive_file_id",
+    "prd_intent_drive_url",
+    "prd_intent_json",
+    "prd_intent_text",
+    "prd_intent_completed_at",
+    "sheets_row_id",
+    "template",
+    "template_analysis",
+    "key_phrases",
+    "validation_warning_sent",
+    "template_detection_method",
+    "processing_time_ms",
+    "promise_gap",
+    "bot_message_id",
+    "freestyle_prompt",
+    "created_at",
+    "updated_at",
+    "completed_at",
 ]
 
 
@@ -401,7 +432,9 @@ async def _rebuild_jobs_table(
         )
     await conn.execute("DROP TABLE jobs")
     await conn.execute(f"ALTER TABLE {tmp_name} RENAME TO jobs")
-    await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)")
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)"
+    )
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id)")
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url)")
 
@@ -461,15 +494,46 @@ _V7_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v7 (
 )"""
 
 _V7_COLS = [
-    "id", "chat_id", "message_id", "url", "content_type", "status", "attempt",
-    "error_msg", "drive_url", "title", "transcript", "ai_category", "ai_topic",
-    "ai_objective", "ai_action_points", "ai_tools", "ai_market_data",
-    "prd_auto_status", "prd_auto_drive_file_id", "prd_auto_drive_url", "prd_auto_json",
-    "prd_intent_status", "prd_intent_drive_file_id", "prd_intent_drive_url",
-    "prd_intent_json", "prd_intent_text", "prd_intent_completed_at", "sheets_row_id",
-    "template", "template_analysis", "key_phrases", "validation_warning_sent",
-    "template_detection_method", "processing_time_ms", "promise_gap", "bot_message_id",
-    "freestyle_prompt", "created_at", "updated_at", "completed_at",
+    "id",
+    "chat_id",
+    "message_id",
+    "url",
+    "content_type",
+    "status",
+    "attempt",
+    "error_msg",
+    "drive_url",
+    "title",
+    "transcript",
+    "ai_category",
+    "ai_topic",
+    "ai_objective",
+    "ai_action_points",
+    "ai_tools",
+    "ai_market_data",
+    "prd_auto_status",
+    "prd_auto_drive_file_id",
+    "prd_auto_drive_url",
+    "prd_auto_json",
+    "prd_intent_status",
+    "prd_intent_drive_file_id",
+    "prd_intent_drive_url",
+    "prd_intent_json",
+    "prd_intent_text",
+    "prd_intent_completed_at",
+    "sheets_row_id",
+    "template",
+    "template_analysis",
+    "key_phrases",
+    "validation_warning_sent",
+    "template_detection_method",
+    "processing_time_ms",
+    "promise_gap",
+    "bot_message_id",
+    "freestyle_prompt",
+    "created_at",
+    "updated_at",
+    "completed_at",
 ]
 
 
@@ -505,8 +569,9 @@ async def _migrate_v7_v8(conn: aiosqlite.Connection) -> None:
 _MIGRATIONS.append(_migrate_v7_v8)
 
 # v8 → v9: users table for web dashboard auth (issue #84)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS users (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS users (
         tg_id       INTEGER PRIMARY KEY,
         username    TEXT,
         first_name  TEXT NOT NULL,
@@ -515,11 +580,13 @@ _MIGRATIONS.append([
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
-])
+    ]
+)
 
 # v9 → v10: tags table (issue #87 / S4)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS tags (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS tags (
         id         TEXT PRIMARY KEY,
         chat_id    INTEGER NOT NULL,
         name       TEXT NOT NULL,
@@ -528,11 +595,13 @@ _MIGRATIONS.append([
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(chat_id, name)
     )""",
-])
+    ]
+)
 
 # v10 → v11: user-defined enrichment templates (issue #90)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS templates (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS templates (
         id                  TEXT PRIMARY KEY,
         chat_id             INTEGER NOT NULL DEFAULT 0,
         name                TEXT NOT NULL,
@@ -546,25 +615,29 @@ _MIGRATIONS.append([
         updated_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(chat_id, name)
     )""",
-])
+    ]
+)
 
 # v11 → v12: job annotations + job-tag links (issue #88 / S5)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS job_annotations (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS job_annotations (
         job_id     TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
         notes      TEXT NOT NULL DEFAULT '',
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
-    """CREATE TABLE IF NOT EXISTS job_tags (
+        """CREATE TABLE IF NOT EXISTS job_tags (
         job_id  TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
         tag_id  TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
         PRIMARY KEY (job_id, tag_id)
     )""",
-])
+    ]
+)
 
 # v12 → v13: spaces + space_urls tables (issue #89 / S6)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS spaces (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS spaces (
         id         TEXT PRIMARY KEY,
         chat_id    INTEGER NOT NULL,
         name       TEXT NOT NULL,
@@ -573,19 +646,21 @@ _MIGRATIONS.append([
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(chat_id, name)
     )""",
-    "CREATE INDEX IF NOT EXISTS idx_spaces_chat_id ON spaces(chat_id)",
-    """CREATE TABLE IF NOT EXISTS space_urls (
+        "CREATE INDEX IF NOT EXISTS idx_spaces_chat_id ON spaces(chat_id)",
+        """CREATE TABLE IF NOT EXISTS space_urls (
         space_id   TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
         job_id     TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
         sort_order INTEGER NOT NULL DEFAULT 0,
         added_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (space_id, job_id)
     )""",
-])
+    ]
+)
 
 # v13 → v14: context_blobs table (issue #93 / S7)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS context_blobs (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS context_blobs (
         id         TEXT PRIMARY KEY,
         space_id   TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
         name       TEXT NOT NULL,
@@ -594,16 +669,18 @@ _MIGRATIONS.append([
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
-    "CREATE INDEX IF NOT EXISTS idx_context_blobs_space_id ON context_blobs(space_id)",
-])
+        "CREATE INDEX IF NOT EXISTS idx_context_blobs_space_id ON context_blobs(space_id)",
+    ]
+)
 
 # v14 -> v15: job media metadata and persisted thumbnails (issues #146/#147)
-_MIGRATIONS.append([
-    "ALTER TABLE jobs ADD COLUMN best_frame_index INTEGER",
-    "ALTER TABLE jobs ADD COLUMN platform TEXT",
-    "ALTER TABLE jobs ADD COLUMN video_id TEXT",
-    "ALTER TABLE jobs ADD COLUMN og_image_url TEXT",
-    """CREATE TABLE IF NOT EXISTS job_thumbnails (
+_MIGRATIONS.append(
+    [
+        "ALTER TABLE jobs ADD COLUMN best_frame_index INTEGER",
+        "ALTER TABLE jobs ADD COLUMN platform TEXT",
+        "ALTER TABLE jobs ADD COLUMN video_id TEXT",
+        "ALTER TABLE jobs ADD COLUMN og_image_url TEXT",
+        """CREATE TABLE IF NOT EXISTS job_thumbnails (
         job_id     TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
         bytes      BLOB NOT NULL,
         mime       TEXT NOT NULL,
@@ -611,24 +688,29 @@ _MIGRATIONS.append([
         height     INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
-])
+    ]
+)
 
 # v15 -> v16: per-chat web dashboard settings (issue #171)
-_MIGRATIONS.append([
-    """CREATE TABLE IF NOT EXISTS user_settings (
+_MIGRATIONS.append(
+    [
+        """CREATE TABLE IF NOT EXISTS user_settings (
         chat_id    INTEGER NOT NULL,
         key        TEXT NOT NULL,
         value      TEXT NOT NULL,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (chat_id, key)
     )""",
-])
+    ]
+)
 
 
 # v15 → v16: vision summary column for short jobs (issue #164)
-_MIGRATIONS.append([
-    "ALTER TABLE jobs ADD COLUMN summary TEXT",
-])
+_MIGRATIONS.append(
+    [
+        "ALTER TABLE jobs ADD COLUMN summary TEXT",
+    ]
+)
 
 
 # v16 → v17: widen content_type CHECK to include 'document' (issue #150/#151).
@@ -688,16 +770,52 @@ _V17_CREATE = """CREATE TABLE IF NOT EXISTS jobs_v17 (
 )"""
 
 _V17_COLS = [
-    "id", "chat_id", "message_id", "url", "content_type", "status", "attempt",
-    "error_msg", "drive_url", "title", "transcript", "ai_category", "ai_topic",
-    "ai_objective", "ai_action_points", "ai_tools", "ai_market_data",
-    "prd_auto_status", "prd_auto_drive_file_id", "prd_auto_drive_url", "prd_auto_json",
-    "prd_intent_status", "prd_intent_drive_file_id", "prd_intent_drive_url",
-    "prd_intent_json", "prd_intent_text", "prd_intent_completed_at", "sheets_row_id",
-    "template", "template_analysis", "key_phrases", "validation_warning_sent",
-    "template_detection_method", "processing_time_ms", "promise_gap", "bot_message_id",
-    "freestyle_prompt", "best_frame_index", "platform", "video_id", "og_image_url",
-    "summary", "links", "created_at", "updated_at", "completed_at",
+    "id",
+    "chat_id",
+    "message_id",
+    "url",
+    "content_type",
+    "status",
+    "attempt",
+    "error_msg",
+    "drive_url",
+    "title",
+    "transcript",
+    "ai_category",
+    "ai_topic",
+    "ai_objective",
+    "ai_action_points",
+    "ai_tools",
+    "ai_market_data",
+    "prd_auto_status",
+    "prd_auto_drive_file_id",
+    "prd_auto_drive_url",
+    "prd_auto_json",
+    "prd_intent_status",
+    "prd_intent_drive_file_id",
+    "prd_intent_drive_url",
+    "prd_intent_json",
+    "prd_intent_text",
+    "prd_intent_completed_at",
+    "sheets_row_id",
+    "template",
+    "template_analysis",
+    "key_phrases",
+    "validation_warning_sent",
+    "template_detection_method",
+    "processing_time_ms",
+    "promise_gap",
+    "bot_message_id",
+    "freestyle_prompt",
+    "best_frame_index",
+    "platform",
+    "video_id",
+    "og_image_url",
+    "summary",
+    "links",
+    "created_at",
+    "updated_at",
+    "completed_at",
 ]
 
 
@@ -712,21 +830,26 @@ _MIGRATIONS.append(_migrate_v16_v17)
 _MIGRATIONS.append(["ALTER TABLE spaces ADD COLUMN icon TEXT NOT NULL DEFAULT 'folder'"])
 
 # v18 → v19: repo-node metadata refresh (issue #198)
-_MIGRATIONS.append([
-    "ALTER TABLE links ADD COLUMN stars INTEGER",
-    "ALTER TABLE links ADD COLUMN pushed_at TEXT",
-    "ALTER TABLE links ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
-])
+_MIGRATIONS.append(
+    [
+        "ALTER TABLE links ADD COLUMN stars INTEGER",
+        "ALTER TABLE links ADD COLUMN pushed_at TEXT",
+        "ALTER TABLE links ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+    ]
+)
 
 # v19 → v20: persist enriched short-video links on jobs (issue #213)
-_MIGRATIONS.append([
-    "ALTER TABLE jobs ADD COLUMN links TEXT",
-])
+_MIGRATIONS.append(
+    [
+        "ALTER TABLE jobs ADD COLUMN links TEXT",
+    ]
+)
 
 # v20 → v21: Doc Parser dashboard delivery state and output index (ADR-0029).
-_MIGRATIONS.append([
-    "ALTER TABLE jobs ADD COLUMN telegram_delivery TEXT NOT NULL DEFAULT 'on'",
-    """CREATE TABLE IF NOT EXISTS document_outputs (
+_MIGRATIONS.append(
+    [
+        "ALTER TABLE jobs ADD COLUMN telegram_delivery TEXT NOT NULL DEFAULT 'on'",
+        """CREATE TABLE IF NOT EXISTS document_outputs (
         id          TEXT PRIMARY KEY,
         job_id      TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
         kind        TEXT NOT NULL,
@@ -735,18 +858,21 @@ _MIGRATIONS.append([
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CHECK(kind IN ('raw_txt','raw_md','summary','clean','freestyle'))
     )""",
-    "CREATE INDEX IF NOT EXISTS idx_document_outputs_job_id ON document_outputs(job_id, created_at)",
-])
+        "CREATE INDEX IF NOT EXISTS idx_document_outputs_job_id ON document_outputs(job_id, created_at)",
+    ]
+)
 
 # v21 → v22: dedup singular document outputs and enforce one-per-(job,kind)
 # (ADR-0029). Freestyle stays multi-row; raw/summary/clean upsert in place.
-_MIGRATIONS.append([
-    # Drop pre-existing duplicate singular rows (keep the earliest id) so the
-    # unique index can be created without violating it.
-    "DELETE FROM document_outputs WHERE kind <> 'freestyle' AND id NOT IN "
-    "(SELECT MIN(id) FROM document_outputs WHERE kind <> 'freestyle' GROUP BY job_id, kind)",
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_document_outputs_singular ON document_outputs(job_id, kind) WHERE kind <> 'freestyle'",
-])
+_MIGRATIONS.append(
+    [
+        # Drop pre-existing duplicate singular rows (keep the earliest id) so the
+        # unique index can be created without violating it.
+        "DELETE FROM document_outputs WHERE kind <> 'freestyle' AND id NOT IN "
+        "(SELECT MIN(id) FROM document_outputs WHERE kind <> 'freestyle' GROUP BY job_id, kind)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_document_outputs_singular ON document_outputs(job_id, kind) WHERE kind <> 'freestyle'",
+    ]
+)
 
 # v22 → v23: tighten telegram_delivery to a stored domain of {'off','on'} (#231).
 # 'retroactive' is a request-only action resolved at the API boundary (it sends
@@ -863,16 +989,15 @@ async def _migrate_v23_v24(conn: aiosqlite.Connection) -> None:
     """Add invite-gate user fields and awaiting_email chat state (#254)."""
     cur = await conn.execute("PRAGMA table_info(users)")
     existing_user_cols = {row[1] for row in await cur.fetchall()}
-    added_status = "status" not in existing_user_cols
 
     if "email" not in existing_user_cols:
         await conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
-    if added_status:
+    if "status" not in existing_user_cols:
         await conn.execute(
             "ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'pending' "
             "CHECK(status IN ('pending','approved','blocked'))"
         )
-        await conn.execute("UPDATE users SET status = 'approved'")
+    await conn.execute("UPDATE users SET status = 'approved'")
 
     if not await _chat_state_allows(conn, "awaiting_email"):
         await conn.execute("DROP TABLE IF EXISTS chat_state_v24")
@@ -888,7 +1013,7 @@ async def _migrate_v23_v24(conn: aiosqlite.Connection) -> None:
         """)
         await conn.execute(
             """
-            INSERT OR IGNORE INTO chat_state_v24 (chat_id, mode, job_id, created_at, expires_at)
+            INSERT INTO chat_state_v24 (chat_id, mode, job_id, created_at, expires_at)
             SELECT chat_id, mode, job_id, created_at, expires_at FROM chat_state
             """
         )
@@ -1047,17 +1172,23 @@ async def get_ignored_domains(chat_id: int) -> set[str]:
 
 
 async def add_ignored_domain(chat_id: int, domain: str) -> bool:
-    return await _execute_rowcount(
-        "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
-        (chat_id, domain),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "INSERT OR IGNORE INTO ignored_domains (chat_id, domain) VALUES (?, ?)",
+            (chat_id, domain),
+        )
+        > 0
+    )
 
 
 async def remove_ignored_domain(chat_id: int, domain: str) -> bool:
-    return await _execute_rowcount(
-        "DELETE FROM ignored_domains WHERE chat_id = ? AND domain = ?",
-        (chat_id, domain),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM ignored_domains WHERE chat_id = ? AND domain = ?",
+            (chat_id, domain),
+        )
+        > 0
+    )
 
 
 async def get_user_setting(chat_id: int, key: str) -> str | None:
@@ -1114,7 +1245,9 @@ async def get_brain_links_view(chat_id: int) -> dict[str, int | str]:
     return _normalize_brain_links_view(parsed)
 
 
-async def set_brain_links_view(chat_id: int, *, sort: str, order: str, size: int) -> dict[str, int | str]:
+async def set_brain_links_view(
+    chat_id: int, *, sort: str, order: str, size: int
+) -> dict[str, int | str]:
     view = _normalize_brain_links_view({"sort": sort, "order": order, "size": size})
     await set_user_setting(chat_id, _BRAIN_LINKS_VIEW_KEY, json.dumps(view, separators=(",", ":")))
     return view
@@ -1134,10 +1267,13 @@ async def set_recovery_telegram_notifications_enabled(chat_id: int, enabled: boo
 
 async def add_allowed_domain(chat_id: int, domain: str) -> bool:
     """Insert (chat_id, domain) into allowed_domains. Returns True if inserted, False if already present."""
-    return await _execute_rowcount(
-        "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
-        (chat_id, domain),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "INSERT OR IGNORE INTO allowed_domains (chat_id, domain) VALUES (?, ?)",
+            (chat_id, domain),
+        )
+        > 0
+    )
 
 
 async def list_allowed_domains(chat_id: int) -> set[str]:
@@ -1148,10 +1284,13 @@ async def list_allowed_domains(chat_id: int) -> set[str]:
 
 async def remove_allowed_domain(chat_id: int, domain: str) -> bool:
     """Delete (chat_id, domain). Returns True if removed, False if not found."""
-    return await _execute_rowcount(
-        "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
-        (chat_id, domain),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM allowed_domains WHERE chat_id = ? AND domain = ?",
+            (chat_id, domain),
+        )
+        > 0
+    )
 
 
 async def create_job(
@@ -1261,9 +1400,7 @@ async def backfill_og_image_url(job_id: str, og_image_url: str) -> bool:
 # Image MIME types we are willing to persist and later serve to browsers.
 # Anything else (e.g. a stray ``text/html`` from the vision model) is coerced
 # to ``image/jpeg`` so stored bytes can never be interpreted as active content.
-ALLOWED_THUMBNAIL_MIMES = frozenset(
-    {"image/jpeg", "image/png", "image/webp", "image/gif"}
-)
+ALLOWED_THUMBNAIL_MIMES = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
 
 
 async def save_thumbnail(
@@ -1382,9 +1519,7 @@ async def get_chat_state(chat_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-async def set_chat_state(
-    chat_id: int, mode: str, job_id: str, expires_minutes: int = 10
-) -> None:
+async def set_chat_state(chat_id: int, mode: str, job_id: str, expires_minutes: int = 10) -> None:
     """Insert or replace a chat_state row (PK chat_id gives upsert semantics).
 
     Logs ``prd.chat_state.replaced_other_job`` when overwriting a row for a different job_id.
@@ -1451,8 +1586,6 @@ async def find_recent_job_by_url(chat_id: int, url: str) -> dict | None:
     return dict(row) if row else None
 
 
-
-
 async def set_job_telegram_delivery(job_id: str, state: str) -> dict | None:
     # 'retroactive' is a request-only action resolved at the API boundary (send
     # existing outputs, then persist 'on'); only 'off'/'on' are storable (#231).
@@ -1489,6 +1622,7 @@ async def list_document_outputs(job_id: str) -> list[dict]:
         "SELECT id, job_id, kind, gcs_key, title, created_at FROM document_outputs WHERE job_id = ? ORDER BY created_at ASC, id ASC",
         (job_id,),
     )
+
 
 # ---------------------------------------------------------------------------
 # Markdown cache (Jina Reader — issue #60 / ADR-0013)
@@ -1567,6 +1701,8 @@ async def set_user_status(tg_id: int, status: UserStatus) -> None:
     """Set a user's invite-gate status, creating a minimal row if needed."""
     status = _validate_user_status(status)
     if settings.OPERATOR_CHAT_ID is not None and tg_id == settings.OPERATOR_CHAT_ID:
+        if status != "approved":
+            log.warning("operator_status_override_ignored", tg_id=tg_id, requested=status)
         status = "approved"
     async with connection() as conn:
         await _upsert_minimal_user(conn, tg_id=tg_id, status=status)
@@ -1626,16 +1762,20 @@ async def create_tag(*, chat_id: int, name: str, meaning: str, color: str) -> di
 
 
 async def update_tag(*, chat_id: int, tag_id: str, name: str, meaning: str, color: str) -> bool:
-    return await _execute_rowcount(
-        "UPDATE tags SET name = ?, meaning = ?, color = ? WHERE id = ? AND chat_id = ?",
-        (name, meaning, color, tag_id, chat_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "UPDATE tags SET name = ?, meaning = ?, color = ? WHERE id = ? AND chat_id = ?",
+            (name, meaning, color, tag_id, chat_id),
+        )
+        > 0
+    )
 
 
 async def delete_tag(*, chat_id: int, tag_id: str) -> bool:
-    return await _execute_rowcount(
-        "DELETE FROM tags WHERE id = ? AND chat_id = ?", (tag_id, chat_id)
-    ) > 0
+    return (
+        await _execute_rowcount("DELETE FROM tags WHERE id = ? AND chat_id = ?", (tag_id, chat_id))
+        > 0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1702,20 +1842,26 @@ async def update_user_template(
     extra_instructions: str = "",
 ) -> bool:
     """Update a user template owned by this chat. Returns True if updated."""
-    return await _execute_rowcount(
-        """UPDATE templates
+    return (
+        await _execute_rowcount(
+            """UPDATE templates
            SET description = ?, extra_instructions = ?, updated_at = CURRENT_TIMESTAMP
            WHERE chat_id = ? AND name = ? AND is_builtin = 0""",
-        (description, extra_instructions, chat_id, name),
-    ) > 0
+            (description, extra_instructions, chat_id, name),
+        )
+        > 0
+    )
 
 
 async def delete_user_template(chat_id: int, name: str) -> bool:
     """Delete a user template owned by this chat. Returns True if deleted."""
-    return await _execute_rowcount(
-        "DELETE FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
-        (chat_id, name),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM templates WHERE chat_id = ? AND name = ? AND is_builtin = 0",
+            (chat_id, name),
+        )
+        > 0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1793,16 +1939,21 @@ async def batch_list_job_tags(job_ids: list[str]) -> dict[str, list[dict]]:
 
 async def attach_job_tag(job_id: str, tag_id: str) -> bool:
     """Attach *tag_id* to *job_id*. Idempotent. Returns True."""
-    await _execute("INSERT OR IGNORE INTO job_tags (job_id, tag_id) VALUES (?, ?)", (job_id, tag_id))
+    await _execute(
+        "INSERT OR IGNORE INTO job_tags (job_id, tag_id) VALUES (?, ?)", (job_id, tag_id)
+    )
     return True
 
 
 async def detach_job_tag(job_id: str, tag_id: str) -> bool:
     """Remove *tag_id* from *job_id*. Returns True if a row was deleted."""
-    return await _execute_rowcount(
-        "DELETE FROM job_tags WHERE job_id = ? AND tag_id = ?",
-        (job_id, tag_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM job_tags WHERE job_id = ? AND tag_id = ?",
+            (job_id, tag_id),
+        )
+        > 0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1839,21 +1990,29 @@ async def get_space(space_id: str) -> dict | None:
     return dict(row) if row else None
 
 
-async def update_space(*, chat_id: int, space_id: str, name: str, color: str, icon: str | None = None) -> bool:
+async def update_space(
+    *, chat_id: int, space_id: str, name: str, color: str, icon: str | None = None
+) -> bool:
     """UPDATE name/color for a space owned by chat_id; icon only when provided. Returns True if updated."""
-    return await _execute_rowcount(
-        "UPDATE spaces SET name = ?, color = ?, icon = COALESCE(?, icon), updated_at = CURRENT_TIMESTAMP "
-        "WHERE id = ? AND chat_id = ?",
-        (name, color, icon, space_id, chat_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "UPDATE spaces SET name = ?, color = ?, icon = COALESCE(?, icon), updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ? AND chat_id = ?",
+            (name, color, icon, space_id, chat_id),
+        )
+        > 0
+    )
 
 
 async def delete_space(*, chat_id: int, space_id: str) -> bool:
     """DELETE a space owned by chat_id. Returns True if deleted."""
-    return await _execute_rowcount(
-        "DELETE FROM spaces WHERE id = ? AND chat_id = ?",
-        (space_id, chat_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM spaces WHERE id = ? AND chat_id = ?",
+            (space_id, chat_id),
+        )
+        > 0
+    )
 
 
 async def add_space_url(*, space_id: str, job_id: str) -> bool:
@@ -1870,18 +2029,24 @@ async def add_space_url(*, space_id: str, job_id: str) -> bool:
 
 async def remove_space_url(*, space_id: str, job_id: str) -> bool:
     """Unpin a job from a space. Returns True if the row existed."""
-    return await _execute_rowcount(
-        "DELETE FROM space_urls WHERE space_id = ? AND job_id = ?",
-        (space_id, job_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "DELETE FROM space_urls WHERE space_id = ? AND job_id = ?",
+            (space_id, job_id),
+        )
+        > 0
+    )
 
 
 async def reorder_space_url(*, space_id: str, job_id: str, new_sort_order: int) -> bool:
     """Update sort_order for a pinned job. Returns True if the row existed."""
-    return await _execute_rowcount(
-        "UPDATE space_urls SET sort_order = ? WHERE space_id = ? AND job_id = ?",
-        (new_sort_order, space_id, job_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "UPDATE space_urls SET sort_order = ? WHERE space_id = ? AND job_id = ?",
+            (new_sort_order, space_id, job_id),
+        )
+        > 0
+    )
 
 
 async def list_space_urls(space_id: str, chat_id: int) -> list[dict]:
@@ -1938,11 +2103,14 @@ async def get_context_blob(blob_id: str) -> dict | None:
 
 async def update_context_blob(*, blob_id: str, name: str, content: str) -> bool:
     """UPDATE name and content; sets updated_at. Returns True if the row existed."""
-    return await _execute_rowcount(
-        "UPDATE context_blobs SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP "
-        "WHERE id = ?",
-        (name, content, blob_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "UPDATE context_blobs SET name = ?, content = ?, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (name, content, blob_id),
+        )
+        > 0
+    )
 
 
 async def delete_context_blob(blob_id: str) -> bool:
@@ -1952,7 +2120,10 @@ async def delete_context_blob(blob_id: str) -> bool:
 
 async def reorder_context_blob(*, blob_id: str, new_sort_order: int) -> bool:
     """UPDATE sort_order for a blob. Returns True if the row existed."""
-    return await _execute_rowcount(
-        "UPDATE context_blobs SET sort_order = ? WHERE id = ?",
-        (new_sort_order, blob_id),
-    ) > 0
+    return (
+        await _execute_rowcount(
+            "UPDATE context_blobs SET sort_order = ? WHERE id = ?",
+            (new_sort_order, blob_id),
+        )
+        > 0
+    )
