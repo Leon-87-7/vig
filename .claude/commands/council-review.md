@@ -30,27 +30,53 @@ and noting where reviewers disagree. Do not edit anything yourself — this comm
 only reviews (the optional planner step below is the one exception, and it only
 writes a plan document, never source).
 
-Output format:
+## Output format
 
-- Group findings under `## Blocker`, `## Major`, `## Minor`, `## Nit` headings (omit empty groups).
-- One bullet per finding: `` `file:line` `` — one-line description — suggested fix — `(reviewer)` attribution.
-- Merge duplicates into a single bullet listing every reviewer that raised it; call out disagreements explicitly (e.g. "ponytail says delete, react says keep").
+- Open with one summary line, colored-circle emoji + count per severity, always
+  all four even if zero: `🔴 <n> · 🟠 <n> · 🟡 <n> · ⚪ <n>`.
+- Group findings under headings with the emoji inline: `## 🔴 Blocker`, `## 🟠 Major`,
+  `## 🟡 Minor`, `## ⚪ Nit` (omit empty groups from the body, but still count them
+  in the summary line above).
+- One bullet per finding, prose, no tables: `` `file:line` `` — one-line description
+  — suggested fix — `(reviewer)` attribution.
+- Merge duplicates into a single bullet listing every reviewer that raised it; call
+  out disagreements explicitly (e.g. "ponytail says delete, react says keep").
 - End with a one-line **Suggested order** of what to fix first.
 
 ## Optional: write an implementation plan for the findings
 
-If the synthesis has at least one finding (any severity), ask the user whether
-they want an implementation plan written for these findings. If yes, dispatch
-ONE more agent (`subagent_type: general-purpose`, after synthesis — not parallel
-with the 5 reviewers) that invokes the `superpowers:writing-plans` skill to turn
-the synthesized findings into a task-by-task implementation plan, in the same
-format as `docs/superpowers/plans/2026-07-01-invite-gate-council-fixes.md`
-(Global Constraints, one Task per finding or logical group of related findings,
-checkbox steps, a test step, a commit step). This agent MAY write — it is the
-only step in this command permitted to.
+`<review-target>` = the current git branch name (always — regardless of what
+`$ARGUMENTS` names as the review target, since that's what round-tracking below
+keys off).
 
-Save the plan to `docs/superpowers/council/<review-target>-council-fixes-<YYYY-MM-DD>.md`
-(e.g. `docs/superpowers/council/invite-gate-255-256-council-fixes-2026-07-01.md`) — deliberately
-**not** `docs/superpowers/plans/`, since this doc is a review artifact for agent
-handoff, not a plan authored ahead of implementation. Report the saved path back
-to the user.
+If the synthesis has at least one finding (any severity), determine which round
+this is for `<review-target>` by checking, in order:
+
+1. Does `docs/superpowers/council/<review-target>-council-fixes.md` exist?
+   **No** → this is **round 1**.
+2. Does `docs/superpowers/council/<review-target>-council-fixes-round2.md` exist?
+   **No** → this is **round 2** (the intended final round).
+3. Otherwise → this is **round 3+**.
+
+**Round 1 or round 2:** ask the user whether they want an implementation plan
+written for these findings. If yes, dispatch ONE more agent
+(`subagent_type: general-purpose`, after synthesis — not parallel with the 5
+reviewers) that invokes the `superpowers:writing-plans` skill to turn the
+synthesized findings into a task-by-task implementation plan (Global Constraints,
+one Task per finding or logical group of related findings, checkbox steps, a test
+step, a commit step — see `docs/superpowers/council/` for prior examples of this
+format). This agent MAY write — it is the only step in this command permitted to.
+
+Save to:
+- Round 1: `docs/superpowers/council/<review-target>-council-fixes.md`
+- Round 2: `docs/superpowers/council/<review-target>-council-fixes-round2.md` —
+  open this file with a one-line **Context** callout linking back to the round 1
+  file, and a note that this is the intended final auto-generated round.
+
+Deliberately **not** `docs/superpowers/plans/` — these are review artifacts for
+agent handoff, not plans authored ahead of implementation. Report the saved path
+back to the user.
+
+**Round 3+:** do not offer to write a plan. End the synthesis with: *"This is
+round 3+ for this branch — per policy, remaining findings should go through PR
+review (open a PR, run `/greploop` or `/check-pr`), not another generated plan."*
