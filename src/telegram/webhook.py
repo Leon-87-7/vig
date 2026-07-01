@@ -429,6 +429,12 @@ async def _handle_callback(callback: dict) -> None:
         await answer_callback_query(cq_id)
         return
 
+    if chat_id and prefix not in {"invite_approve", "invite_block"}:
+        identity = _telegram_identity({"from": callback.get("from") or {}}, cb_message.get("chat") or {})
+        if not await _invite_gate_allows(chat_id, "", identity):
+            await answer_callback_query(cq_id, text="Access restricted.")
+            return
+
     ctx = CallbackCtx(chat_id=chat_id, job_id=job_id, cq_id=cq_id, data=data, message_id=cb_message_id)
     await handler(ctx)
 

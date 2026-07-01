@@ -236,10 +236,18 @@ async def _seed_job(path: str, job_id: str, chat_id: int = 1, **fields) -> None:
         await conn.commit()
 
 
+async def _approve_user(chat_id: int, email: str | None = None) -> None:
+    from src import database as db
+
+    await db.set_user_email(chat_id, email or f"user{chat_id}@example.com")
+    await db.set_user_status(chat_id, "approved")
+
+
 @pytest.mark.asyncio
 async def test_callback_prd_build_spec_sends_submenu(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
     monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
@@ -258,6 +266,7 @@ async def test_callback_prd_build_spec_sends_submenu(temp_db, monkeypatch):
 async def test_callback_prd_auto_resend_when_status_done(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DONE", chat_id=100, prd_auto_status="done", prd_auto_json='{"x":1}')
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -273,6 +282,7 @@ async def test_callback_prd_auto_resend_when_status_done(temp_db, monkeypatch):
 async def test_callback_prd_auto_lazy_when_status_null(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_NULL", chat_id=100)
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -295,6 +305,7 @@ async def test_callback_prd_auto_already_generating(temp_db, monkeypatch):
     """If status='generating', reply 'already generating' and skip enqueue."""
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_GEN", chat_id=100, prd_auto_status="generating")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -313,6 +324,7 @@ async def test_callback_prd_intent_prompt_arms_state(temp_db, monkeypatch):
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_ARM", chat_id=100)
     fr = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_force_reply", fr)
@@ -331,6 +343,7 @@ async def test_callback_prd_intent_prompt_debounces_same_job(temp_db, monkeypatc
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DBN", chat_id=100)
     await db.set_chat_state(chat_id=100, mode="awaiting_intent", job_id="J_DBN")
     fr = AsyncMock()
@@ -348,6 +361,7 @@ async def test_callback_document_md_rejects_foreign_chat(temp_db, monkeypatch):
     job is denied before any markdown delivery (CodeRabbit, PR #200)."""
     from src.telegram import webhook
 
+    await _approve_user(200)
     await _seed_job(temp_db, "J_DOC", chat_id=100, content_type="document")
     answered = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
@@ -575,6 +589,31 @@ async def test_invite_callback_block_rejects_non_operator_chat(temp_db, monkeypa
 
 
 @pytest.mark.asyncio
+async def test_callback_reprocess_rejects_blocked_chat(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "blocked")
+    await _seed_job(temp_db, "J_BLOCKED", chat_id=100, status="error", content_type="short")
+    create_job = AsyncMock(wraps=db.create_job)
+    monkeypatch.setattr("src.telegram.webhook.database.create_job", create_job)
+    sent = AsyncMock()
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.queue.enqueue", AsyncMock())
+
+    await webhook._handle_callback(
+        {"id": "CB", "data": "reprocess:J_BLOCKED", "message": {"chat": {"id": 100}}}
+    )
+
+    create_job.assert_not_awaited()
+    sent.assert_awaited_once_with(100, "Access blocked.")
+    answered.assert_awaited_once_with("CB", text="Access restricted.")
+
+
+@pytest.mark.asyncio
 async def test_routing_awaiting_intent_plain_text_enqueues(
     temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
 ):
@@ -748,6 +787,7 @@ async def test_spec_with_intent_enqueues_intent(
 async def test_callback_enrichment_retry_enqueues_on_error_status(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_ERR", chat_id=100, status="error")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -767,6 +807,7 @@ async def test_callback_enrichment_retry_enqueues_on_error_status(temp_db, monke
 async def test_callback_enrichment_retry_rejects_on_done_status(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_DONE2", chat_id=100, status="done")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -790,6 +831,7 @@ async def test_gemini_yes_sends_template_picker_keyboard(temp_db, monkeypatch):
     """Tapping Run Gemini now shows the template picker, not directly enqueuing."""
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_KB", chat_id=100, status="transcript_done")
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
@@ -816,6 +858,7 @@ async def test_gemini_yes_sends_template_picker_keyboard(temp_db, monkeypatch):
 async def test_gemini_yes_rejects_job_not_ready(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_PROC", chat_id=100, status="processing")
     sent_kb = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", sent_kb)
@@ -834,6 +877,7 @@ async def test_template_pick_collapses_keyboard_and_enqueues(temp_db, monkeypatc
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_PICK", chat_id=100, status="transcript_done")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -856,6 +900,7 @@ async def test_template_pick_collapses_keyboard_and_enqueues(temp_db, monkeypatc
 async def test_template_pick_rejects_job_not_ready(temp_db, monkeypatch):
     from src.telegram import webhook
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_NR", chat_id=100, status="processing")
     enqueued = AsyncMock()
     monkeypatch.setattr("src.queue.enqueue", enqueued)
@@ -874,6 +919,7 @@ async def test_template_freestyle_arms_state_and_sends_force_reply(temp_db, monk
     from src.telegram import webhook
     from src import database as db
 
+    await _approve_user(100)
     await _seed_job(temp_db, "J_FS", chat_id=100, status="transcript_done")
     fr = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_force_reply", fr)
