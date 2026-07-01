@@ -58,7 +58,11 @@ export default function MiniAppPage() {
 
   function connectGoogle() {
     setState('connecting');
-    window.Telegram?.WebApp?.openLink?.(connectUrl) ?? window.location.assign(connectUrl);
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(connectUrl);
+      return;
+    }
+    window.location.assign(connectUrl);
   }
 
   const disabled = state !== 'ready';

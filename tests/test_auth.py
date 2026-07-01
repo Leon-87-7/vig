@@ -321,7 +321,7 @@ def test_miniapp_session_mints_same_shape_as_web_login(monkeypatch: pytest.Monke
     monkeypatch.setattr(auth_api.session_store, "mint", fake_mint)
     monkeypatch.setattr(auth_api.database, "upsert_user", fake_upsert_user)
     monkeypatch.setattr(auth_api.settings, "TELEGRAM_BOT_TOKEN", TOKEN)
-    monkeypatch.setattr(auth_api.settings, "SESSION_COOKIE_SECURE", True)
+    monkeypatch.setattr(auth_api.settings, "SESSION_COOKIE_SECURE", False)
 
     response = Response()
     payload = auth_api.MiniAppSessionPayload(init_data=_make_init_data(TOKEN, auth_date=int(time.time()), chat_id=-7777))
@@ -339,3 +339,4 @@ def test_miniapp_session_mints_same_shape_as_web_login(monkeypatch: pytest.Monke
         "source": "telegram_mini_app",
     }
     assert "vig_session=mini-session" in response.headers["set-cookie"]
+    assert "secure" in response.headers["set-cookie"].lower()

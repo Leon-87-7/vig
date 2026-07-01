@@ -21,8 +21,14 @@ def _redirect_uri(request: Request) -> str:
     return settings.GOOGLE_OAUTH_REDIRECT_URI or str(request.url_for("google_oauth_callback"))
 
 
+def _require_google_oauth_config() -> None:
+    if not settings.GOOGLE_OAUTH_CLIENT_ID or not settings.GOOGLE_OAUTH_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Google OAuth is not configured")
+
+
 @google_oauth_router.get("/connect")
 async def connect_google(request: Request) -> RedirectResponse:
+    _require_google_oauth_config()
     chat_id = int(request.state.user["id"])
     state = secrets.token_urlsafe(24)
     await store_google_oauth_state(state, chat_id)
@@ -40,6 +46,7 @@ async def connect_google(request: Request) -> RedirectResponse:
 
 @google_oauth_router.get("/callback", name="google_oauth_callback")
 async def google_oauth_callback(request: Request, code: str, state: str) -> RedirectResponse:
+    _require_google_oauth_config()
     chat_id = await consume_google_oauth_state(state)
     if chat_id is None:
         raise HTTPException(status_code=400, detail="Invalid OAuth state")

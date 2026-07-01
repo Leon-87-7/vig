@@ -63,7 +63,7 @@ async def miniapp_session(payload: MiniAppSessionPayload, response: Response) ->
         key=COOKIE_NAME,
         value=session_id,
         httponly=True,
-        secure=settings.SESSION_COOKIE_SECURE,
+        secure=True,
         samesite="none",
         max_age=_COOKIE_MAX_AGE,
         path="/",

@@ -1,4 +1,9 @@
+import base64
+import hashlib
+import json
 import sqlite3
+
+from cryptography.fernet import Fernet, InvalidToken
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -82,6 +87,18 @@ class Settings(BaseSettings):
     # (single-operator backward compat).
     OPERATOR_CHAT_ID: int | None = None
 
+    def _google_token_readable(self, encrypted_token: str) -> bool:
+        raw = self.GOOGLE_TOKEN_ENCRYPTION_KEY
+        if not raw:
+            return False
+        try:
+            key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
+            payload = Fernet(key).decrypt(encrypted_token.encode()).decode()
+            json.loads(payload)
+            return True
+        except (InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
+            return False
+
     def export_blocked(self, chat_id: int | None) -> bool:
         """True when *chat_id* must NOT write to the operator's shared Drive/Sheets.
 
@@ -91,8 +108,9 @@ class Settings(BaseSettings):
         if chat_id is not None:
             try:
                 with sqlite3.connect(self.DB_PATH) as conn:
-                    cur = conn.execute("SELECT 1 FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
-                    if cur.fetchone() is not None:
+                    cur = conn.execute("SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
+                    row = cur.fetchone()
+                    if row is not None and self._google_token_readable(str(row[0])):
                         return False
             except sqlite3.Error:
                 return False if self.OPERATOR_CHAT_ID is None else chat_id != self.OPERATOR_CHAT_ID

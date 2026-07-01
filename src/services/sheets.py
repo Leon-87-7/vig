@@ -318,11 +318,15 @@ async def append_document_row(job: dict) -> int | None:
     Columns: job_id, url, title, document_type, author, publisher, objective,
              key_points, tools, references, submitted_at, status
     """
+    if settings.export_blocked(job.get("chat_id")):
+        return None
     return await _append_row_logged(TAB_DOCUMENT, _document_row(job), "sheets_document", job.get("id"), job.get("chat_id"))
 
 
 async def update_document_row(row_idx: int, job: dict) -> None:
     """Overwrite the Document Analysis row at *row_idx* (1-based) in-place."""
+    if settings.export_blocked(job.get("chat_id")):
+        return
     await _update_row_logged(TAB_DOCUMENT, row_idx, _document_row(job), "sheets_document", job.get("id"), job.get("chat_id"))
 
 

@@ -92,6 +92,8 @@ async def test_sheets_skip_for_non_operator(operator_set):
         await sheets_svc.update_article_row(2, job, domain="x.com")
         await sheets_svc.append_repo_row(job, {}, {})
         await sheets_svc.update_repo_row(2, job, {}, {})
+        await sheets_svc.append_document_row(job)
+        await sheets_svc.update_document_row(2, job)
         await sheets_svc.append_prd_row(job_id="j1", video_url="u", title="t",
                                         drive_url="", chat_id=INTRUDER)
     ap.assert_not_called()
@@ -190,6 +192,7 @@ async def test_google_connect_forces_consent(monkeypatch):
         stored_state.update({"state": state, "chat_id": chat_id})
 
     monkeypatch.setattr("src.config.settings.GOOGLE_OAUTH_CLIENT_ID", "client")
+    monkeypatch.setattr("src.config.settings.GOOGLE_OAUTH_CLIENT_SECRET", "secret")
     monkeypatch.setattr(google_oauth, "store_google_oauth_state", store_state)
 
     response = await google_oauth.connect_google(request)  # type: ignore[arg-type]

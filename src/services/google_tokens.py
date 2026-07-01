@@ -7,14 +7,17 @@ import json
 from typing import Any
 
 import sqlite3
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from src import database
 from src.config import settings
+from src.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 
 def _fernet() -> Fernet:
-    raw = settings.GOOGLE_TOKEN_ENCRYPTION_KEY or settings.TELEGRAM_WEBHOOK_SECRET
+    raw = settings.GOOGLE_TOKEN_ENCRYPTION_KEY
     if not raw:
         raise RuntimeError("GOOGLE_TOKEN_ENCRYPTION_KEY is required for per-user Google tokens")
     key = base64.urlsafe_b64encode(hashlib.sha256(raw.encode()).digest())
@@ -75,14 +78,14 @@ async def consume_google_oauth_state(state: str) -> int | None:
     async with database.connection() as conn:
         cur = await conn.execute(
             """
-            SELECT chat_id FROM google_oauth_states
+            DELETE FROM google_oauth_states
             WHERE state = ? AND expires_at > CURRENT_TIMESTAMP
-            LIMIT 1
+            RETURNING chat_id
             """,
             (state,),
         )
         row = await cur.fetchone()
-        await conn.execute("DELETE FROM google_oauth_states WHERE state = ? OR expires_at <= CURRENT_TIMESTAMP", (state,))
+        await conn.execute("DELETE FROM google_oauth_states WHERE expires_at <= CURRENT_TIMESTAMP")
         await conn.commit()
         return int(row["chat_id"]) if row else None
 
@@ -94,14 +97,13 @@ def load_google_token_sync(chat_id: int) -> dict[str, Any] | None:
             cur = conn.execute("SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
             row = cur.fetchone()
             return decrypt_token(row["encrypted_token"]) if row else None
-    except Exception:
+    except sqlite3.Error:
+        log.exception("google_token_sync_load_db_failed", chat_id=chat_id)
+        return None
+    except (InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
+        log.warning("google_token_sync_load_invalid", chat_id=chat_id)
         return None
 
 
 def has_google_connection_sync(chat_id: int) -> bool:
-    try:
-        with sqlite3.connect(settings.DB_PATH) as conn:
-            cur = conn.execute("SELECT 1 FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
-            return cur.fetchone() is not None
-    except Exception:
-        return False
+    return load_google_token_sync(chat_id) is not None
