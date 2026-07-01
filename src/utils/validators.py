@@ -9,6 +9,15 @@ Pipeline = Literal["short", "long", "article", "repo", "document", "rejected"]
 
 _TIKTOK_VIDEO_PATH = re.compile(r"^/@[^/]+/video/\d+", re.IGNORECASE)
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def normalize_email(email: str) -> str | None:
+    """Return normalized email when it matches VIG's shared email policy."""
+    normalized = email.strip().lower()
+    return normalized if _EMAIL_RE.fullmatch(normalized) else None
+
+
 _GITHUB_RESERVED_PATHS: frozenset[str] = frozenset({
     "features", "pricing", "marketplace", "sponsors", "topics", "explore",
     "settings", "notifications", "codespaces", "login", "signup", "apps",

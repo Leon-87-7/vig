@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Spinner } from '@/components/ui';
 
-type UserStatus = 'pending' | 'approved' | 'blocked';
+type UserStatus = "pending" | "approved" | "blocked";
 
 interface InviteUser {
   id: number;
@@ -21,15 +21,15 @@ function GateScreen({ status }: { status: Exclude<UserStatus, 'approved'> }) {
     <div className="flex min-h-[calc(100vh-3rem)] items-center justify-center px-4">
       <section className="w-full max-w-md rounded-lg border border-line bg-surface p-6">
         <p className="font-mono text-[11px] font-medium uppercase tracking-[0.04em] text-muted">
-          {blocked ? 'BLOCKED' : 'PENDING'}
+          {blocked ? "BLOCKED" : "PENDING"}
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">
-          {blocked ? 'Access blocked' : 'Pending approval'}
+          {blocked ? "Access blocked" : "Pending approval"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-body">
           {blocked
-            ? 'This Telegram account cannot access VIG.'
-            : 'Pending approval — ask Leon for access.'}
+            ? "This Telegram account cannot access VIG."
+            : "Pending approval — ask Leon for access."}
         </p>
       </section>
     </div>
@@ -41,7 +41,7 @@ function EmailModal({
 }: {
   onSaved: (email: string, status: UserStatus) => void;
 }) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -113,10 +113,14 @@ function EmailModal({
       >
         <h2 id="invite-email-title" className="text-lg font-semibold text-ink">Email required</h2>
         <p className="mt-2 text-sm leading-6 text-body">
-          VIG is invite-only. Add the email Leon should approve for this Telegram account.
+          VIG is invite-only. Add the email Leon should approve for this
+          Telegram account.
         </p>
         <form className="mt-4 space-y-3" onSubmit={submit}>
-          <label className="block text-sm font-medium text-body" htmlFor="invite-email">
+          <label
+            className="block text-sm font-medium text-body"
+            htmlFor="invite-email"
+          >
             Email
           </label>
           <input
@@ -141,7 +145,7 @@ function EmailModal({
             disabled={saving}
             className="h-8 rounded-md bg-signal px-3 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright disabled:cursor-not-allowed disabled:bg-raised disabled:text-muted"
           >
-            {saving ? 'Saving...' : 'Save email'}
+            {saving ? "Saving..." : "Save email"}
           </button>
         </form>
       </section>
@@ -157,7 +161,7 @@ export function InviteGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/auth/me')
+    fetch("/api/auth/me")
       .then(async (res) => {
         if (res.status === 401 || res.status === 403) {
           router.replace('/login');
@@ -220,7 +224,9 @@ export function InviteGate({ children }: { children: React.ReactNode }) {
       {canShowDashboard ? children : <GateScreen status={user.status === 'blocked' ? 'blocked' : 'pending'} />}
       {needsEmail && user.status !== 'blocked' && (
         <EmailModal
-          onSaved={(email, status) => setUser((prev) => prev && { ...prev, email, status })}
+          onSaved={(email, status) =>
+            setUser((prev) => prev && { ...prev, email, status })
+          }
         />
       )}
     </>

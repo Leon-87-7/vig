@@ -36,15 +36,10 @@ class EmailPayload(BaseModel):
     email: str
 
 
-
 @auth_router.post("/telegram")
 async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
     # Build string-typed dict for HMAC verification (Telegram uses string values)
-    raw: dict = {
-        k: str(v)
-        for k, v in payload.model_dump().items()
-        if v is not None
-    }
+    raw: dict = {k: str(v) for k, v in payload.model_dump().items() if v is not None}
 
     user = verify_telegram_auth(raw, settings.TELEGRAM_BOT_TOKEN)
     if user is None:

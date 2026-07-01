@@ -7,6 +7,7 @@ import functools
 import hashlib
 import html
 import ipaddress
+import re
 import socket
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
@@ -18,7 +19,6 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, Header, HTTPException, Request
 
-import re
 
 from src import database, queue
 from src.config import settings
@@ -1112,31 +1112,37 @@ def _resolve_chat_state(state: dict) -> bool:
 
 
 
-
 async def _remember_invite_identity(
     chat_id: int,
     identity: dict[str, str | None] | None,
-    existing_user: dict | None = None,
+    *,
+    status: str | None = None,
+    user: dict | None = None,
 ) -> None:
     if identity is None:
         return
-    if existing_user and (
-        (existing_user.get("first_name") or "") == (identity.get("first_name") or "")
-        and existing_user.get("last_name") == identity.get("last_name")
-        and existing_user.get("username") == identity.get("username")
-    ):
-        return
+    first_name = identity.get("first_name") or ""
+    last_name = identity.get("last_name")
+    username = identity.get("username")
+    if status == "approved" and user is not None:
+        unchanged = (
+            (user.get("first_name") or "") == first_name
+            and user.get("last_name") == last_name
+            and user.get("username") == username
+        )
+        if unchanged:
+            return
     await database.upsert_user(
         tg_id=chat_id,
-        first_name=identity.get("first_name") or "",
-        last_name=identity.get("last_name"),
-        username=identity.get("username"),
+        first_name=first_name,
+        last_name=last_name,
+        username=username,
     )
 
 
 async def _notify_operator_invite(chat_id: int, email: str) -> None:
     operator_chat_id = settings.OPERATOR_CHAT_ID
-    if not operator_chat_id:
+    if operator_chat_id is None:
         log.warning("invite.operator_chat_id_unset", chat_id=chat_id)
         return
     user = await database.get_user(chat_id) or {}
@@ -1160,8 +1166,8 @@ async def _invite_gate_allows(
     identity: dict[str, str | None] | None,
 ) -> bool:
     status = await database.get_user_status(chat_id)
-    user = await database.get_user(chat_id) if status == "approved" else None
-    await _remember_invite_identity(chat_id, identity, user)
+    user = await database.get_user(chat_id)
+    await _remember_invite_identity(chat_id, identity, status=status, user=user)
     if status == "approved":
         return True
     if status == "blocked":

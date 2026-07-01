@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@/test/render';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { InviteGate } from './invite-gate';
+import { fireEvent, render, screen, waitFor } from "@/test/render";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { InviteGate } from "./invite-gate";
 
 const navigationMock = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -9,7 +9,7 @@ const navigationMock = vi.hoisted(() => ({
 }));
 navigationMock.router = { replace: navigationMock.replace };
 
-vi.mock('next/navigation', () => ({
+vi.mock("next/navigation", () => ({
   useRouter: () => navigationMock.router,
 }));
 
@@ -17,73 +17,201 @@ beforeEach(() => {
   navigationMock.replace.mockClear();
 });
 
-describe('InviteGate', () => {
-  it('renders dashboard children for approved users with an email', async () => {
+describe("InviteGate", () => {
+  it("renders dashboard children for approved users with an email", async () => {
     vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        id: 1,
-        email: 'user@example.com',
-        status: 'approved',
-      }), { status: 200 })),
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: 1,
+              email: "user@example.com",
+              status: "approved",
+            }),
+            { status: 200 },
+          ),
+      ),
     );
 
-    render(<InviteGate><div>Dashboard feed</div></InviteGate>);
-
-    expect(await screen.findByText('Dashboard feed')).toBeTruthy();
-  });
-
-  it('shows the pending screen instead of dashboard content for pending users', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        id: 1,
-        email: 'user@example.com',
-        status: 'pending',
-      }), { status: 200 })),
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
     );
 
-    render(<InviteGate><div>Dashboard feed</div></InviteGate>);
-
-    expect(await screen.findByText('Pending approval')).toBeTruthy();
-    expect(screen.queryByText('Dashboard feed')).toBeNull();
+    expect(await screen.findByText("Dashboard feed")).toBeTruthy();
   });
 
-  it('shows a one-field email modal once and persists the email', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input) === '/api/auth/email' && init?.method === 'PUT') {
-        return new Response(JSON.stringify({
-          email: 'user@example.com',
-          status: 'pending',
-        }), { status: 200 });
-      }
-      return new Response(JSON.stringify({
-        id: 1,
-        email: null,
-        status: 'pending',
-      }), { status: 200 });
-    });
-    vi.stubGlobal('fetch', fetchMock);
+  it("shows the pending screen instead of dashboard content for pending users", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: 1,
+              email: "user@example.com",
+              status: "pending",
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
 
-    render(<InviteGate><div>Dashboard feed</div></InviteGate>);
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
 
-    const input = await screen.findByLabelText('Email');
-    fireEvent.change(input, { target: { value: 'User@Example.COM' } });
-    fireEvent.click(screen.getByRole('button', { name: /save email/i }));
+    expect(await screen.findByText("Pending approval")).toBeTruthy();
+    expect(screen.queryByText("Dashboard feed")).toBeNull();
+  });
+
+  it("shows a one-field email modal once and persists the email", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === "/api/auth/email" && init?.method === "PUT") {
+          return new Response(
+            JSON.stringify({ email: "user@example.com", status: "pending" }),
+            { status: 200 },
+          );
+        }
+        return new Response(
+          JSON.stringify({ id: 1, email: null, status: "pending" }),
+          { status: 200 },
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
+
+    const input = await screen.findByLabelText("Email");
+    fireEvent.change(input, { target: { value: "User@Example.COM" } });
+    fireEvent.click(screen.getByRole("button", { name: /save email/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/auth/email',
+        "/api/auth/email",
         expect.objectContaining({
-          method: 'PUT',
-          body: JSON.stringify({ email: 'user@example.com' }),
+          method: "PUT",
+          body: JSON.stringify({ email: "user@example.com" }),
         }),
       );
     });
     await waitFor(() => {
-      expect(screen.queryByLabelText('Email')).toBeNull();
+      expect(screen.queryByLabelText("Email")).toBeNull();
     });
-    expect(screen.getByText('Pending approval')).toBeTruthy();
+    expect(screen.getByText("Pending approval")).toBeTruthy();
+  });
+
+  it("shows retry state instead of redirecting on transient session check failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ detail: "oops" }), { status: 500 }),
+      ),
+    );
+
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
+
+    expect(await screen.findByText("Could not check access")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
+    expect(screen.queryByText("Dashboard feed")).toBeNull();
+    expect(navigationMock.replace).not.toHaveBeenCalled();
+  });
+
+  it("re-enables email submit and shows an alert when saving rejects", async () => {
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input) === "/api/auth/email" && init?.method === "PUT") {
+          throw new Error("network down");
+        }
+        return new Response(
+          JSON.stringify({ id: 1, email: null, status: "pending" }),
+          { status: 200 },
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
+
+    const input = await screen.findByLabelText("Email");
+    fireEvent.change(input, { target: { value: "user@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /save email/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save email. Please try again.",
+    );
+    expect(
+      screen.getByRole("button", { name: /save email/i }),
+    ).not.toBeDisabled();
+  });
+
+  it("marks the email modal as a dialog and focuses the email input on mount", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ id: 1, email: null, status: "pending" }),
+            { status: 200 },
+          ),
+      ),
+    );
+
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /email required/i,
+    });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByLabelText("Email")).toHaveFocus();
+  });
+
+  it("does not show the email modal for blocked users without an email", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ id: 1, email: null, status: "blocked" }),
+            { status: 200 },
+          ),
+      ),
+    );
+
+    render(
+      <InviteGate>
+        <div>Dashboard feed</div>
+      </InviteGate>,
+    );
+
+    expect(await screen.findByText("Access blocked")).toBeTruthy();
+    expect(
+      screen.queryByRole("dialog", { name: /email required/i }),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Email")).toBeNull();
   });
 
   it('does not redirect on transient session-check failure and shows retry', async () => {

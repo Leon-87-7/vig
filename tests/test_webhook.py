@@ -639,6 +639,47 @@ async def test_callback_reprocess_rejects_blocked_chat(temp_db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_invite_gate_skips_upsert_for_unchanged_approved_identity(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.upsert_user(tg_id=100, first_name="Ada", last_name="Lovelace", username="ada")
+    await db.set_user_status(100, "approved")
+    upsert = AsyncMock(wraps=db.upsert_user)
+    monkeypatch.setattr("src.telegram.webhook.database.upsert_user", upsert)
+
+    allowed = await webhook._invite_gate_allows(
+        100,
+        "https://youtu.be/dQw4w9WgXcQ",
+        {"first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    assert allowed is True
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_still_upserts_pending_identity(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.upsert_user(tg_id=100, first_name="Ada", last_name="Lovelace", username="ada")
+    await db.set_user_status(100, "pending")
+    upsert = AsyncMock(wraps=db.upsert_user)
+    monkeypatch.setattr("src.telegram.webhook.database.upsert_user", upsert)
+    monkeypatch.setattr("src.telegram.webhook.send_message", AsyncMock())
+
+    allowed = await webhook._invite_gate_allows(
+        100,
+        "",
+        {"first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    assert allowed is False
+    upsert.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_routing_awaiting_intent_plain_text_enqueues(
     temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
 ):
