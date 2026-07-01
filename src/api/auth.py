@@ -71,7 +71,14 @@ async def miniapp_session(payload: MiniAppSessionPayload, response: Response) ->
         path="/",
     )
     log.info("auth.miniapp_session", tg_id=user.get("id"), chat_id=chat_id)
-    return {"ok": True, "chat_id": chat_id, "google_connect_url": "/api/google/connect"}
+    return {
+        "ok": True,
+        "chat_id": chat_id,
+        # openLink hands off to the system browser, which has no access to this
+        # webview's session cookie — carry the session id so /connect can still
+        # authenticate (see SessionMiddleware._SESSION_QUERY_FALLBACK_PATHS).
+        "google_connect_url": f"/api/google/connect?session={session_id}",
+    }
 
 
 class EmailPayload(BaseModel):

@@ -177,6 +177,10 @@ def auth_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     async def probe(request: Request) -> dict:
         return {"user": request.state.user}
 
+    @test_app.get("/api/google/connect")
+    async def google_connect_probe(request: Request) -> dict:
+        return {"user": request.state.user}
+
     @test_app.get("/health")
     async def health() -> dict:
         return {"status": "ok"}
@@ -213,6 +217,34 @@ class TestSessionMiddleware:
         resp = auth_client.get("/api/probe", cookies={"vig_session": "fixed-session-id"})
         assert resp.status_code == 200, f"Unexpected: {resp.text}"
         assert resp.json()["user"]["id"] == 7
+
+    def test_google_connect_reachable_via_session_query_param(
+        self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """openLink hands off to the system browser, which has no cookie — the Mini App
+        appends the session id as a query param and this path must accept it as a fallback."""
+        import src.auth.session as session_module
+        from src import database
+
+        user = {"id": 9, "username": "mini_user"}
+        asyncio.run(database.set_user_status(9, "approved"))
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:mini-connect-sid"] = json.dumps(user)
+
+        resp = auth_client.get("/api/google/connect", params={"session": "mini-connect-sid"})
+        assert resp.status_code == 200, f"Unexpected: {resp.text}"
+        assert resp.json()["user"]["id"] == 9
+
+    def test_probe_endpoint_ignores_session_query_param(self, auth_client: TestClient) -> None:
+        """The query-param fallback is scoped to /api/google/connect only, not every route."""
+        import src.auth.session as session_module
+
+        user = {"id": 10, "username": "should_not_pass"}
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:leaked-sid"] = json.dumps(user)
+
+        resp = auth_client.get("/api/probe", params={"session": "leaked-sid"})
+        assert resp.status_code == 401
 
     def test_api_endpoint_403_with_pending_session(self, auth_client: TestClient) -> None:
         import src.auth.session as session_module
@@ -367,7 +399,7 @@ def test_miniapp_session_mints_same_shape_as_web_login(monkeypatch: pytest.Monke
     result = asyncio.run(auth_api.miniapp_session(payload, response))
 
     assert result["ok"] is True
-    assert result["google_connect_url"] == "/api/google/connect"
+    assert result["google_connect_url"] == "/api/google/connect?session=mini-session"
     assert upserted["tg_id"] == 4242
     assert stored_user == {
         "id": 4242,
