@@ -468,6 +468,7 @@ async def test_invite_callback_approve_flips_status_and_notifies_user(temp_db, m
     from src import database as db
     from src.telegram import webhook
 
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
     await db.set_user_email(100, "user@example.com")
     sent = AsyncMock()
     monkeypatch.setattr("src.telegram.webhook.send_message", sent)
@@ -484,6 +485,93 @@ async def test_invite_callback_approve_flips_status_and_notifies_user(temp_db, m
 
     assert await db.get_user_status(100) == "approved"
     sent.assert_awaited_once_with(100, "You're in, send a link.")
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_block_flips_status_and_notifies_user(temp_db, monkeypatch):
+    """Operator-chat block callback still works after the auth-gate change (mirrors approve test)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_block:100",
+            "message": {"message_id": 7, "chat": {"id": 999}},
+        }
+    )
+
+    assert await db.get_user_status(100) == "blocked"
+    sent.assert_awaited_once_with(100, "Access blocked.")
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_approve_rejects_non_operator_chat(temp_db, monkeypatch):
+    """A chat that isn't the operator must not be able to approve invites (blocker fix)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "pending")
+    set_status = AsyncMock(wraps=db.set_user_status)
+    monkeypatch.setattr("src.telegram.webhook.database.set_user_status", set_status)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_approve:100",
+            "message": {"message_id": 7, "chat": {"id": 111}},
+        }
+    )
+
+    set_status.assert_not_awaited()
+    sent.assert_not_awaited()
+    answered.assert_awaited_once_with("CB", text="Not authorized.")
+    assert await db.get_user_status(100) == "pending"
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_block_rejects_non_operator_chat(temp_db, monkeypatch):
+    """A chat that isn't the operator must not be able to block invites (blocker fix)."""
+    from src import database as db
+    from src.telegram import webhook
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    await db.set_user_email(100, "user@example.com")
+    await db.set_user_status(100, "pending")
+    set_status = AsyncMock(wraps=db.set_user_status)
+    monkeypatch.setattr("src.telegram.webhook.database.set_user_status", set_status)
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    answered = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_block:100",
+            "message": {"message_id": 7, "chat": {"id": 111}},
+        }
+    )
+
+    set_status.assert_not_awaited()
+    sent.assert_not_awaited()
+    answered.assert_awaited_once_with("CB", text="Not authorized.")
+    assert await db.get_user_status(100) == "pending"
 
 
 @pytest.mark.asyncio

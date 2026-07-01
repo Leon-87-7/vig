@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import html
 import ipaddress
@@ -364,30 +365,32 @@ async def _cb_document_md(ctx: CallbackCtx) -> None:
         await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n⚠️ Couldn't render Markdown — try again later.")
 
 
-async def _cb_invite_approve(ctx: CallbackCtx) -> None:
+async def _cb_invite_decision(
+    ctx: CallbackCtx, status: str, notify_message: str, log_action: str
+) -> None:
+    """Shared handler for the operator's ✅ Approve / 🚫 Block invite buttons."""
+    if ctx.chat_id != settings.OPERATOR_CHAT_ID:
+        log.warning("invite_decision.unauthorized", chat_id=ctx.chat_id, action=log_action)
+        await answer_callback_query(ctx.cq_id, text="Not authorized.")
+        return
     try:
         target_chat_id = int(ctx.job_id)
     except ValueError:
         await answer_callback_query(ctx.cq_id, text="Invalid invite action.")
         return
-    await database.set_user_status(target_chat_id, "approved")
-    await answer_callback_query(ctx.cq_id, text="Approved")
-    await send_message(target_chat_id, _INVITE_APPROVED_MESSAGE)
+    await database.set_user_status(target_chat_id, status)
+    await answer_callback_query(ctx.cq_id, text=log_action.capitalize())
+    await send_message(target_chat_id, notify_message)
     if ctx.message_id:
-        await edit_message_text(ctx.chat_id, ctx.message_id, "Invite approved.")
+        await edit_message_text(ctx.chat_id, ctx.message_id, f"Invite {log_action}.")
 
 
-async def _cb_invite_block(ctx: CallbackCtx) -> None:
-    try:
-        target_chat_id = int(ctx.job_id)
-    except ValueError:
-        await answer_callback_query(ctx.cq_id, text="Invalid invite action.")
-        return
-    await database.set_user_status(target_chat_id, "blocked")
-    await answer_callback_query(ctx.cq_id, text="Blocked")
-    await send_message(target_chat_id, _INVITE_BLOCKED_MESSAGE)
-    if ctx.message_id:
-        await edit_message_text(ctx.chat_id, ctx.message_id, "Invite blocked.")
+_cb_invite_approve = functools.partial(
+    _cb_invite_decision, status="approved", notify_message=_INVITE_APPROVED_MESSAGE, log_action="approved"
+)
+_cb_invite_block = functools.partial(
+    _cb_invite_decision, status="blocked", notify_message=_INVITE_BLOCKED_MESSAGE, log_action="blocked"
+)
 
 
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
