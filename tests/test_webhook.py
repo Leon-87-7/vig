@@ -94,6 +94,7 @@ async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("src.config.settings.DB_PATH", str(db_file))
     monkeypatch.setattr("src.database.settings.DB_PATH", str(db_file))
     await database.init_db()
+    await database.set_user_status(12345, "approved")
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(queue_module, "_redis", fake_redis)
@@ -362,7 +363,14 @@ async def test_callback_document_md_rejects_foreign_chat(temp_db, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-async def _post_webhook(text: str, chat_id: int = 100, secret: str = "S"):
+async def _post_webhook(
+    text: str,
+    chat_id: int = 100,
+    secret: str = "S",
+    *,
+    approved: bool = True,
+    from_user: dict | None = None,
+):
     """Helper that invokes the webhook handler with a text message."""
 
     class _Req:
@@ -373,8 +381,17 @@ async def _post_webhook(text: str, chat_id: int = 100, secret: str = "S"):
             return self._body
 
     from src.telegram.webhook import webhook
+    if approved:
+        await database.set_user_status(chat_id, "approved")
 
-    body = {"message": {"chat": {"id": chat_id}, "text": text, "message_id": 1}}
+    body = {
+        "message": {
+            "chat": {"id": chat_id},
+            "from": from_user or {"id": chat_id, "first_name": "Test", "username": "tester"},
+            "text": text,
+            "message_id": 1,
+        }
+    }
     return await webhook(_Req(body), x_telegram_bot_api_secret_token=secret)
 
 
@@ -388,6 +405,85 @@ def _patch_redis(monkeypatch):
     fake = FakeRedis()
     monkeypatch.setattr(queue_module, "_redis", fake)
     return fake
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_prompts_for_email_and_drops_first_url(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    enq = AsyncMock()
+    sent = AsyncMock()
+    monkeypatch.setattr("src.queue.enqueue", enq)
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+
+    await _post_webhook("https://youtu.be/dQw4w9WgXcQ", approved=False)
+
+    enq.assert_not_awaited()
+    assert await db.get_recent_jobs(100, 5) == []
+    state = await db.get_chat_state(100)
+    assert state is not None
+    assert state["mode"] == "awaiting_email"
+    assert "what's your email" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_invite_gate_captures_email_notifies_operator_and_keeps_pending(
+    temp_db, _patch_webhook_secret, _patch_redis, monkeypatch
+):
+    from src import database as db
+
+    monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", 999)
+    monkeypatch.setattr("src.database.settings.OPERATOR_CHAT_ID", 999)
+    sent = AsyncMock()
+    keyboard = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.send_inline_keyboard", keyboard)
+
+    await _post_webhook("hello", approved=False)
+    await _post_webhook(
+        "User@Example.COM",
+        approved=False,
+        from_user={"id": 100, "first_name": "Ada", "last_name": "Lovelace", "username": "ada"},
+    )
+
+    user = await db.get_user(100)
+    assert user is not None
+    assert user["email"] == "user@example.com"
+    assert user["status"] == "pending"
+    keyboard.assert_awaited_once()
+    args, kwargs = keyboard.await_args
+    assert args[0] == 999
+    assert "Ada Lovelace" in args[1]
+    assert "user@example.com" in args[1]
+    buttons = kwargs["buttons"]
+    assert buttons[0][0]["callback_data"] == "invite_approve:100"
+    assert buttons[0][1]["callback_data"] == "invite_block:100"
+    assert "still waiting on Leon" in sent.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_invite_callback_approve_flips_status_and_notifies_user(temp_db, monkeypatch):
+    from src import database as db
+    from src.telegram import webhook
+
+    await db.set_user_email(100, "user@example.com")
+    sent = AsyncMock()
+    monkeypatch.setattr("src.telegram.webhook.send_message", sent)
+    monkeypatch.setattr("src.telegram.webhook.answer_callback_query", AsyncMock())
+    monkeypatch.setattr("src.telegram.webhook.edit_message_text", AsyncMock())
+
+    await webhook._handle_callback(
+        {
+            "id": "CB",
+            "data": "invite_approve:100",
+            "message": {"message_id": 7, "chat": {"id": 999}},
+        }
+    )
+
+    assert await db.get_user_status(100) == "approved"
+    sent.assert_awaited_once_with(100, "You're in, send a link.")
 
 
 @pytest.mark.asyncio

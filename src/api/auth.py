@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -28,6 +30,18 @@ class TelegramPayload(BaseModel):
     photo_url: str | None = None
     auth_date: int
     hash: str
+
+
+class EmailPayload(BaseModel):
+    email: str
+
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _normalize_email(email: str) -> str | None:
+    normalized = email.strip().lower()
+    return normalized if _EMAIL_RE.fullmatch(normalized) else None
 
 
 @auth_router.post("/telegram")
@@ -84,4 +98,23 @@ async def logout(request: Request) -> RedirectResponse:
 
 @auth_router.get("/me")
 async def me(request: Request) -> dict:
-    return request.state.user
+    session_user = request.state.user
+    tg_id = int(session_user["id"])
+    db_user = await database.get_user(tg_id)
+    status = await database.get_user_status(tg_id)
+    return {
+        **session_user,
+        "email": db_user.get("email") if db_user else None,
+        "status": status,
+    }
+
+
+@auth_router.put("/email")
+async def set_email(payload: EmailPayload, request: Request) -> dict:
+    email = _normalize_email(payload.email)
+    if email is None:
+        raise HTTPException(status_code=422, detail="Invalid email")
+    tg_id = int(request.state.user["id"])
+    await database.set_user_email(tg_id, email)
+    status = await database.get_user_status(tg_id)
+    return {"email": email, "status": status}

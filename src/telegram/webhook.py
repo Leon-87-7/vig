@@ -43,6 +43,12 @@ router = APIRouter()
 
 _BATCH_TASKS: dict[str, asyncio.Task] = {}
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_INVITE_EMAIL_PROMPT = "VIG is invite-only — what's your email so Leon can approve you?"
+_INVITE_WAITING_MESSAGE = "still waiting on Leon."
+_INVITE_APPROVED_MESSAGE = "You're in, send a link."
+_INVITE_BLOCKED_MESSAGE = "Access blocked."
+
 
 @dataclass
 class CallbackCtx:
@@ -358,6 +364,32 @@ async def _cb_document_md(ctx: CallbackCtx) -> None:
         await send_message(ctx.chat_id, f"{job_tag(ctx.job_id)}\n⚠️ Couldn't render Markdown — try again later.")
 
 
+async def _cb_invite_approve(ctx: CallbackCtx) -> None:
+    try:
+        target_chat_id = int(ctx.job_id)
+    except ValueError:
+        await answer_callback_query(ctx.cq_id, text="Invalid invite action.")
+        return
+    await database.set_user_status(target_chat_id, "approved")
+    await answer_callback_query(ctx.cq_id, text="Approved")
+    await send_message(target_chat_id, _INVITE_APPROVED_MESSAGE)
+    if ctx.message_id:
+        await edit_message_text(ctx.chat_id, ctx.message_id, "Invite approved.")
+
+
+async def _cb_invite_block(ctx: CallbackCtx) -> None:
+    try:
+        target_chat_id = int(ctx.job_id)
+    except ValueError:
+        await answer_callback_query(ctx.cq_id, text="Invalid invite action.")
+        return
+    await database.set_user_status(target_chat_id, "blocked")
+    await answer_callback_query(ctx.cq_id, text="Blocked")
+    await send_message(target_chat_id, _INVITE_BLOCKED_MESSAGE)
+    if ctx.message_id:
+        await edit_message_text(ctx.chat_id, ctx.message_id, "Invite blocked.")
+
+
 _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "gemini_no":          _cb_gemini_no,
     "gemini_yes":         _cb_gemini_yes,
@@ -373,6 +405,8 @@ _CALLBACK_TABLE: dict[str, Callable[[CallbackCtx], Awaitable[None]]] = {
     "reprocess":          _cb_reprocess,
     "show_done":          _cb_show_done,
     "document_md":        _cb_document_md,
+    "invite_approve":     _cb_invite_approve,
+    "invite_block":       _cb_invite_block,
 }
 
 
@@ -1063,6 +1097,90 @@ def _resolve_chat_state(state: dict) -> bool:
     return bool(expires_at and expires_at > _dt.now(_tz.utc))
 
 
+def _telegram_identity(message: dict, chat: dict) -> dict[str, str | None]:
+    sender = message.get("from") or {}
+    return {
+        "first_name": sender.get("first_name") or chat.get("first_name") or "",
+        "last_name": sender.get("last_name") or chat.get("last_name"),
+        "username": sender.get("username") or chat.get("username"),
+    }
+
+
+def _normalize_email(text: str) -> str | None:
+    email = text.strip().lower()
+    return email if _EMAIL_RE.fullmatch(email) else None
+
+
+async def _remember_invite_identity(chat_id: int, identity: dict[str, str | None] | None) -> None:
+    if identity is None:
+        return
+    await database.upsert_user(
+        tg_id=chat_id,
+        first_name=identity.get("first_name") or "",
+        last_name=identity.get("last_name"),
+        username=identity.get("username"),
+    )
+
+
+async def _notify_operator_invite(chat_id: int, email: str) -> None:
+    operator_chat_id = settings.OPERATOR_CHAT_ID
+    if operator_chat_id is None:
+        return
+    user = await database.get_user(chat_id) or {}
+    first = (user.get("first_name") or "").strip()
+    last = (user.get("last_name") or "").strip()
+    name = " ".join(part for part in (first, last) if part).strip() or str(chat_id)
+    username = (user.get("username") or "unknown").lstrip("@")
+    await send_inline_keyboard(
+        operator_chat_id,
+        f"👤 {name} · {email} · @{username}",
+        buttons=[[
+            {"text": "✅ Approve", "callback_data": f"invite_approve:{chat_id}"},
+            {"text": "🚫 Block", "callback_data": f"invite_block:{chat_id}"},
+        ]],
+    )
+
+
+async def _invite_gate_allows(
+    chat_id: int,
+    text: str,
+    identity: dict[str, str | None] | None,
+) -> bool:
+    await _remember_invite_identity(chat_id, identity)
+    status = await database.get_user_status(chat_id)
+    if status == "approved":
+        return True
+    if status == "blocked":
+        await send_message(chat_id, _INVITE_BLOCKED_MESSAGE)
+        return False
+
+    user = await database.get_user(chat_id)
+    state = await database.get_chat_state(chat_id)
+    if state and state.get("mode") == "awaiting_email" and _resolve_chat_state(state):
+        email = _normalize_email(text)
+        if email is None:
+            await send_message(chat_id, "Please send a valid email address.")
+            return False
+        await database.set_user_email(chat_id, email)
+        await database.clear_chat_state(chat_id)
+        await _notify_operator_invite(chat_id, email)
+        await send_message(chat_id, _INVITE_WAITING_MESSAGE)
+        return False
+
+    if not user or not user.get("email"):
+        await database.set_chat_state(
+            chat_id=chat_id,
+            mode="awaiting_email",
+            job_id=f"invite:{chat_id}",
+            expires_minutes=60 * 24 * 30,
+        )
+        await send_message(chat_id, _INVITE_EMAIL_PROMPT)
+        return False
+
+    await send_message(chat_id, _INVITE_WAITING_MESSAGE)
+    return False
+
+
 async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: int) -> bool:
     if not re.match(r"^-[a-zA-Z0-9][a-zA-Z0-9_-]*$", text.split()[0]):
         return False
@@ -1320,12 +1438,15 @@ async def webhook(
     chat_id = chat.get("id")
     text = (message.get("text") or "").strip()
     message_id = message.get("message_id")
+    identity = _telegram_identity(message, chat)
 
     log.info("webhook_received", chat_id=chat_id, message_id=message_id, text_len=len(text))
 
     # Photo path
     photo = message.get("photo")
     if photo and chat_id:
+        if not await _invite_gate_allows(chat_id, "", identity):
+            return {"ok": True}
         await _handle_photo_update(chat_id, message, photo)
         return {"ok": True}
 
@@ -1333,6 +1454,8 @@ async def webhook(
     # run before the text guard below.
     document = message.get("document")
     if document and chat_id:
+        if not await _invite_gate_allows(chat_id, "", identity):
+            return {"ok": True}
         await _handle_document_update(chat_id, message, document)
         return {"ok": True}
 
@@ -1340,7 +1463,7 @@ async def webhook(
         return {"ok": True}
 
     try:
-        await _route_text(chat_id, text, message_id)
+        await _route_text(chat_id, text, message_id, identity)
     except Exception:
         log.exception("webhook_handler_error", chat_id=chat_id)
         try:
@@ -1409,7 +1532,15 @@ async def _handle_photo_update(chat_id: int, message: dict, photo: list) -> None
         asyncio.create_task(_handle_single_photo(chat_id, file_id, caption))
 
 
-async def _route_text(chat_id: int, text: str, message_id: int | None) -> None:
+async def _route_text(
+    chat_id: int,
+    text: str,
+    message_id: int | None,
+    identity: dict[str, str | None] | None = None,
+) -> None:
+    if not await _invite_gate_allows(chat_id, text, identity):
+        return
+
     # 1. Slash command path
     if text.startswith("/"):
         await _dispatch_slash(chat_id, text, message_id)

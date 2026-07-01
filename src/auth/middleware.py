@@ -6,13 +6,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from src import database
 from src.auth import session as session_store
 
 COOKIE_NAME = "vig_session"
 
 # Paths that bypass the session gate entirely
 _OPEN_PATHS = frozenset(["/webhook", "/health"])
-# /api/auth/telegram is the login endpoint — must be reachable without a session
+# /api/auth/telegram is the login endpoint — must be reachable without a session.
 _OPEN_API_PATHS = frozenset(["/api/auth/telegram"])
 
 
@@ -35,4 +36,11 @@ class SessionMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Invalid or expired session"}, status_code=401)
 
         request.state.user = user
+        if path.startswith("/api/auth/"):
+            return await call_next(request)
+
+        status = await database.get_user_status(int(user["id"]))
+        if status != "approved":
+            return JSONResponse({"detail": "Approval required"}, status_code=403)
+
         return await call_next(request)

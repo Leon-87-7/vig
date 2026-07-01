@@ -7,6 +7,7 @@ Covers the two PRD seams for S1 (issue #84):
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
@@ -162,8 +163,11 @@ def auth_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(session_module, "_redis", fr)
 
     # Build app fresh (avoid touching the global app in src.main)
+    from src import database
     from src.auth.middleware import SessionMiddleware
     from src.api.auth import auth_router
+
+    asyncio.run(database.init_db())
 
     test_app = FastAPI()
     test_app.add_middleware(SessionMiddleware)
@@ -198,15 +202,27 @@ class TestSessionMiddleware:
         self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import src.auth.session as session_module
+        from src import database
 
         # Inject a known session directly into the fake store
         user = {"id": 7, "username": "leon"}
+        asyncio.run(database.set_user_status(7, "approved"))
         fr: FakeRedis = session_module._redis  # type: ignore[assignment]
         fr._store["session:fixed-session-id"] = json.dumps(user)
 
         resp = auth_client.get("/api/probe", cookies={"vig_session": "fixed-session-id"})
         assert resp.status_code == 200, f"Unexpected: {resp.text}"
         assert resp.json()["user"]["id"] == 7
+
+    def test_api_endpoint_403_with_pending_session(self, auth_client: TestClient) -> None:
+        import src.auth.session as session_module
+
+        user = {"id": 8, "username": "pending_user"}
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:pending-session-id"] = json.dumps(user)
+
+        resp = auth_client.get("/api/probe", cookies={"vig_session": "pending-session-id"})
+        assert resp.status_code == 403
 
     def test_health_passes_without_cookie(self, auth_client: TestClient) -> None:
         resp = auth_client.get("/health")
@@ -260,3 +276,24 @@ class TestAuthRouter:
         resp = auth_client.get("/api/auth/me")
         assert resp.status_code == 200
         assert resp.json()["username"] == "me_user"
+        assert resp.json()["status"] == "pending"
+
+    def test_set_email_persists_for_current_user(self, auth_client: TestClient) -> None:
+        import src.auth.session as session_module
+        from src import database
+
+        user = {"id": 101, "username": "email_user"}
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:email-sid"] = json.dumps(user)
+
+        resp = auth_client.put(
+            "/api/auth/email",
+            cookies={"vig_session": "email-sid"},
+            json={"email": "User@Example.COM"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["email"] == "user@example.com"
+        db_user = asyncio.run(database.get_user(101))
+        assert db_user is not None
+        assert db_user["email"] == "user@example.com"

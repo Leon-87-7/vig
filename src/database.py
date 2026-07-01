@@ -1697,6 +1697,19 @@ async def get_user_status(tg_id: int) -> UserStatus:
     return _validate_user_status(str(row["status"]))
 
 
+async def get_user(tg_id: int) -> dict | None:
+    """Return a dashboard/invite user row keyed by Telegram id."""
+    row = await _fetch_one(
+        """
+        SELECT tg_id, username, first_name, last_name, photo_url, email, status, created_at, updated_at
+        FROM users
+        WHERE tg_id = ?
+        """,
+        (tg_id,),
+    )
+    return dict(row) if row else None
+
+
 async def set_user_status(tg_id: int, status: UserStatus) -> None:
     """Set a user's invite-gate status, creating a minimal row if needed."""
     status = _validate_user_status(status)
