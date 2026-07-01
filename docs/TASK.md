@@ -367,3 +367,75 @@ the change without edits. `DESIGN.md` also pins a derived signal ramp:
 - Does `#FFBE0B` collide with the **pending-yellow** status hue? The Signal Rule
   forbids signal and pending-yellow trading places — a yellower signal narrows
   that gap.
+
+## 13. Generated markdown output cards on job detail
+
+The normal job detail page (`web/app/(dashboard)/jobs/[id]/page.tsx`) renders
+`JobHeader`, `JobActionsBar`, then one `FieldCard` per DB field from
+`useJobDetail()` (`web/lib/hooks/useJobDetail.ts`). The Doc Parser detail page
+already has the desired card shape: `OutputCard` in
+`web/app/(dashboard)/doc-parser/[id]/page.tsx`, backed by
+`GET /api/parsed/{job_id}/outputs` in `src/api/parsed.py`, which reads
+`document_outputs` via `database.list_document_outputs()` and returns
+`preview` + `content_url` for copy/download/open actions. The older short,
+long, article, and repo pipelines do generate `.md` artifacts, but they are not
+all persisted through that same output index: short writes `{job_id}_short.md`
+and `{job_id}_transcript.md` through `src/processors/short_video.py`, long
+writes transcript markdown through `src/processors/long_video.py`, article
+sends Jina markdown from `src/processors/article.py`, and repo sends
+`render_repo_markdown()` from `src/processors/repo.py`.
+
+**Wanted:** on the standard `/jobs/{id}` detail page, show the generated
+markdown output file(s) at the top as output cards matching the Doc Parser
+detail-page cards, before the existing field cards.
+
+**Backend / API / Data**
+
+- Add a tenant-guarded read path for non-document job outputs (for example
+  `GET /api/jobs/{job_id}/outputs` in `src/api/jobs.py`) that reuses
+  `get_owned_job()` and returns the same shape the doc-parser cards consume:
+  `id`, `kind`, `title`, `preview`, `content_url`, and `created_at`.
+- **Reuse, don't fork:** either generalize the `document_outputs` table/helpers
+  (`database.add_document_output()` / `database.list_document_outputs()`) into a
+  job-output store, or create a thin shared output-card API contract that both
+  `/api/parsed/{id}/outputs` and `/api/jobs/{id}/outputs` implement.
+- Register the markdown artifacts where they are created: short analysis and
+  transcript markdown in `src/processors/short_video.py`, long transcript
+  markdown in `src/processors/long_video.py`, article source markdown in
+  `src/processors/article.py`, and repo analysis markdown in
+  `src/processors/repo.py`.
+- Account for the current storage split: Doc Parser uses GCS (`src/services/storage.py`);
+  short/long use Drive (`src/services/drive.py`); article uses
+  `markdown_cache`; repo currently renders and sends the markdown without an
+  indexed persisted blob. The briefed implementation needs one canonical
+  source of truth for card preview/open/copy/download.
+
+**UI**
+
+- Extract or reuse the Doc Parser `OutputCard` component from
+  `web/app/(dashboard)/doc-parser/[id]/page.tsx` so the standard job detail page
+  and Doc Parser detail page share the same visual and interaction pattern.
+- In `web/app/(dashboard)/jobs/[id]/page.tsx`, fetch the job outputs alongside
+  `useJobDetail()` and render them above the existing `FieldCard` list; keep
+  `JobHeader` first, then output cards, then structured field cards.
+- Follow DESIGN.md tokens: surface cards on `bg-surface` with `border-line`,
+  mono preview text on `bg-canvas`, signal orange only for actionable affordances
+  or active/focus state, and preserve WCAG-AA focus/keyboard behavior for
+  copy/download/open controls.
+
+**Open questions** (resolve in grill)
+
+- Is v1 meant to show only the **primary generated `.md` output** per job, or
+  every generated markdown artifact (for short: analysis plus transcript; for
+  long: transcript plus any later enrichment/spec outputs)?
+- Should non-document outputs be persisted in GCS alongside Doc Parser outputs,
+  indexed in a generalized `job_outputs` table, or synthesized from existing
+  Drive URLs / DB fields where possible?
+- For article jobs, should the output card represent the raw Jina markdown
+  currently sent as the `.md` document, the Gemini enrichment result, or both?
+- For repo jobs, should `render_repo_markdown()` be stored for dashboard access
+  before sending to Telegram, since today the rendered document is not indexed
+  like Doc Parser outputs?
+- Should the existing Doc Parser `/api/parsed/{id}/outputs` remain document-only
+  and parallel the new `/api/jobs/{id}/outputs`, or should all detail pages move
+  to one shared outputs endpoint?
