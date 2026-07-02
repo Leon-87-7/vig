@@ -127,13 +127,23 @@ export default function DocDetail() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [j, o] = await Promise.all([
-        fetch(`/api/jobs/${id}`).then((r) => r.json()),
-        fetch(`/api/parsed/${id}/outputs`).then((r) => r.json()),
-      ]);
-      if (cancelled) return;
-      setJob(j);
-      setOuts(o);
+      try {
+        const [j, o] = await Promise.all([
+          fetch(`/api/jobs/${id}`).then((r) => {
+            if (!r.ok) throw new Error(`jobs fetch failed: ${r.status}`);
+            return r.json();
+          }),
+          fetch(`/api/parsed/${id}/outputs`).then((r) => {
+            if (!r.ok) throw new Error(`outputs fetch failed: ${r.status}`);
+            return r.json();
+          }),
+        ]);
+        if (cancelled) return;
+        setJob(j);
+        setOuts(o);
+      } catch {
+        if (!cancelled) setErr('Failed to load document. Please refresh.');
+      }
     }
     load();
     return () => {
@@ -166,7 +176,10 @@ export default function DocDetail() {
     await runAction(() => fetch(`/api/parsed/${id}/freestyle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) }));
   }
 
-  if (!job) return null;
+  if (!job) {
+    if (err) return <p className="text-sm text-status-error" role="alert">{err}</p>;
+    return null;
+  }
 
   // "Get Markdown" serves the raw parse artifact, not the JSON outputs index.
   const rawParse = outs.find((o) => o.kind === 'raw_txt');
