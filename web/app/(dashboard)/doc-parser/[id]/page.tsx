@@ -126,6 +126,7 @@ export default function DocDetail() {
 
   useEffect(() => {
     let cancelled = false;
+    setErr('');
     async function load() {
       try {
         const [j, o] = await Promise.all([
