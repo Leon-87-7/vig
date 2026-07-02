@@ -1,5 +1,11 @@
+import json
+import sqlite3
+
+from cryptography.fernet import InvalidToken
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from src.utils.google_token_crypto import google_token_fernet
 
 
 class Settings(BaseSettings):
@@ -38,6 +44,8 @@ class Settings(BaseSettings):
     GOOGLE_OAUTH_CLIENT_ID: str = ""
     GOOGLE_OAUTH_CLIENT_SECRET: str = ""
     GOOGLE_OAUTH_REFRESH_TOKEN: str = ""
+    GOOGLE_OAUTH_REDIRECT_URI: str = ""
+    GOOGLE_TOKEN_ENCRYPTION_KEY: str = ""
     GOOGLE_DRIVE_FOLDER_SHORT: str = ""
     GOOGLE_DRIVE_FOLDER_LONG: str = ""
     # Single consolidated workbook holding all per-domain tabs (ADR-0013).
@@ -63,6 +71,7 @@ class Settings(BaseSettings):
 
     # Web dashboard (issue #84)
     SESSION_COOKIE_SECURE: bool = True  # set False only for local HTTP dev
+    MINI_APP_URL: str = ""
 
     # Slices #6/#7 — Mini-PRD
     GOOGLE_DRIVE_FOLDER_PRD: str = ""
@@ -77,12 +86,33 @@ class Settings(BaseSettings):
     # (single-operator backward compat).
     OPERATOR_CHAT_ID: int | None = None
 
+    def _google_token_readable(self, encrypted_token: str) -> bool:
+        try:
+            payload = (
+                google_token_fernet(self.GOOGLE_TOKEN_ENCRYPTION_KEY)
+                .decrypt(encrypted_token.encode())
+                .decode()
+            )
+            json.loads(payload)
+            return True
+        except (RuntimeError, InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
+            return False
+
     def export_blocked(self, chat_id: int | None) -> bool:
         """True when *chat_id* must NOT write to the operator's shared Drive/Sheets.
 
         Blocks only an explicit non-operator chat. A None chat_id (system/operator
         aggregate calls like brain rebuild) and an unset OPERATOR_CHAT_ID both pass.
         """
+        if chat_id is not None:
+            try:
+                with sqlite3.connect(self.DB_PATH) as conn:
+                    cur = conn.execute("SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
+                    row = cur.fetchone()
+                    if row is not None and self._google_token_readable(str(row[0])):
+                        return False
+            except sqlite3.Error:
+                return False if self.OPERATOR_CHAT_ID is None else chat_id != self.OPERATOR_CHAT_ID
         return (
             self.OPERATOR_CHAT_ID is not None
             and chat_id is not None

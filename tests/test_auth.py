@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.testclient import TestClient
 import hmac
 import json
@@ -109,6 +109,9 @@ class FakeRedis:
     async def delete(self, *keys: str) -> int:
         return sum(1 for k in keys if self._store.pop(k, None) is not None)
 
+    async def getdel(self, key: str) -> str | None:
+        return self._store.pop(key, None)
+
     async def close(self) -> None:
         pass
 
@@ -141,6 +144,18 @@ class TestSessionStore:
         from src.auth import session
 
         assert await session.resolve("no-such-session") is None
+
+    async def test_handoff_redeems_once_then_returns_none(self, fake_redis: FakeRedis) -> None:
+        from src.auth import session
+
+        token = await session.mint_handoff("real-session-id")
+        assert await session.redeem_handoff(token) == "real-session-id"
+        assert await session.redeem_handoff(token) is None
+
+    async def test_redeem_unknown_handoff_returns_none(self, fake_redis: FakeRedis) -> None:
+        from src.auth import session
+
+        assert await session.redeem_handoff("no-such-token") is None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +190,10 @@ def auth_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     @test_app.get("/api/probe")
     async def probe(request: Request) -> dict:
+        return {"user": request.state.user}
+
+    @test_app.get("/api/google/connect")
+    async def google_connect_probe(request: Request) -> dict:
         return {"user": request.state.user}
 
     @test_app.get("/health")
@@ -213,6 +232,61 @@ class TestSessionMiddleware:
         resp = auth_client.get("/api/probe", cookies={"vig_session": "fixed-session-id"})
         assert resp.status_code == 200, f"Unexpected: {resp.text}"
         assert resp.json()["user"]["id"] == 7
+
+    def test_google_connect_reachable_via_handoff_token(
+        self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """openLink hands off to the system browser, which has no cookie — the Mini App
+        appends a single-use handoff token (not the session id) and this path must
+        redeem it as a fallback."""
+        import src.auth.session as session_module
+        from src import database
+
+        user = {"id": 9, "username": "mini_user"}
+        asyncio.run(database.set_user_status(9, "approved"))
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:mini-connect-sid"] = json.dumps(user)
+        fr._store["connect_handoff:handoff-tok"] = "mini-connect-sid"
+
+        resp = auth_client.get("/api/google/connect", params={"token": "handoff-tok"})
+        assert resp.status_code == 200, f"Unexpected: {resp.text}"
+        assert resp.json()["user"]["id"] == 9
+        # Single-use: the token must be gone after redemption.
+        assert "connect_handoff:handoff-tok" not in fr._store
+
+    def test_google_connect_falls_back_to_token_with_stale_cookie(
+        self, auth_client: TestClient
+    ) -> None:
+        """A stale/expired same-origin cookie in the system browser must not shadow a
+        valid handoff token — the fallback must still run when cookie resolution fails."""
+        import src.auth.session as session_module
+        from src import database
+
+        user = {"id": 11, "username": "mini_user_2"}
+        asyncio.run(database.set_user_status(11, "approved"))
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:mini-connect-sid-2"] = json.dumps(user)
+        fr._store["connect_handoff:handoff-tok-2"] = "mini-connect-sid-2"
+
+        resp = auth_client.get(
+            "/api/google/connect",
+            params={"token": "handoff-tok-2"},
+            cookies={"vig_session": "stale-or-expired-cookie"},
+        )
+        assert resp.status_code == 200, f"Unexpected: {resp.text}"
+        assert resp.json()["user"]["id"] == 11
+
+    def test_probe_endpoint_ignores_handoff_token(self, auth_client: TestClient) -> None:
+        """The handoff-token fallback is scoped to /api/google/connect only, not every route."""
+        import src.auth.session as session_module
+
+        user = {"id": 10, "username": "should_not_pass"}
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:leaked-sid"] = json.dumps(user)
+        fr._store["connect_handoff:leaked-tok"] = "leaked-sid"
+
+        resp = auth_client.get("/api/probe", params={"token": "leaked-tok"})
+        assert resp.status_code == 401
 
     def test_api_endpoint_403_with_pending_session(self, auth_client: TestClient) -> None:
         import src.auth.session as session_module
@@ -297,3 +371,89 @@ class TestAuthRouter:
         db_user = asyncio.run(database.get_user(101))
         assert db_user is not None
         assert db_user["email"] == "user@example.com"
+
+
+# ---------------------------------------------------------------------------
+# Telegram Mini App initData
+# ---------------------------------------------------------------------------
+
+
+def _sign_miniapp(data: dict[str, str], bot_token: str) -> str:
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
+    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    return hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+
+
+def _make_init_data(bot_token: str, *, auth_date: int = 1_700_000_000, user_id: int = 4242, chat_id: int | None = None) -> str:
+    from urllib.parse import urlencode
+
+    data = {
+        "auth_date": str(auth_date),
+        "query_id": "AAH-test",
+        "user": json.dumps({"id": user_id, "first_name": "Mini", "username": "mini_user"}, separators=(",", ":")),
+    }
+    if chat_id is not None:
+        data["chat"] = json.dumps({"id": chat_id, "type": "private"}, separators=(",", ":"))
+    data["hash"] = _sign_miniapp(data, bot_token)
+    return urlencode(data)
+
+
+def test_verify_miniapp_init_data_accepts_fresh_signed_payload() -> None:
+    from src.auth.telegram_miniapp import trusted_chat_id, verify_init_data
+
+    init_data = _make_init_data(TOKEN, auth_date=1_700_000_000, chat_id=7777)
+    verified = verify_init_data(init_data, TOKEN, now=1_700_000_030)
+
+    assert verified is not None
+    assert verified["user"]["id"] == 4242
+    assert trusted_chat_id(verified) == 4242
+
+
+def test_verify_miniapp_init_data_rejects_tampering_and_stale_payloads() -> None:
+    from src.auth.telegram_miniapp import verify_init_data
+
+    init_data = _make_init_data(TOKEN, auth_date=1_700_000_000)
+    assert verify_init_data(init_data.replace("mini_user", "attacker"), TOKEN, now=1_700_000_030) is None
+    assert verify_init_data(init_data, TOKEN, now=1_700_004_000) is None
+
+
+def test_miniapp_session_mints_same_shape_as_web_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.api import auth as auth_api
+
+    stored_user: dict[str, object] = {}
+    upserted: dict[str, object] = {}
+
+    async def fake_mint(user: dict) -> str:
+        stored_user.update(user)
+        return "mini-session"
+
+    async def fake_mint_handoff(session_id: str) -> str:
+        assert session_id == "mini-session"
+        return "mini-handoff-token"
+
+    async def fake_upsert_user(**kwargs: object) -> None:
+        upserted.update(kwargs)
+
+    monkeypatch.setattr(auth_api.session_store, "mint", fake_mint)
+    monkeypatch.setattr(auth_api.session_store, "mint_handoff", fake_mint_handoff)
+    monkeypatch.setattr(auth_api.database, "upsert_user", fake_upsert_user)
+    monkeypatch.setattr(auth_api.settings, "TELEGRAM_BOT_TOKEN", TOKEN)
+    monkeypatch.setattr(auth_api.settings, "SESSION_COOKIE_SECURE", False)
+
+    response = Response()
+    payload = auth_api.MiniAppSessionPayload(init_data=_make_init_data(TOKEN, auth_date=int(time.time()), chat_id=-7777))
+    import asyncio
+    result = asyncio.run(auth_api.miniapp_session(payload, response))
+
+    assert result["ok"] is True
+    assert result["google_connect_url"] == "/api/google/connect?token=mini-handoff-token"
+    assert upserted["tg_id"] == 4242
+    assert stored_user == {
+        "id": 4242,
+        "first_name": "Mini",
+        "username": "mini_user",
+        "photo_url": None,
+        "source": "telegram_mini_app",
+    }
+    assert "vig_session=mini-session" in response.headers["set-cookie"]
+    assert "secure" in response.headers["set-cookie"].lower()

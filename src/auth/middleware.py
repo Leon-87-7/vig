@@ -1,4 +1,4 @@
-"""Session middleware — gates /api/* routes; exempts /webhook, /health, /api/auth/telegram."""
+"""Session middleware — gates /api/* routes; exempts /webhook, /health, login, Mini App bootstrap, and Google callback."""
 
 from __future__ import annotations
 
@@ -13,13 +13,21 @@ COOKIE_NAME = "vig_session"
 
 # Paths that bypass the session gate entirely
 _OPEN_PATHS = frozenset(["/webhook", "/health"])
-# /api/auth/telegram is the login endpoint — must be reachable without a session.
-_OPEN_API_PATHS = frozenset(["/api/auth/telegram"])
+
+# /api/auth/telegram is the login endpoint — must be reachable without a session
+_OPEN_API_PATHS = frozenset(["/api/auth/telegram", "/api/auth/miniapp/session", "/api/google/callback"])
+
 _PRE_APPROVAL_AUTH_PATHS = frozenset([
     "/api/auth/me",
     "/api/auth/email",
     "/api/auth/logout",
 ])
+
+# Mini App "Connect Google" opens this path via Telegram's openLink, which hands off
+# to the system browser — a separate cookie jar with no access to the webview session.
+# The Mini App page appends a single-use handoff token (not the session id itself) as
+# a query param so this one path can authenticate without the cookie.
+_HANDOFF_TOKEN_PATHS = frozenset(["/api/google/connect"])
 
 
 class SessionMiddleware(BaseHTTPMiddleware):
@@ -33,12 +41,17 @@ class SessionMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         session_id = request.cookies.get(COOKIE_NAME)
-        if not session_id:
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-
-        user = await session_store.resolve(session_id)
+        user = await session_store.resolve(session_id) if session_id else None
+        # A stale/expired same-origin cookie must not block the handoff-token
+        # fallback — fall back to it whenever cookie resolution didn't yield a user.
+        if user is None and path in _HANDOFF_TOKEN_PATHS:
+            token = request.query_params.get("token")
+            if token:
+                handoff_session_id = await session_store.redeem_handoff(token)
+                if handoff_session_id:
+                    user = await session_store.resolve(handoff_session_id)
         if user is None:
-            return JSONResponse({"detail": "Invalid or expired session"}, status_code=401)
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
         request.state.user = user
         # Only these auth routes are intentionally reachable before approval.

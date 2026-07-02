@@ -152,6 +152,22 @@ CREATE TABLE IF NOT EXISTS user_settings (
     PRIMARY KEY (chat_id, key)
 );
 
+CREATE TABLE IF NOT EXISTS google_oauth_tokens (
+    chat_id             INTEGER PRIMARY KEY,
+    encrypted_token     TEXT NOT NULL,
+    scopes              TEXT NOT NULL DEFAULT '',
+    revoked_notified_at TEXT,
+    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS google_oauth_states (
+    state      TEXT PRIMARY KEY,
+    chat_id    INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Second Brain semantic link graph (src/brain.py data-access layer).
 CREATE TABLE IF NOT EXISTS links (
     id            TEXT PRIMARY KEY,
@@ -1022,6 +1038,28 @@ async def _migrate_v23_v24(conn: aiosqlite.Connection) -> None:
 
 
 _MIGRATIONS.append(_migrate_v23_v24)
+
+# v24 → v25: encrypted per-user Google OAuth refresh tokens (#204).
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS google_oauth_tokens (
+        chat_id             INTEGER PRIMARY KEY,
+        encrypted_token     TEXT NOT NULL,
+        scopes              TEXT NOT NULL DEFAULT '',
+        revoked_notified_at TEXT,
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+])
+
+# v25 → v26: DB-backed Google OAuth state tokens for multi-worker callbacks.
+_MIGRATIONS.append([
+    """CREATE TABLE IF NOT EXISTS google_oauth_states (
+        state      TEXT PRIMARY KEY,
+        chat_id    INTEGER NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""",
+])
 
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:
