@@ -164,7 +164,7 @@ function FeedPageContent() {
         </div>
       </header>
 
-      <section className="rounded-card border border-line bg-panel p-4 shadow-card">
+      <section className="rounded-lg border border-line bg-surface p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted">Google export</p>

@@ -1,20 +1,36 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type State = 'off' | 'on' | 'retroactive';
 
 export function TelegramToggle({ jobId, value = 'off' }: { jobId: string; value?: State }) {
   const [state, setState] = useState<State>(value);
   const [holding, setHolding] = useState(false);
+  const [pending, setPending] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false); // hold completed → swallow the trailing click
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
 
   async function persist(next: State) {
-    const res = await fetch(`/api/parsed/${jobId}/telegram-delivery`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: next }) });
-    if (!res.ok) { console.error(`telegram-delivery PUT failed: ${res.status}`); return; } // failed PUT → keep state, surface so it's not silent
-    const data = await res.json();
-    setState(data.telegram_delivery);
+    if (pending) return;
+    setPending(true);
+    try {
+      const res = await fetch(`/api/parsed/${jobId}/telegram-delivery`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: next }) });
+      if (!res.ok) { console.error(`telegram-delivery PUT failed: ${res.status}`); return; }
+      const data = await res.json();
+      if (mounted.current) setState(data.telegram_delivery);
+    } finally {
+      if (mounted.current) setPending(false);
+    }
   }
 
   function startHold() {
@@ -29,7 +45,7 @@ export function TelegramToggle({ jobId, value = 'off' }: { jobId: string; value?
 
   const isOff = state === 'off';
 
-  return <button type="button" aria-label={`Telegram delivery ${state}`} aria-pressed={state !== 'off'} onClick={(e) => { e.preventDefault(); if (fired.current) { fired.current = false; return; } persist(state === 'off' ? 'on' : 'off'); }} onPointerDown={startHold} onPointerUp={cancelHold} onPointerLeave={cancelHold} className={`relative flex h-[26px] w-[26px] items-center justify-center rounded-full border transition-ui ${isOff ? 'border-line' : 'border-telegram-blue'} ${holding ? 'doc-telegram-hold' : ''}`}>
+  return <button type="button" aria-label={`Telegram delivery ${state}`} aria-pressed={state !== 'off'} disabled={pending} onClick={(e) => { e.preventDefault(); if (fired.current) { fired.current = false; return; } persist(state === 'off' ? 'on' : 'off'); }} onPointerDown={startHold} onPointerUp={cancelHold} onPointerLeave={cancelHold} className={`relative flex h-[26px] w-[26px] items-center justify-center rounded-full border transition-ui disabled:cursor-not-allowed disabled:opacity-60 ${isOff ? 'border-line' : 'border-telegram-blue'} ${holding ? 'doc-telegram-hold' : ''}`}>
     {/* Official Telegram mark (simpleicons "telegram"): a disc + plane core. On = brand
         #26A5E4 / #ffffff; off = status-cancelled / cancelled-tint so it reads as inactive.
         The disc and plane carry the affordance, so the icon needs no currentColor. */}

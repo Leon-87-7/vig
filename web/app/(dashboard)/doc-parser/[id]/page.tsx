@@ -122,18 +122,35 @@ export default function DocDetail() {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  async function load() {
-    const [j, o] = await Promise.all([
-      fetch(`/api/jobs/${id}`).then((r) => r.json()),
-      fetch(`/api/parsed/${id}/outputs`).then((r) => r.json()),
-    ]);
-    setJob(j);
-    setOuts(o);
-  }
   useEffect(() => {
+    let cancelled = false;
+    setErr('');
+    async function load() {
+      try {
+        const [j, o] = await Promise.all([
+          fetch(`/api/jobs/${id}`).then((r) => {
+            if (!r.ok) throw new Error(`jobs fetch failed: ${r.status}`);
+            return r.json();
+          }),
+          fetch(`/api/parsed/${id}/outputs`).then((r) => {
+            if (!r.ok) throw new Error(`outputs fetch failed: ${r.status}`);
+            return r.json();
+          }),
+        ]);
+        if (cancelled) return;
+        setJob(j);
+        setOuts(o);
+      } catch {
+        if (!cancelled) setErr('Failed to load document. Please refresh.');
+      }
+    }
     load();
-  }, [id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, reloadKey]);
 
   async function runAction(send: () => Promise<Response>) {
     setErr('');
@@ -145,7 +162,7 @@ export default function DocDetail() {
         setErr(detail?.detail?.message || 'Action failed. Please try again.');
         return;
       }
-      await load();
+      setReloadKey((key) => key + 1);
     } catch {
       setErr('Network error. Please try again.');
     } finally {
@@ -160,7 +177,10 @@ export default function DocDetail() {
     await runAction(() => fetch(`/api/parsed/${id}/freestyle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) }));
   }
 
-  if (!job) return null;
+  if (!job) {
+    if (err) return <p className="text-sm text-status-error" role="alert">{err}</p>;
+    return null;
+  }
 
   // "Get Markdown" serves the raw parse artifact, not the JSON outputs index.
   const rawParse = outs.find((o) => o.kind === 'raw_txt');

@@ -34,6 +34,12 @@
 | [#253](https://github.com/Leon-87-7/vig/issues/253) | epic(access): invite-only gate + one-time email onboarding                                  | Access           | —          |
 | [#255](https://github.com/Leon-87-7/vig/issues/255) | feat(telegram): first-contact email capture + pending gate + one-tap approve                | Telegram / Access | #254      |
 | [#256](https://github.com/Leon-87-7/vig/issues/256) | feat(web): dashboard email modal + /api/* status gate + pending screen                      | Web / Access     | #254       |
+| [#276](https://github.com/Leon-87-7/vig/issues/276) | perf(config): move export_blocked's sqlite3 read off the event loop                         | Config           | —          |
+| [#277](https://github.com/Leon-87-7/vig/issues/277) | refactor(gemini): delete GeminiClient passthrough shim                                      | Gemini           | —          |
+| [#278](https://github.com/Leon-87-7/vig/issues/278) | fix(web): clean up CopyButton's reset timer on unmount (jobs detail)                        | Web              | —          |
+| [#279](https://github.com/Leon-87-7/vig/issues/279) | fix(web): surface space-delete failures instead of silently swallowing them                 | Web              | —          |
+| [#280](https://github.com/Leon-87-7/vig/issues/280) | fix(web): align Connect Google button with the shared button-signal spec                    | Web              | —          |
+| [#281](https://github.com/Leon-87-7/vig/issues/281) | feat(web): add loading skeleton and empty state to Doc Parser page                          | Web              | —          |
 
 ---
 
@@ -41,9 +47,16 @@
 
 Ordered by unblocked-first, then dependency chain.
 
-|                                                   # | Title                                                                | Area                     | Depends On       |
-| --------------------------------------------------: | -------------------------------------------------------------------- | ------------------------ | ---------------- |
-| [#259](https://github.com/Leon-87-7/vig/issues/259) | Security: nodeLabel is an XSS sink in Brain graph (external titles)  | Web / Brain              | —                |
+|                                                   # | Title                                                                                            | Area                     | Depends On       |
+| --------------------------------------------------: | ------------------------------------------------------------------------------------------------ | ------------------------ | ---------------- |
+| [#259](https://github.com/Leon-87-7/vig/issues/259) | Security: nodeLabel is an XSS sink in Brain graph (external titles)                               | Web / Brain              | —                |
+| [#267](https://github.com/Leon-87-7/vig/issues/267) | fix(config): fail fast on empty TELEGRAM_WEBHOOK_SECRET/TELEGRAM_BOT_TOKEN                        | Config                   | —                |
+| [#268](https://github.com/Leon-87-7/vig/issues/268) | chore: delete scripts/backfill_brain.py — crashes on removed GOOGLE_SHEETS_ID_SHORT/LONG          | —                        | —                |
+| [#269](https://github.com/Leon-87-7/vig/issues/269) | fix(gemini): bound genai.Client requests to a 90s timeout                                         | Gemini                   | —                |
+| [#270](https://github.com/Leon-87-7/vig/issues/270) | fix(web): replace invalid Tailwind class names (WCAG contrast fix + dead classes)                 | Web                      | —                |
+| [#271](https://github.com/Leon-87-7/vig/issues/271) | fix(web): guard TelegramToggle against overlapping requests and unmount timer leak                | Web                      | —                |
+| [#272](https://github.com/Leon-87-7/vig/issues/272) | fix(web): guard doc-parser detail load() against stale-response races                             | Web                      | —                |
+| [#273](https://github.com/Leon-87-7/vig/issues/273) | feat(web): add app-level error boundary styled to the design system                               | Web                      | —                |
 
 ---
 
@@ -313,6 +326,15 @@ Per-user export isolation (epic #201; ADR-0030 + ADR-0022; CONTEXT.md `Operator`
     └── #206 connection lifecycle (invalid_grant / /disconnect / notify-once)
 #203 Google Cloud OAuth app: prod publish + sensitive-scope verification (HITL/external — gates #204 for production)
 Critical path: #202 → #204 → {#205, #206}; #203 (external review) gates #204 production readiness
+
+Council fixes chunk 2 — event loop + shim deletion + React race/cleanup batch (docs/superpowers/council/sub-plans/main-council-fixes-chunk2-backend-and-react.md)
+#276 export_blocked async (event-loop fix)
+#277 delete GeminiClient passthrough shim
+#278 CopyButton reset-timer cleanup (jobs detail)
+#279 space-delete failure surfacing
+#280 Connect Google button-signal spec alignment
+#281 Doc Parser loading skeleton + empty state
+Critical path: #276, #277, #278, #279, #280, #281 are all independent — no dependency between them
 ```
 
 ---
