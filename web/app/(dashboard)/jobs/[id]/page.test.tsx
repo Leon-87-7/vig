@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@/test/render';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import JobDetailPage, { CopyButton } from './page';
+import JobDetailPage from './page';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'j1' }),
@@ -101,8 +101,9 @@ describe('CopyButton', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
 
-    const { unmount } = render(<CopyButton value="x" ariaLabel="Copy" label="Copy" />);
-    fireEvent.click(screen.getByRole('button', { name: /copy/i }));
+    // CopyButton is page-local (Next.js forbids extra page exports); reach it through the page.
+    const { unmount } = render(<JobDetailPage params={{ id: 'j1' }} />);
+    fireEvent.click(screen.getByRole('button', { name: /copy all/i }));
     await waitFor(() => expect(screen.getByText('Copied!')).toBeInTheDocument());
 
     unmount();

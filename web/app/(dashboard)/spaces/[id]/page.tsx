@@ -30,15 +30,15 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
     try {
       const res = await fetch(`/api/spaces/${params.id}`, { method: "DELETE" });
       if (res.ok || res.status === 204) {
+        // Navigating away — skip state updates so nothing fires mid-unmount.
         router.push("/spaces");
         return;
       }
       setDeleteFailed(true);
     } catch {
       setDeleteFailed(true);
-    } finally {
-      setDeleting(false);
     }
+    setDeleting(false);
   }, [params.id, router]);
 
   if (fetchState === "loading") {

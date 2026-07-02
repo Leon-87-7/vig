@@ -70,8 +70,9 @@ function setupMocks(
 }
 
 beforeEach(() => {
-  setupMocks();
+  // Restore first — restoring after setupMocks would wipe its mockReturnValues.
   vi.restoreAllMocks();
+  setupMocks();
 });
 
 describe('SpaceDetailPage', () => {

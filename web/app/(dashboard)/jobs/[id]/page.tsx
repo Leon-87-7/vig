@@ -115,7 +115,7 @@ function TemplateAnalysis({ raw }: { raw: string }) {
 
 // --- UI pieces ---
 
-export function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: string; label?: string }) {
+function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import sqlite3
 
@@ -119,7 +120,9 @@ class Settings(BaseSettings):
 
     def _has_readable_google_token(self, chat_id: int) -> bool:
         """Sync helper — runs inside asyncio.to_thread by export_blocked."""
-        with sqlite3.connect(self.DB_PATH) as conn:
+        # closing() because sqlite3's context manager only wraps the transaction,
+        # not the connection lifetime.
+        with contextlib.closing(sqlite3.connect(self.DB_PATH)) as conn:
             cur = conn.execute(
                 "SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1",
                 (chat_id,),

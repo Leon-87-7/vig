@@ -72,10 +72,13 @@ export default function DocParserPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/jobs?content_type=document&limit=100${status ? `&status=${status}` : ''}`);
-    const d = await r.json();
-    setJobs(d.items ?? []);
-    setLoading(false);
+    try {
+      const r = await fetch(`/api/jobs?content_type=document&limit=100${status ? `&status=${status}` : ''}`);
+      const d = await r.json();
+      setJobs(d.items ?? []);
+    } finally {
+      setLoading(false);
+    }
   }, [status]);
 
   useEffect(() => { load(); }, [load]);

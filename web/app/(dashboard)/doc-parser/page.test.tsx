@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@/test/render';
+import { act, render, screen, waitFor } from '@/test/render';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import DocParserPage from './page';
 
@@ -32,13 +32,15 @@ describe('DocParserPage', () => {
     await waitFor(() => expect(screen.getByText(/no jobs yet/i)).toBeInTheDocument());
   });
 
-  it('shows a loading skeleton before the first response resolves', () => {
+  it('shows a loading skeleton before the first response resolves', async () => {
     let resolveFetch: (v: Response) => void;
     vi.spyOn(global, 'fetch').mockReturnValue(new Promise((resolve) => { resolveFetch = resolve; }) as unknown as Promise<Response>);
 
     const { container } = render(<DocParserPage />);
 
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
-    resolveFetch!(new Response(JSON.stringify({ items: [] })));
+    await act(async () => {
+      resolveFetch!(new Response(JSON.stringify({ items: [] })));
+    });
   });
 });
