@@ -91,7 +91,7 @@ export default function MiniAppPage() {
           type="button"
           disabled={disabled}
           onClick={connectGoogle}
-          className="mt-8 h-11 rounded-md bg-signal px-4 text-sm font-medium text-on-signal transition-ui hover:bg-signal-bright focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-canvas disabled:cursor-not-allowed disabled:bg-surface-raised disabled:text-muted"
+          className="mt-8 h-11 rounded-md bg-signal px-4 text-sm font-medium text-onsignal transition-ui hover:bg-signal-bright focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-canvas disabled:cursor-not-allowed disabled:bg-raised disabled:text-muted"
         >
           {state === 'connecting' ? 'Opening Google…' : 'Connect Google'}
         </button>

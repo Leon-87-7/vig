@@ -228,8 +228,8 @@ export function BrainGraph({ results, searchState }: { results: SearchResult[]; 
                     aria-pressed={!hidden}
                     className={`inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium shadow-sm ring-1 transition-[background-color,color,opacity,transform] duration-150 active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100 ${
                       hidden
-                        ? 'bg-transparent text-body ring-line hover:bg-surface-raised hover:text-ink'
-                        : 'bg-surface-raised text-ink ring-line-strong hover:bg-line'
+                        ? 'bg-transparent text-body ring-line hover:bg-raised hover:text-ink'
+                        : 'bg-raised text-ink ring-line-strong hover:bg-line'
                     }`}
                   >
                     <span className={`h-2.5 w-2.5 rounded-full ${hidden ? 'opacity-40' : ''}`} style={{ backgroundColor: topicColor(topic) }} aria-hidden="true" />
@@ -279,7 +279,7 @@ function GraphControl({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="min-h-10 min-w-10 rounded-md bg-transparent px-3 text-xs font-medium text-body shadow-sm ring-1 ring-transparent transition-[background-color,color,opacity,transform] duration-150 hover:bg-surface-raised hover:text-ink active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100"
+      className="min-h-10 min-w-10 rounded-md bg-transparent px-3 text-xs font-medium text-body shadow-sm ring-1 ring-transparent transition-[background-color,color,opacity,transform] duration-150 hover:bg-raised hover:text-ink active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none motion-reduce:active:scale-100"
     >
       {children}
     </button>
