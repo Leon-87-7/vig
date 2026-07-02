@@ -26,7 +26,7 @@ export default function LogoutPage() {
             Video Intelligence Gateway
           </p>
 
-          <div className="mt-10 rounded-xl bg-surface/85 p-3 shadow-[0_0_0_1px_rgba(38,42,49,0.9),0_18px_60px_-34px_rgba(246,146,30,0.55)] backdrop-blur-sm">
+          <div className="mt-10 rounded-xl bg-surface/85 p-3 shadow-[0_0_0_1px_rgba(38,42,49,0.9)] backdrop-blur-sm">
             <div className="flex max-w-[360px] flex-col items-center rounded-lg bg-canvas/70 px-8 py-7 shadow-[inset_0_0_0_1px_rgba(52,58,68,0.75)]">
               <div
                 aria-hidden="true"

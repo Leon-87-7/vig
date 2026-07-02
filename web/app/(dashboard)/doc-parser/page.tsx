@@ -174,7 +174,7 @@ export default function DocParserPage() {
             <div key={j.id} className="rounded-lg border border-line bg-surface p-4 hover:bg-raised">
               <div className="flex items-center gap-3">
                 <Link href={`/doc-parser/${j.id}`} className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{j.title || j.url}</Link>
-                <Sparkles className="h-4 w-4 text-signal" />
+                <Sparkles className="h-4 w-4 text-muted" />
                 <StatusBadge label={j.status} />
                 <TelegramToggle jobId={j.id} value={j.telegram_delivery || 'off'} />
               </div>

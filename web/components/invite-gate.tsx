@@ -38,7 +38,7 @@ function GateScreen({ status }: { status: Exclude<UserStatus, 'approved'> }) {
         <p className="mt-2 text-sm leading-6 text-body">
           {blocked
             ? "This Telegram account cannot access VIG."
-            : "Pending approval — ask Leon for access."}
+            : "Pending approval — ask the operator for access."}
         </p>
       </section>
     </div>
@@ -122,8 +122,8 @@ function EmailModal({
       >
         <h2 id="invite-email-title" className="text-lg font-semibold text-ink">Email required</h2>
         <p className="mt-2 text-sm leading-6 text-body">
-          VIG is invite-only. Add the email Leon should approve for this
-          Telegram account.
+          VIG is invite-only. Add the email the operator should approve for
+          this Telegram account.
         </p>
         <form className="mt-4 space-y-3" onSubmit={submit}>
           <label
