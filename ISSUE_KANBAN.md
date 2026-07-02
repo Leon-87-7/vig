@@ -9,23 +9,17 @@
 
 |                                                   # | Title                                                                                                      | Area                     | Notes                                                                                     |
 | --------------------------------------------------: | ---------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------- |
-| [#211](https://github.com/Leon-87-7/vig/issues/211) | Vision-harvested short titles                                                                              | Short Video              | Merged; PR #215; closed on GH                                                             |
-| [#212](https://github.com/Leon-87-7/vig/issues/212) | Remove key_phrases end-to-end                                                                             | Short Video / Enrichment | Merged; PR #215; closed on GH                                                             |
-| [#213](https://github.com/Leon-87-7/vig/issues/213) | Links Found detail section (clickable)                                                                     | Web / Jobs               | Merged; PR #215; closed on GH                                                             |
-| [#217](https://github.com/Leon-87-7/vig/issues/217) | feat(api): document upload REST endpoints + telegram_delivery column                                       | API                      | Merged; PR #227; closed on GH                                                             |
-| [#218](https://github.com/Leon-87-7/vig/issues/218) | feat(web): Doc Parser page shell + sidebar entry                                                           | Web                      | Merged; PR #227; closed on GH                                                             |
-| [#219](https://github.com/Leon-87-7/vig/issues/219) | feat(processor): Gemini structured summary + enriched GCS storage                                          | Processor                | Merged; PR #227; closed on GH                                                             |
-| [#220](https://github.com/Leon-87-7/vig/issues/220) | feat(api): SSE endpoint for document job status                                                            | API                      | Merged; PR #227; closed on GH                                                             |
-| [#221](https://github.com/Leon-87-7/vig/issues/221) | feat(api): on-demand clean + freestyle document endpoints                                                  | API                      | Merged; PR #227; closed on GH                                                             |
-| [#222](https://github.com/Leon-87-7/vig/issues/222) | feat(web): upload zone — URL input + file dropzone                                                         | Web                      | Merged; PR #227; closed on GH                                                             |
-| [#223](https://github.com/Leon-87-7/vig/issues/223) | feat(web): document job list + SSE real-time updates                                                       | Web                      | Merged; PR #227; closed on GH                                                             |
-| [#224](https://github.com/Leon-87-7/vig/issues/224) | feat(web): three-state Telegram toggle component                                                           | Web / API                | Merged; PR #227; closed on GH                                                             |
-| [#225](https://github.com/Leon-87-7/vig/issues/225) | feat(web): Doc Parser detail page with output cards                                                        | Web                      | Merged; PR #227; closed on GH                                                             |
-| [#226](https://github.com/Leon-87-7/vig/issues/226) | feat(web): freestyle modal with random + saved prompts                                                     | Web                      | Merged; PR #227; closed on GH                                                             |
-| [#231](https://github.com/Leon-87-7/vig/issues/231) | Latent: 'retroactive' storable as a persistent telegram_delivery state                                     | DB / Document            | Merged; PR #232; closed on GH                                                             |
-| [#228](https://github.com/Leon-87-7/vig/issues/228) | Refactor: extract parsed.py trust-boundary PDF intake into a deep module (post-#227)                       | Refactor / Document      | Merged; PR #229; closed on GH                                                             |
-| [#240](https://github.com/Leon-87-7/vig/issues/240) | Doc detail page: move Telegram toggle next to Clean + add download/copy buttons to output cards            | Web / Doc Parser         | Merged; PR #242; closed on GH                                                             |
 | [#238](https://github.com/Leon-87-7/vig/issues/238) | Extracted-links table on the Brain page (deduplicated, paginated)                                          | Web / Brain              | Merged; PR #239; closed on GH                                                             |
+| [#202](https://github.com/Leon-87-7/vig/issues/202) | feat(config): operator-only export gate (per-user isolation, the #201 'now' fix)                           | Multi-tenancy            | Merged; PR #208; closed on GH                                                             |
+| [#234](https://github.com/Leon-87-7/vig/issues/234) | Replace raw logout API response with dedicated logout page                                                 | Web / Auth               | Merged; PR #235; closed on GH                                                             |
+| [#243](https://github.com/Leon-87-7/vig/issues/243) | Tooltip primitive + first adoption (foundation)                                                            | Web / Tooltips           | Merged; PR #248; closed on GH                                                             |
+| [#244](https://github.com/Leon-87-7/vig/issues/244) | Migrate explanatory title= tooltips to Tooltip primitive                                                   | Web / Tooltips           | Merged; PR #248; closed on GH                                                             |
+| [#245](https://github.com/Leon-87-7/vig/issues/245) | Migrate overflow-reveal title= tooltips (mono variant)                                                     | Web / Tooltips           | Merged; PR #248; closed on GH                                                             |
+| [#246](https://github.com/Leon-87-7/vig/issues/246) | Add tooltips to icon-only controls                                                                         | Web / Tooltips           | Merged; PR #248; closed on GH                                                             |
+| [#247](https://github.com/Leon-87-7/vig/issues/247) | Add tooltips to metric labels in stats-overview                                                            | Web / Tooltips           | Merged; PR #248; closed on GH                                                             |
+| [#251](https://github.com/Leon-87-7/vig/issues/251) | Brain Links table: richer navigation + persisted per-tenant view                                           | Web / Brain              | Merged; PR #257; closed on GH                                                             |
+| [#252](https://github.com/Leon-87-7/vig/issues/252) | Brain graph on-canvas controls overlay (zoom/fit/recenter + topic filter)                                  | Web / Brain              | Merged; PR #260; closed on GH                                                             |
+| [#254](https://github.com/Leon-87-7/vig/issues/254) | feat(db): users email + status columns, awaiting_email state, cutover (invite gate)                        | DB / Access              | Merged; PR #262; closed on GH                                                             |
 
 ---
 
@@ -34,12 +28,12 @@
 |                                                   # | Title                                                                                       | Area             | Depends On |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
 | [#201](https://github.com/Leon-87-7/vig/issues/201) | epic(multi-tenancy): per-user export isolation                                              | Multi-tenancy    | —          |
-| [#202](https://github.com/Leon-87-7/vig/issues/202) | feat(config): operator-only export gate (per-user isolation, the #201 'now' fix)            | Multi-tenancy    | —          |
-| [#203](https://github.com/Leon-87-7/vig/issues/203) | chore(ops): Google Cloud OAuth app — production publishing + sensitive-scope verification   | Ops / Google Cloud | —        |
 | [#204](https://github.com/Leon-87-7/vig/issues/204) | feat(oauth): per-user 'Connect Google' (web) — encrypted token store → exports to /vig      | OAuth / Export   | #202, #203 |
 | [#205](https://github.com/Leon-87-7/vig/issues/205) | feat(telegram): Mini App 'Connect Google' surface — initData identity, shared OAuth backend | OAuth / Telegram | #204       |
 | [#206](https://github.com/Leon-87-7/vig/issues/206) | feat(oauth): connection lifecycle — invalid_grant handling, /disconnect, notify-once        | OAuth / Export   | #204       |
-| [#234](https://github.com/Leon-87-7/vig/issues/234) | Replace raw logout API response with dedicated logout page                                   | Web / Auth       | —          |
+| [#253](https://github.com/Leon-87-7/vig/issues/253) | epic(access): invite-only gate + one-time email onboarding                                  | Access           | —          |
+| [#255](https://github.com/Leon-87-7/vig/issues/255) | feat(telegram): first-contact email capture + pending gate + one-tap approve                | Telegram / Access | #254      |
+| [#256](https://github.com/Leon-87-7/vig/issues/256) | feat(web): dashboard email modal + /api/* status gate + pending screen                      | Web / Access     | #254       |
 
 ---
 
@@ -49,20 +43,16 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                | Area                     | Depends On       |
 | --------------------------------------------------: | -------------------------------------------------------------------- | ------------------------ | ---------------- |
-| [#251](https://github.com/Leon-87-7/vig/issues/251) | Brain Links table: richer navigation + persisted per-tenant view     | Web / Brain              | —                |
-| [#252](https://github.com/Leon-87-7/vig/issues/252) | Brain graph on-canvas controls overlay (zoom/fit/recenter + filter)  | Web / Brain              | —                |
-| [#243](https://github.com/Leon-87-7/vig/issues/243) | Tooltip primitive + first adoption (foundation)                      | Web / Tooltips           | —                |
-| [#244](https://github.com/Leon-87-7/vig/issues/244) | Migrate explanatory title= tooltips to Tooltip primitive             | Web / Tooltips           | #243             |
-| [#245](https://github.com/Leon-87-7/vig/issues/245) | Migrate overflow-reveal title= tooltips (mono variant)               | Web / Tooltips           | #243             |
-| [#246](https://github.com/Leon-87-7/vig/issues/246) | Add tooltips to icon-only controls                                   | Web / Tooltips           | #243             |
-| [#247](https://github.com/Leon-87-7/vig/issues/247) | Add tooltips to metric labels in stats-overview                      | Web / Tooltips           | #243             |
+| [#259](https://github.com/Leon-87-7/vig/issues/259) | Security: nodeLabel is an XSS sink in Brain graph (external titles)  | Web / Brain              | —                |
 
 ---
 
 ## Ready for Human
 
-|   # | Title | Area | Notes |
-| --: | ----- | ---- | ----- |
+|                                                   # | Title                                                                                     | Area               | Notes                                                  |
+| --------------------------------------------------: | ------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------ |
+| [#203](https://github.com/Leon-87-7/vig/issues/203) | chore(ops): Google Cloud OAuth app — production publishing + sensitive-scope verification | Ops / Google Cloud | External Google review; gates #204 production          |
+| [#266](https://github.com/Leon-87-7/vig/issues/266) | chore(ops): deliver Google OAuth credentials to the server .env                           | Ops                | HITL; server .env values; follows #203 OAuth client    |
 
 ---
 
@@ -303,21 +293,21 @@ Doc Parser dashboard page (ADR-0029: docs/adr/0029-doc-parser-dashboard-page.md)
 Critical path: #217 → #219 → #221 → #225 → #226 (all ✅-Done)
 
 Tooltip system (spec: docs/superpowers/specs/2026-06-28-tooltips-design.md) — Radix Tooltip primitive, replace all native title= + extend coverage
-#243 Tooltip primitive + first adoption (foundation, root) — Ready for Agent
-├── #244 migrate explanatory title= ◄── #243 — Ready for Agent
-├── #245 migrate overflow-reveal title= (mono) ◄── #243 — Ready for Agent
-├── #246 add tooltips to icon-only controls ◄── #243 — Ready for Agent
-└── #247 add tooltips to metric labels (stats-overview) ◄── #243 — Ready for Agent
-Critical path: #243 → {#244, #245, #246, #247} (all parallel once #243 lands)
+#243 Tooltip primitive + first adoption (foundation, root) ✅-Done (PR #248)
+├── #244 migrate explanatory title= ◄── #243 ✅-Done (PR #248)
+├── #245 migrate overflow-reveal title= (mono) ◄── #243 ✅-Done (PR #248)
+├── #246 add tooltips to icon-only controls ◄── #243 ✅-Done (PR #248)
+└── #247 add tooltips to metric labels (stats-overview) ◄── #243 ✅-Done (PR #248)
+Critical path: #243 → {#244, #245, #246, #247} (all ✅-Done)
 
 Brain Links nav + graph controls (grill 2026-06-29 — tasks #7/#8 from docs/TASK.md)
 #238 Extracted-links table on the Brain page ✅-Done (PR #239) — foundation the nav builds on
-#251 Links table — server-side sort params + per-tenant user_settings view + jump-to-page/page-size — Ready for Agent (independent; LinksTable already shipped via #238)
-#252 Brain graph on-canvas controls — zoom/fit/recenter + focus-on-match + topic legend/filter (desktop-only) — Ready for Agent (independent)
+#251 Links table — server-side sort params + per-tenant user_settings view + jump-to-page/page-size ✅-Done (PR #257)
+#252 Brain graph on-canvas controls — zoom/fit/recenter + focus-on-match + topic legend/filter (desktop-only) ✅-Done (PR #260)
 Critical path: #251 and #252 are independent — no dependency between them
 
 Per-user export isolation (epic #201; ADR-0030 + ADR-0022; CONTEXT.md `Operator`)
-#202 operator-only export gate (the "now" fix — root, unblocked) ◄── also gates #158 (open: opt-in Document Analysis export hook)
+#202 operator-only export gate (the "now" fix — root, unblocked) ✅-Done (PR #208) ◄── also gates #158
 └── #204 per-user "Connect Google" (web): encrypted token store → /vig ◄── also #203
     ├── #205 Telegram Mini App surface (initData → shared OAuth backend)
     └── #206 connection lifecycle (invalid_grant / /disconnect / notify-once)
@@ -331,14 +321,12 @@ Critical path: #202 → #204 → {#205, #206}; #203 (external review) gates #204
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
-| [#208](https://github.com/Leon-87-7/vig/pull/208) | feat(config): operator-only export gate — per-user isolation (#202) | feat/operator-export-gate→main | #202 | Open |
-| [#207](https://github.com/Leon-87-7/vig/pull/207) | docs(multi-tenancy): export-isolation design — ADR-0027, Operator term, issue breakdown | docs/multi-tenancy-export-isolation→main | — | Open |
 
 ## Closed PRs
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
-| [#250](https://github.com/Leon-87-7/vig/pull/250) | feat(skills): /pre-grill + TASK.md ideation workflow | feat/pre-grill-skill→main | — | ✅ Merged |
-| [#249](https://github.com/Leon-87-7/vig/pull/249) | feat(skills): /pre-grill — fatten one-line ideas into grill-ready briefs | feat/pre-grill-skill→main | — | ✅ Merged |
-| [#248](https://github.com/Leon-87-7/vig/pull/248) | Add Tooltip component (Radix) and integrate across UI | codex/resolve-issues-#243-to-#247→main | — | ✅ Merged |
-| [#242](https://github.com/Leon-87-7/vig/pull/242) | feat(doc-parser): relocate Telegram toggle + copy/download on output cards (#240) | 240-doc-detail-page-move-telegram-toggle-next-to-clean-add-downloadcopy-buttons-to-output-cards→main | #240 | ✅ Merged |
+| [#264](https://github.com/Leon-87-7/vig/pull/264) | Per-user Google OAuth exports + encrypted token store and Telegram Mini App support | codex/resolve-issues-#204,-#205,-and-#206→main | — | ✅ Merged |
+| [#263](https://github.com/Leon-87-7/vig/pull/263) | Invite gate: council-review fixes (rounds 1-2) + council-review tooling updates | invite-gate-255-256→main | — | ✅ Merged |
+| [#262](https://github.com/Leon-87-7/vig/pull/262) | feat(db): add invite gate user status | feat/invite-gate-db→main | — | ✅ Merged |
+| [#261](https://github.com/Leon-87-7/vig/pull/261) | [codex] fix brain graph tooltip escaping | codex/fix-brain-graph-tooltip-xss→main | — | ✅ Merged |

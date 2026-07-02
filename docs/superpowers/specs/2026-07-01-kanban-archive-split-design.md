@@ -1,7 +1,7 @@
 # ISSUE_KANBAN.md archive split — design spec
 
 **Date:** 2026-07-01
-**Status:** Approved (brainstorm)
+**Status:** Implemented (skill changes 2026-07-01; migration + first windowed reconcile 2026-07-02)
 **Area:** `ISSUE_KANBAN.md`, `agent-knowledge/skills/kanban-sync.md`, `agent-knowledge/skills/update-kanban/SKILL.md`
 
 ## Goal
