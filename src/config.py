@@ -120,4 +120,4 @@ class Settings(BaseSettings):
         )
 
 
-settings = Settings()
+settings = Settings()  # pyright: ignore[reportCallIssue] — required fields are populated from env, not literal args
