@@ -60,7 +60,11 @@ this is for `<review-target>` by checking, in order:
 3. Otherwise → this is **round 3+**.
 
 **Round 1 or round 2:** ask the user whether they want an implementation plan
-written for these findings. If yes, dispatch ONE more agent
+written for these findings, offering three options: **plan + parallel sub-plans**
+(chunked for parallel agent execution — see "Chunking into parallel sub-plans"
+below), **single plan only**, or **no plan**. If the user's invocation already
+asked for a chunked/split/parallel plan, skip the question and chunk. If yes to
+either plan option, dispatch ONE more agent
 (`subagent_type: general-purpose`, after synthesis — not parallel with the 5
 reviewers) that invokes the `superpowers:writing-plans` skill to turn the
 synthesized findings into a task-by-task implementation plan (Global Constraints,
@@ -92,6 +96,39 @@ Save to:
 Deliberately **not** `docs/superpowers/plans/` — these are review artifacts for
 agent handoff, not plans authored ahead of implementation. Report the saved path
 back to the user.
+
+### Chunking into parallel sub-plans
+
+Only when the user chose it (or asked for it in the invocation). Runs AFTER the
+master plan is written — the planner agent does it as a second step, or the
+orchestrator does it directly. Mechanics:
+
+1. **Map footprints**: for each task, collect every file it touches (the
+   `Modify:`/`Create:`/`Delete:`/`Test:` lines). Tasks sharing ANY file form a
+   conflict cluster and must land in different chunks.
+2. **Assign greedily by priority order** into waves: walk tasks in the plan's
+   fix order, placing each into the earliest chunk where it conflicts with
+   nothing already there. Cap chunks at ~6-7 tasks. The largest conflict
+   cluster sets the minimum number of chunks.
+3. **Escape hatch**: if two same-file tasks can't be separated (e.g. both belong
+   in the last chunk), put them in one chunk but assign BOTH to a single agent
+   that runs them sequentially, and say so in a chunk-specific note.
+4. **Write one file per chunk** to
+   `docs/superpowers/council/sub-plans/<plan-name>-chunk<N>-<slug>.md`. Each is
+   self-contained: a worker note (dispatch one subagent per task, all in
+   parallel, in a single message; chunks execute strictly in order), a
+   commit-discipline note (edits/tests run in parallel but commits are
+   serialized by the orchestrator — parallel `git add`/`commit` races on
+   index.lock), a parallel task map (task → files, proving disjointness), the
+   master's Global Constraints verbatim, then the full task bodies copied
+   verbatim (keep original task numbers). Split mechanically — a throwaway
+   script splitting on `^## Task \d+` headings beats hand-copying a big plan.
+5. **Rewrite the master plan's worker note** into an index: a table of chunk →
+   sub-plan link → task numbers → theme, plus "do not execute this file
+   top-to-bottom; work the sub-plans in order". The master stays the source of
+   truth for finding details.
+
+Report both the master path and the sub-plan paths back to the user.
 
 **Round 3+:** do not offer to write a plan. End the synthesis with: *"This is
 round 3+ for this branch — per policy, remaining findings should go through PR
