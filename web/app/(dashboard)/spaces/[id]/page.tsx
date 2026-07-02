@@ -20,11 +20,25 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
     useSpaceEdit(params.id, space, setSpace);
   const [activeTab, setActiveTab] = useState<ActiveTab>("urls");
   const [showExport, setShowExport] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteFailed, setDeleteFailed] = useState(false);
 
   const handleDelete = useCallback(async () => {
     if (!window.confirm("Delete this space? Jobs will not be deleted.")) return;
-    const res = await fetch(`/api/spaces/${params.id}`, { method: "DELETE" });
-    if (res.ok || res.status === 204) router.push("/spaces");
+    setDeleting(true);
+    setDeleteFailed(false);
+    try {
+      const res = await fetch(`/api/spaces/${params.id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) {
+        // Navigating away — skip state updates so nothing fires mid-unmount.
+        router.push("/spaces");
+        return;
+      }
+      setDeleteFailed(true);
+    } catch {
+      setDeleteFailed(true);
+    }
+    setDeleting(false);
   }, [params.id, router]);
 
   if (fetchState === "loading") {
@@ -51,10 +65,13 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
             <span className="inline-block h-4 w-4 flex-shrink-0 rounded-full" style={{ backgroundColor: space.color }} />
             <h1 className="text-2xl font-semibold tracking-tight text-ink">{space.name}</h1>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowExport(true)} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Export</button>
-            <button onClick={startEdit} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Edit</button>
-            <button onClick={handleDelete} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-status-error transition-ui hover:bg-raised">Delete</button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button onClick={() => setShowExport(true)} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Export</button>
+              <button onClick={startEdit} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised">Edit</button>
+              <button onClick={handleDelete} disabled={deleting} className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-status-error transition-ui hover:bg-raised disabled:opacity-50">{deleting ? "Deleting…" : "Delete"}</button>
+            </div>
+            {deleteFailed && <p className="text-xs text-status-error">Couldn&apos;t delete — try again.</p>}
           </div>
         </div>
       ) : (

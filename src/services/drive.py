@@ -70,7 +70,7 @@ async def upload_file(
     Non-operator jobs are gated out (#202, ADR-0027): they get ("", "") and the
     file never lands in the operator's Drive. System calls (no chat_id) pass.
     """
-    if settings.export_blocked(chat_id):
+    if await settings.export_blocked(chat_id):
         log.info("drive_export_gated", filename=filename, chat_id=chat_id)
         return "", ""
     try:
@@ -114,7 +114,7 @@ async def update_file(
 
     Gated for non-operator jobs (#202) — returns "" without touching Drive.
     """
-    if settings.export_blocked(chat_id):
+    if await settings.export_blocked(chat_id):
         log.info("drive_update_gated", file_id=file_id, chat_id=chat_id)
         return ""
     try:
@@ -156,7 +156,7 @@ async def export_to_gdoc(
 
     Gated for non-operator jobs (#202) — returns "" without creating a Doc.
     """
-    if settings.export_blocked(chat_id):
+    if await settings.export_blocked(chat_id):
         log.info("gdoc_export_gated", name=name, chat_id=chat_id)
         return ""
     try:

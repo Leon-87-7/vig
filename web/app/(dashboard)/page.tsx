@@ -171,7 +171,7 @@ function FeedPageContent() {
             <h2 className="mt-1 text-lg font-semibold text-ink">Connect Google</h2>
             <p className="mt-1 max-w-2xl text-sm text-body">Authorize Drive + Sheets so your jobs export into a vig-owned /vig folder in your own Google Drive.</p>
           </div>
-          <a href="/api/google/connect" className="inline-flex items-center justify-center rounded-full bg-signal px-4 py-2 text-sm font-semibold text-canvas transition-ui hover:brightness-110">Connect Google</a>
+          <a href="/api/google/connect" className="inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep">Connect Google</a>
         </div>
       </section>
 

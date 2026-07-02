@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import json
 import sqlite3
 
@@ -98,7 +100,7 @@ class Settings(BaseSettings):
         except (RuntimeError, InvalidToken, json.JSONDecodeError, UnicodeDecodeError):
             return False
 
-    def export_blocked(self, chat_id: int | None) -> bool:
+    async def export_blocked(self, chat_id: int | None) -> bool:
         """True when *chat_id* must NOT write to the operator's shared Drive/Sheets.
 
         Blocks only an explicit non-operator chat. A None chat_id (system/operator
@@ -106,11 +108,8 @@ class Settings(BaseSettings):
         """
         if chat_id is not None:
             try:
-                with sqlite3.connect(self.DB_PATH) as conn:
-                    cur = conn.execute("SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1", (chat_id,))
-                    row = cur.fetchone()
-                    if row is not None and self._google_token_readable(str(row[0])):
-                        return False
+                if await asyncio.to_thread(self._has_readable_google_token, chat_id):
+                    return False
             except sqlite3.Error:
                 return False if self.OPERATOR_CHAT_ID is None else chat_id != self.OPERATOR_CHAT_ID
         return (
@@ -118,6 +117,18 @@ class Settings(BaseSettings):
             and chat_id is not None
             and chat_id != self.OPERATOR_CHAT_ID
         )
+
+    def _has_readable_google_token(self, chat_id: int) -> bool:
+        """Sync helper — runs inside asyncio.to_thread by export_blocked."""
+        # closing() because sqlite3's context manager only wraps the transaction,
+        # not the connection lifetime.
+        with contextlib.closing(sqlite3.connect(self.DB_PATH)) as conn:
+            cur = conn.execute(
+                "SELECT encrypted_token FROM google_oauth_tokens WHERE chat_id = ? LIMIT 1",
+                (chat_id,),
+            )
+            row = cur.fetchone()
+            return row is not None and self._google_token_readable(str(row[0]))
 
 
 settings = Settings()  # pyright: ignore[reportCallIssue] — required fields are populated from env, not literal args

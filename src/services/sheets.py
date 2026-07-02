@@ -100,7 +100,7 @@ async def _update_row_logged(tab: str, row_idx: int, row: list, event_prefix: st
 
 async def append_repo_row(job: dict, analysis: dict, bundle: dict) -> int | None:
     """Append one row to 'Repo Analysis' tab and return the 1-based row index."""
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return None
     row = _repo_row(job, analysis, bundle)
     return await _append_row_logged(TAB_REPO, row, "sheets_repo", job.get("id"), job.get("chat_id"))
@@ -108,7 +108,7 @@ async def append_repo_row(job: dict, analysis: dict, bundle: dict) -> int | None
 
 async def update_repo_row(row_idx: int, job: dict, analysis: dict, bundle: dict) -> None:
     """Overwrite the Repo Analysis row at row_idx (1-based) in-place."""
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return
     row = _repo_row(job, analysis, bundle)
     await _update_row_logged(TAB_REPO, row_idx, row, "sheets_repo", job.get("id"), job.get("chat_id"))
@@ -160,7 +160,7 @@ async def append_short_row(job: dict) -> None:
     best_frame_index, tools_message, links, tools_count, submitted_at,
     processed_at, error_message
     """
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return
     links_raw = job.get("links", [])
     links_str = (
@@ -212,7 +212,7 @@ async def append_long_row(
       drive_file_id, drive_url, fetched_at, status,
       ai_objective, ai_action_points, ai_tools, ai_category, ai_topic, ai_market_data
     """
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return
     fetched_at = datetime.now(timezone.utc).isoformat()
     row = [
@@ -277,7 +277,7 @@ async def append_article_row(job: dict, *, domain: str) -> int | None:
     Columns: job_id, url, domain, title, topic, objective, action_points, tools,
              promise_gap, submitted_at, status
     """
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return None
     row = _article_row(job, domain=domain)
     return await _append_row_logged(TAB_ARTICLE, row, "sheets_article", job.get("id"), job.get("chat_id"))
@@ -285,7 +285,7 @@ async def append_article_row(job: dict, *, domain: str) -> int | None:
 
 async def update_article_row(row_idx: int, job: dict, *, domain: str) -> None:
     """Overwrite the existing Article Analysis row at *row_idx* (1-based) in-place."""
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return
     row = _article_row(job, domain=domain)
     await _update_row_logged(TAB_ARTICLE, row_idx, row, "sheets_article", job.get("id"), job.get("chat_id"))
@@ -324,14 +324,14 @@ async def append_document_row(job: dict) -> int | None:
     Columns: job_id, url, title, document_type, author, publisher, objective,
              key_points, tools, references, submitted_at, status
     """
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return None
     return await _append_row_logged(TAB_DOCUMENT, _document_row(job), "sheets_document", job.get("id"), job.get("chat_id"))
 
 
 async def update_document_row(row_idx: int, job: dict) -> None:
     """Overwrite the Document Analysis row at *row_idx* (1-based) in-place."""
-    if settings.export_blocked(job.get("chat_id")):
+    if await settings.export_blocked(job.get("chat_id")):
         return
     await _update_row_logged(TAB_DOCUMENT, row_idx, _document_row(job), "sheets_document", job.get("id"), job.get("chat_id"))
 
@@ -350,7 +350,7 @@ async def append_prd_row(
 
     Columns: job_id, video_url, title, slot, intent_text, drive_url, created_at
     """
-    if settings.export_blocked(chat_id):
+    if await settings.export_blocked(chat_id):
         return
     row = [
         job_id,

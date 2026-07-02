@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@/test/render';
+import { fireEvent, render, screen, waitFor } from '@/test/render';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import JobDetailPage from './page';
 
@@ -95,6 +95,24 @@ function setupMocks(
 }
 
 beforeEach(() => { setupMocks(); });
+
+describe('CopyButton', () => {
+  it('does not warn about setState after unmount when copy timer is pending', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+
+    // CopyButton is page-local (Next.js forbids extra page exports); reach it through the page.
+    const { unmount } = render(<JobDetailPage params={{ id: 'j1' }} />);
+    fireEvent.click(screen.getByRole('button', { name: /copy all/i }));
+    await waitFor(() => expect(screen.getByText('Copied!')).toBeInTheDocument());
+
+    unmount();
+    await new Promise((r) => setTimeout(r, 1600));
+
+    expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('unmounted component'));
+    errorSpy.mockRestore();
+  });
+});
 
 describe('JobDetailPage', () => {
   it('shows loading spinner when fetchState is loading', () => {

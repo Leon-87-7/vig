@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { TagMenu, TagChips } from "@/components/TagPicker";
@@ -117,8 +117,15 @@ function TemplateAnalysis({ raw }: { raw: string }) {
 
 function CopyButton({ value, ariaLabel, label }: { value: string; ariaLabel: string; label?: string }) {
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
   const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+    try { await navigator.clipboard.writeText(value); setCopied(true); } catch {}
   };
   return (
     <Tooltip content={ariaLabel}>

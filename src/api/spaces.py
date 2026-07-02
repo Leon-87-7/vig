@@ -300,7 +300,7 @@ async def export_space(space_id: str, body: ExportIn, request: Request) -> dict:
 
     if not settings.GOOGLE_DRIVE_FOLDER_EXPORTS:
         return {"error": "drive_not_configured"}
-    if settings.export_blocked(chat_id):
+    if await settings.export_blocked(chat_id):
         return {"error": "export_blocked"}
 
     blobs = await database.list_context_blobs(space_id)

@@ -27,19 +27,29 @@ def operator_set(monkeypatch):
 
 # --- the predicate ---------------------------------------------------------
 
-def test_export_blocked_truth_table(monkeypatch):
+@pytest.mark.asyncio
+async def test_export_blocked_truth_table(monkeypatch):
     monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", OPERATOR)
-    assert settings.export_blocked(INTRUDER) is True
-    assert settings.export_blocked(OPERATOR) is False
+    assert await settings.export_blocked(INTRUDER) is True
+    assert await settings.export_blocked(OPERATOR) is False
     # System/operator-internal calls (no chat_id, e.g. brain rebuild) never blocked.
-    assert settings.export_blocked(None) is False
+    assert await settings.export_blocked(None) is False
 
 
-def test_export_never_blocked_when_operator_unset(monkeypatch):
+@pytest.mark.asyncio
+async def test_export_blocked_is_async(monkeypatch):
+    """export_blocked must not block the event loop — it's awaited by 15 call sites."""
+    import inspect
+
+    assert inspect.iscoroutinefunction(settings.export_blocked)
+
+
+@pytest.mark.asyncio
+async def test_export_never_blocked_when_operator_unset(monkeypatch):
     """Backward-compat: an unconfigured deployment exports for everyone."""
     monkeypatch.setattr("src.config.settings.OPERATOR_CHAT_ID", None)
-    assert settings.export_blocked(INTRUDER) is False
-    assert settings.export_blocked(OPERATOR) is False
+    assert await settings.export_blocked(INTRUDER) is False
+    assert await settings.export_blocked(OPERATOR) is False
 
 
 # --- Drive helpers ---------------------------------------------------------
@@ -306,6 +316,6 @@ async def test_export_blocked_allows_user_with_readable_google_token(tmp_path, m
 
     await database.init_db()
 
-    assert settings.export_blocked(INTRUDER) is True
+    assert await settings.export_blocked(INTRUDER) is True
     await store_google_token(INTRUDER, {"refresh_token": "refresh", "scopes": []})
-    assert settings.export_blocked(INTRUDER) is False
+    assert await settings.export_blocked(INTRUDER) is False
