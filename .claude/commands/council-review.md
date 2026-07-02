@@ -45,9 +45,10 @@ writes a plan document, never source).
 
 ## Optional: write an implementation plan for the findings
 
-`<review-target>` = the current git branch name (always — regardless of what
+`<review-target>` = the current git branch name with every `/` replaced by `-`
+(e.g. `claude/foo-bar` → `claude-foo-bar`) — always, regardless of what
 `$ARGUMENTS` names as the review target, since that's what round-tracking below
-keys off).
+keys off.
 
 If the synthesis has at least one finding (any severity), determine which round
 this is for `<review-target>` by checking, in order:
@@ -66,6 +67,21 @@ synthesized findings into a task-by-task implementation plan (Global Constraints
 one Task per finding or logical group of related findings, checkbox steps, a test
 step, a commit step — see `docs/superpowers/council/` for prior examples of this
 format). This agent MAY write — it is the only step in this command permitted to.
+
+The planner starts cold — its prompt MUST include the full synthesized report
+verbatim (every finding with `file:line`, severity, reviewer attribution). Do
+not tell it to re-derive findings from the diff. Also require of the plan:
+
+- **Pinned context header**: open the plan with the reviewed commit
+  (`git rev-parse --short HEAD`) and diff range (e.g. `main..HEAD`), so the
+  executing agent knows whether `file:line` references have gone stale.
+- **Contested findings are not tasks**: any finding where reviewers disagree,
+  or that conflicts with known project policy/won't-fixes, goes in a
+  **Skipped / needs user decision** section — never as a task the executing
+  agent silently resolves.
+- **Literal verification commands**: each task's test step names the exact
+  command (e.g. `python -m pytest tests/test_x.py -q` — direct, never through
+  rtk), not a generic "run the tests".
 
 Save to:
 - Round 1: `docs/superpowers/council/<review-target>-council-fixes.md`
