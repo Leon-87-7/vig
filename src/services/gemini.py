@@ -12,6 +12,8 @@ from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
+_GEMINI_TIMEOUT_MS = 90_000  # 90s — bounds hung requests in the shared to_thread pool
+
 
 # ---------------------------------------------------------------------------
 # Error type
@@ -149,7 +151,7 @@ def _call_sync(parts: object, *, api_key: str, model: str, schema: type | dict |
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=_GEMINI_TIMEOUT_MS))
     if schema is not None:
         config = types.GenerateContentConfig(
             response_mime_type="application/json",

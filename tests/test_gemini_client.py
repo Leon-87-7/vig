@@ -147,3 +147,32 @@ async def test_photo_both_keys_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     with patch("src.services.gemini._call_sync", side_effect=RuntimeError("quota")):
         with pytest.raises(GUE):
             await call_gemini_photo_links([{"bytes": b"x", "mime_type": "image/jpeg"}])
+
+
+# ---------------------------------------------------------------------------
+# Test 8: _call_sync builds the client with an explicit HttpOptions timeout
+# ---------------------------------------------------------------------------
+
+def test_call_sync_sets_explicit_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """genai.Client must be constructed with a bounded http_options.timeout."""
+    from google.genai import types
+    from src.services.gemini import _call_sync
+
+    captured: dict[str, object] = {}
+
+    class _FakeModels:
+        def generate_content(self, *, model, contents, config=None):
+            return _make_response('{"ok": true}')
+
+    class _FakeClient:
+        def __init__(self, *, api_key, http_options=None):
+            captured["http_options"] = http_options
+            self.models = _FakeModels()
+
+    monkeypatch.setattr("google.genai.Client", _FakeClient)
+
+    _call_sync("hello", api_key="k", model="gemini-2.5-flash")
+
+    http_options = captured["http_options"]
+    assert isinstance(http_options, types.HttpOptions)
+    assert http_options.timeout == 90_000
