@@ -146,6 +146,22 @@
 | [#157](https://github.com/Leon-87-7/vig/issues/157) | feat(document): support Freestyle re-runs from cached parse                                                | Document / Templates     | Merged; PR #200; closed on GH                                                             |
 | [#158](https://github.com/Leon-87-7/vig/issues/158) | feat(exports): add opt-in Document Analysis export hook                                                    | Exports / Sheets         | Merged; PR #200; closed on GH                                                             |
 | [#82](https://github.com/Leon-87-7/vig/issues/82)   | bug(test_long_video): under-mocked send_message → coroutine reaches editMessageText JSON encode            | Test / Long Video        | ⚠ Closed on GH as COMPLETED despite `wontfix` label (dep-map marked WONTFIX 2026-06-07)   |
+| [#211](https://github.com/Leon-87-7/vig/issues/211) | Vision-harvested short titles                                                                              | Short Video              | Merged; PR #215; closed on GH                                                             |
+| [#212](https://github.com/Leon-87-7/vig/issues/212) | Remove key_phrases end-to-end                                                                             | Short Video / Enrichment | Merged; PR #215; closed on GH                                                             |
+| [#213](https://github.com/Leon-87-7/vig/issues/213) | Links Found detail section (clickable)                                                                     | Web / Jobs               | Merged; PR #215; closed on GH                                                             |
+| [#217](https://github.com/Leon-87-7/vig/issues/217) | feat(api): document upload REST endpoints + telegram_delivery column                                       | API                      | Merged; PR #227; closed on GH                                                             |
+| [#218](https://github.com/Leon-87-7/vig/issues/218) | feat(web): Doc Parser page shell + sidebar entry                                                           | Web                      | Merged; PR #227; closed on GH                                                             |
+| [#219](https://github.com/Leon-87-7/vig/issues/219) | feat(processor): Gemini structured summary + enriched GCS storage                                          | Processor                | Merged; PR #227; closed on GH                                                             |
+| [#220](https://github.com/Leon-87-7/vig/issues/220) | feat(api): SSE endpoint for document job status                                                            | API                      | Merged; PR #227; closed on GH                                                             |
+| [#221](https://github.com/Leon-87-7/vig/issues/221) | feat(api): on-demand clean + freestyle document endpoints                                                  | API                      | Merged; PR #227; closed on GH                                                             |
+| [#222](https://github.com/Leon-87-7/vig/issues/222) | feat(web): upload zone — URL input + file dropzone                                                         | Web                      | Merged; PR #227; closed on GH                                                             |
+| [#223](https://github.com/Leon-87-7/vig/issues/223) | feat(web): document job list + SSE real-time updates                                                       | Web                      | Merged; PR #227; closed on GH                                                             |
+| [#224](https://github.com/Leon-87-7/vig/issues/224) | feat(web): three-state Telegram toggle component                                                           | Web / API                | Merged; PR #227; closed on GH                                                             |
+| [#225](https://github.com/Leon-87-7/vig/issues/225) | feat(web): Doc Parser detail page with output cards                                                        | Web                      | Merged; PR #227; closed on GH                                                             |
+| [#226](https://github.com/Leon-87-7/vig/issues/226) | feat(web): freestyle modal with random + saved prompts                                                     | Web                      | Merged; PR #227; closed on GH                                                             |
+| [#231](https://github.com/Leon-87-7/vig/issues/231) | Latent: 'retroactive' storable as a persistent telegram_delivery state                                     | DB / Document            | Merged; PR #232; closed on GH                                                             |
+| [#228](https://github.com/Leon-87-7/vig/issues/228) | Refactor: extract parsed.py trust-boundary PDF intake into a deep module (post-#227)                       | Refactor / Document      | Merged; PR #229; closed on GH                                                             |
+| [#240](https://github.com/Leon-87-7/vig/issues/240) | Doc detail page: move Telegram toggle next to Clean + add download/copy buttons to output cards            | Web / Doc Parser         | Merged; PR #242; closed on GH                                                             |
 
 ---
 
@@ -153,6 +169,13 @@
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
+| [#260](https://github.com/Leon-87-7/vig/pull/260) | Resolve council review findings on Brain graph | codex-252→main | — | ✅ Merged |
+| [#258](https://github.com/Leon-87-7/vig/pull/258) | docs(access): ADR-0031 invite-only gate + onboarding (epic #253) | docs/invite-gate-adr→main | — | ✅ Merged |
+| [#257](https://github.com/Leon-87-7/vig/pull/257) | feat(web): Brain links sortable columns + persisted per-tenant view (#251) | codex-251→main | — | ✅ Merged |
+| [#250](https://github.com/Leon-87-7/vig/pull/250) | feat(skills): /pre-grill + TASK.md ideation workflow | feat/pre-grill-skill→main | — | ✅ Merged |
+| [#249](https://github.com/Leon-87-7/vig/pull/249) | feat(skills): /pre-grill — fatten one-line ideas into grill-ready briefs | feat/pre-grill-skill→main | — | ✅ Merged |
+| [#248](https://github.com/Leon-87-7/vig/pull/248) | Add Tooltip component (Radix) and integrate across UI | codex/resolve-issues-#243-to-#247→main | — | ✅ Merged |
+| [#242](https://github.com/Leon-87-7/vig/pull/242) | feat(doc-parser): relocate Telegram toggle + copy/download on output cards (#240) | 240-doc-detail-page-move-telegram-toggle-next-to-clean-add-downloadcopy-buttons-to-output-cards→main | #240 | ✅ Merged |
 | [#241](https://github.com/Leon-87-7/vig/pull/241) | fix(brain): sort extracted links by latest sighting | codex/resolve-issue-240→main | — | ✅ Merged |
 | [#239](https://github.com/Leon-87-7/vig/pull/239) | feat: Brain Links tab (+ search) and feed dashboard redesign | feat(brain)--link-table→main | — | ✅ Merged |
 | [#237](https://github.com/Leon-87-7/vig/pull/237) | fix(webhook): add /start + /help handlers, harden webhook against unhandled errors | claude/telegram-bot-diagnose-9d41p6→main | — | ✅ Merged |
@@ -168,6 +191,8 @@
 | [#214](https://github.com/Leon-87-7/vig/pull/214) | feat(web): segmented content-type tabs + login page design | ui/second-touchups→main | — | ✅ Merged |
 | [#210](https://github.com/Leon-87-7/vig/pull/210) | feat(web): job tag menu, controls accordion, denser feed cards | ui/job-tag-menu→main | — | ✅ Merged |
 | [#209](https://github.com/Leon-87-7/vig/pull/209) | feat(skills): add /spec-to-kanban wrapper | feat/spec-to-kanban-skill→main | — | ✅ Merged |
+| [#208](https://github.com/Leon-87-7/vig/pull/208) | feat(config): operator-only export gate — per-user isolation (#202) | feat/operator-export-gate→main | #202 | ✅ Merged |
+| [#207](https://github.com/Leon-87-7/vig/pull/207) | docs(multi-tenancy): export-isolation design — ADR-0027, Operator term, issue breakdown | docs/multi-tenancy-export-isolation→main | — | ✅ Merged |
 | [#200](https://github.com/Leon-87-7/vig/pull/200) | fix+feat(document): dispatch fallthrough fix + fast-follow (#156 #157 #158) | fix/document-dispatch-fallthrough→main | #156, #157, #158 | ✅ Merged |
 | [#199](https://github.com/Leon-87-7/vig/pull/199) | docs(brain): graph map plan — ADR-0027/0028, CONTEXT, issues #194–#198 | feat/brain-graph-map→main | #194, #198 | ✅ Merged |
 | [#193](https://github.com/Leon-87-7/vig/pull/193) | feat(web): mobile-first UI/UX makeover + per-space icons (#185–#192) | feat/ui-ux-makeover→main | #185, #192 | ✅ Merged |
