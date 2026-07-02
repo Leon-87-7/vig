@@ -16,8 +16,9 @@ import {
   FileCode2,
   type LucideIcon,
 } from 'lucide-react';
-import { siGithub } from 'simple-icons';
+import { siGithub, siGoogle } from 'simple-icons';
 import { useSessionUser, type InviteUser } from '@/components/invite-gate';
+import { useGoogleStatus } from '@/components/google-status';
 
 interface NavItem {
   href: string;
@@ -178,6 +179,21 @@ function GithubIcon({ className }: { className?: string }) {
   );
 }
 
+// Google mark from simple-icons, same pattern as GithubIcon below.
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={siGoogle.path} />
+    </svg>
+  );
+}
+
 // Telegram avatar with an initial-letter fallback (photo_url is optional).
 function Avatar({ user, className }: { user: InviteUser; className?: string }) {
   if (user.photo_url) {
@@ -257,7 +273,19 @@ function NavLink({
 export function Sidebar() {
   const pathname = usePathname();
   const user = useSessionUser();
+  const { connected, disconnect } = useGoogleStatus();
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectFailed, setDisconnectFailed] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const handleDisconnect = async () => {
+    if (!window.confirm('Disconnect Google? Exports to your Drive/Sheets stop until you reconnect (full consent flow).')) return;
+    setDisconnecting(true);
+    setDisconnectFailed(false);
+    const ok = await disconnect();
+    if (!ok) setDisconnectFailed(true);
+    setDisconnecting(false);
+  };
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -345,9 +373,22 @@ export function Sidebar() {
 
         <div className="mt-auto flex flex-col items-center gap-1">
           {user && (
-            <Tooltip content={user.first_name ?? 'Signed in'}>
+            <Tooltip
+              content={`${user.first_name ?? 'Signed in'} — ${
+                connected ? 'Connected to Google' : 'Google not connected'
+              }`}
+            >
               <span className="flex h-9 w-9 items-center justify-center">
-                <Avatar user={user} className="h-6 w-6" />
+                {/* Static glow — no animation, reduced-motion safe. */}
+                <span
+                  className={`flex rounded-full ${
+                    connected
+                      ? 'ring-2 ring-google/70 shadow-[0_0_10px_rgba(66,133,244,0.45)]'
+                      : ''
+                  }`}
+                >
+                  <Avatar user={user} className="h-6 w-6" />
+                </span>
               </span>
             </Tooltip>
           )}
@@ -443,16 +484,50 @@ export function Sidebar() {
 
         <div className="mt-auto flex flex-col gap-1">
           {user && (
-            <div className="flex items-center gap-3 px-3 py-2">
-              <Avatar user={user} className="h-[26px] w-[26px] shrink-0" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-body">
-                  {user.first_name ?? 'Signed in'}
-                </p>
-                {user.username && (
-                  <p className="truncate font-mono text-[11px] text-muted">@{user.username}</p>
-                )}
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-3">
+                <Avatar user={user} className="h-[26px] w-[26px] shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-body">
+                    <span className="truncate">{user.first_name ?? 'Signed in'}</span>
+                    <GoogleIcon
+                      className={`h-3 w-3 shrink-0 ${connected ? 'text-google' : 'text-muted'}`}
+                    />
+                  </p>
+                  {user.username && (
+                    <p className="truncate font-mono text-[11px] text-muted">@{user.username}</p>
+                  )}
+                </div>
               </div>
+              <div className="mt-1.5 flex items-center gap-2 pl-[38px] text-[11px]">
+                {connected ? (
+                  <>
+                    <span className="text-google">Connected to Google</span>
+                    <button
+                      type="button"
+                      onClick={handleDisconnect}
+                      disabled={disconnecting}
+                      tabIndex={open ? undefined : -1}
+                      className="text-muted transition-ui hover:text-ink disabled:opacity-50"
+                    >
+                      {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
+                  </>
+                ) : connected === false ? (
+                  <a
+                    href="/api/google/connect"
+                    tabIndex={open ? undefined : -1}
+                    className="text-muted transition-ui hover:text-ink"
+                  >
+                    Connect Google
+                  </a>
+                ) : null}
+              </div>
+              {disconnectFailed && (
+                <p className="mt-1 pl-[38px] text-[11px] text-status-error">
+                  Couldn&apos;t disconnect — try again.
+                </p>
+              )}
             </div>
           )}
           <a
