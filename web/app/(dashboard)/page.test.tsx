@@ -131,6 +131,26 @@ describe('FeedPage', () => {
     expect(screen.queryByRole('link', { name: /connect google/i })).toBeNull();
   });
 
+  it('shows a one-time success banner on ?google=connected and strips the param', () => {
+    navigationMock.searchParams = new URLSearchParams('google=connected');
+    render(<FeedPage />);
+    expect(screen.getByText(/google connected/i)).toBeTruthy();
+    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+  });
+
+  it('shows a denied banner on ?google=denied and strips the param', () => {
+    navigationMock.searchParams = new URLSearchParams('google=denied');
+    render(<FeedPage />);
+    expect(screen.getByText(/connection was denied/i)).toBeTruthy();
+    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+  });
+
+  it('preserves other query params when stripping ?google=', () => {
+    navigationMock.searchParams = new URLSearchParams('type=short&google=connected');
+    render(<FeedPage />);
+    expect(navigationMock.replace).toHaveBeenCalledWith('/?type=short', { scroll: false });
+  });
+
   it('shows job count when loaded', () => {
     render(<FeedPage />);
     expect(screen.getByText('1 job')).toBeTruthy();

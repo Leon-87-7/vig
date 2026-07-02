@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   usePathname,
   useRouter,
@@ -74,6 +74,19 @@ function FeedPageContent() {
   const { connected: googleConnected } = useGoogleStatus();
   useInFlightPolling(jobs, reload);
   useBackgroundFreshness(reload);
+
+  // One-time OAuth-return banner: capture ?google= into state, then strip the
+  // param so refresh/back doesn't re-trigger it (CONTEXT.md `Account affordance`).
+  const [oauthResult, setOauthResult] = useState<'connected' | 'denied' | null>(null);
+  useEffect(() => {
+    const google = searchParams.get('google');
+    if (google !== 'connected' && google !== 'denied') return;
+    setOauthResult(google);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('google');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   const refreshFeed = useCallback(async () => {
     await reload();
@@ -165,6 +178,21 @@ function FeedPageContent() {
           <span className="font-mono text-[11px] tracking-wide text-muted">Found.</span>
         </div>
       </header>
+
+      {oauthResult && (
+        <div
+          role="status"
+          className={`rounded-md border px-4 py-3 text-sm ${
+            oauthResult === 'connected'
+              ? 'border-status-done/40 bg-status-done-tint text-status-done'
+              : 'border-status-error/40 bg-status-error-tint text-status-error'
+          }`}
+        >
+          {oauthResult === 'connected'
+            ? 'Google connected — exports will land in your Drive.'
+            : 'Google connection was denied — you can try again anytime.'}
+        </div>
+      )}
 
       {/* Disconnected-only nudge (CONTEXT.md `Account affordance`) — the
           sidebar owns the persistent state; this panel disappears once connected. */}
