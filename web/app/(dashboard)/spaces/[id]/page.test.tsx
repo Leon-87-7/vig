@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import SpaceDetailPage from './page';
 
@@ -69,7 +69,10 @@ function setupMocks(
   } as ReturnType<typeof useSpaceEdit>);
 }
 
-beforeEach(() => { setupMocks(); });
+beforeEach(() => {
+  setupMocks();
+  vi.restoreAllMocks();
+});
 
 describe('SpaceDetailPage', () => {
   it('shows loading spinner when fetchState is loading', () => {
@@ -117,6 +120,17 @@ describe('SpaceDetailPage', () => {
     expect(screen.getByRole('button', { name: /edit/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /export/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /delete/i })).toBeTruthy();
+  });
+
+  it('shows an error and re-enables Delete when the DELETE request fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status: 500 }));
+
+    render(<SpaceDetailPage params={{ id: 's1' }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+    await waitFor(() => expect(screen.getByText(/couldn.t delete/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /delete/i })).not.toBeDisabled();
   });
 
   it('shows edit form when editing is true', () => {
