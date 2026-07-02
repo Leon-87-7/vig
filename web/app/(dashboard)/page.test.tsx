@@ -42,6 +42,17 @@ vi.mock('@/lib/hooks/useInFlightPolling', () => ({
   useInFlightPolling: vi.fn(),
 }));
 
+const googleStatusMock = vi.hoisted(() => ({
+  connected: null as boolean | null,
+}));
+vi.mock('@/components/google-status', () => ({
+  useGoogleStatus: () => ({
+    connected: googleStatusMock.connected,
+    refresh: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+}));
+
 import { useFeedData } from '@/lib/hooks/useFeedData';
 import { useFuseSearch } from '@/lib/hooks/useFuseSearch';
 import { useInFlightPolling } from '@/lib/hooks/useInFlightPolling';
@@ -76,6 +87,7 @@ function setupMocks(overrides: Partial<ReturnType<typeof useFeedData>> = {}) {
 beforeEach(() => {
   navigationMock.replace.mockClear();
   navigationMock.searchParams = new URLSearchParams();
+  googleStatusMock.connected = null;
   mockUseFeedData.mockReset();
   mockUseFuseSearch.mockReset();
   vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -100,6 +112,23 @@ describe('FeedPage', () => {
   it('renders Jobs section', () => {
     render(<FeedPage />);
     expect(screen.getByText('Jobs')).toBeTruthy();
+  });
+
+  it('shows the Connect Google nudge only while disconnected', () => {
+    googleStatusMock.connected = false;
+    render(<FeedPage />);
+    expect(screen.getByRole('link', { name: /connect google/i })).toBeTruthy();
+  });
+
+  it('hides the Connect Google nudge when connected', () => {
+    googleStatusMock.connected = true;
+    render(<FeedPage />);
+    expect(screen.queryByRole('link', { name: /connect google/i })).toBeNull();
+  });
+
+  it('hides the Connect Google nudge while status is unknown', () => {
+    render(<FeedPage />);
+    expect(screen.queryByRole('link', { name: /connect google/i })).toBeNull();
   });
 
   it('shows job count when loaded', () => {

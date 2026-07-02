@@ -22,6 +22,7 @@ import {
 import { PreviewGrid } from '@/components/feed/preview-grid';
 import { RecoveryPanel } from '@/components/feed/recovery-panel';
 import { PageShell } from '@/components/page-shell';
+import { useGoogleStatus } from '@/components/google-status';
 
 const CONTENT_TYPES = new Set(['short', 'long', 'article', 'repo']);
 
@@ -70,6 +71,7 @@ function FeedPageContent() {
     reload,
   } = useFeedData(urlContentType);
   const { query, setQuery, displayedJobs } = useFuseSearch(jobs);
+  const { connected: googleConnected } = useGoogleStatus();
   useInFlightPolling(jobs, reload);
   useBackgroundFreshness(reload);
 
@@ -164,16 +166,20 @@ function FeedPageContent() {
         </div>
       </header>
 
-      <section className="rounded-lg border border-line bg-surface p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-widest text-muted">Google export</p>
-            <h2 className="mt-1 text-lg font-semibold text-ink">Connect Google</h2>
-            <p className="mt-1 max-w-2xl text-sm text-body">Authorize Drive + Sheets so your jobs export into a vig-owned /vig folder in your own Google Drive.</p>
+      {/* Disconnected-only nudge (CONTEXT.md `Account affordance`) — the
+          sidebar owns the persistent state; this panel disappears once connected. */}
+      {googleConnected === false && (
+        <section className="rounded-lg border border-line bg-surface p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-widest text-muted">Google export</p>
+              <h2 className="mt-1 text-lg font-semibold text-ink">Connect Google</h2>
+              <p className="mt-1 max-w-2xl text-sm text-body">Authorize Drive + Sheets so your jobs export into a vig-owned /vig folder in your own Google Drive.</p>
+            </div>
+            <a href="/api/google/connect" className="inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep">Connect Google</a>
           </div>
-          <a href="/api/google/connect" className="inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep">Connect Google</a>
-        </div>
-      </section>
+        </section>
+      )}
 
       {stats && (
         <StatsOverview
