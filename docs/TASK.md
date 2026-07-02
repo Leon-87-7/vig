@@ -25,6 +25,10 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 - add a link pipeline, user sends a URL the bot sends a native preview block and the dashboard has it in the links table.
 
+- there is a UI gap: current dashboard always shows the “Connect Google” panel. The backend has /api/google/status, but the dashboard page is not using it yet. So the connection is real, but the product does not visibly remember it. Slightly rude of it, honestly
+
+- Add a dashboard account/status affordance that shows the Telegram user avatar/name, persistent Google export connection state with connect/disconnect actions, and turns the OAuth return into a one-time success message instead of leaving the page stuck on “Connect Google.”
+
 ---
 
 ## Briefs
