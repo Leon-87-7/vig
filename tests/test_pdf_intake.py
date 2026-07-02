@@ -126,6 +126,7 @@ async def test_fetch_remote_pdf_sends_pdf_request_headers(monkeypatch):
 @pytest.mark.parametrize(
     ("upstream_status", "expected_message"),
     [
+        (401, "PDF URL rejected the download request (401)"),
         (403, "PDF URL rejected the download request (403)"),
         (404, "PDF URL was not found (404)"),
     ],
@@ -161,6 +162,40 @@ async def test_fetch_remote_pdf_maps_upstream_error_to_url_field(monkeypatch, up
 
     assert exc.value.status_code == 422
     assert exc.value.detail == {"field": "url", "message": expected_message}
+
+
+@pytest.mark.asyncio
+async def test_fetch_remote_pdf_unmapped_status_falls_back_to_502(monkeypatch):
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [(2, 1, 6, "", ("93.184.216.34", 0))])
+
+    class ErrorStreamResponse:
+        request = httpx.Request("GET", "https://example.com/doc.pdf")
+
+        def raise_for_status(self):
+            response = httpx.Response(429, request=self.request)
+            raise httpx.HTTPStatusError("throttled", request=self.request, response=response)
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        @asynccontextmanager
+        async def stream(self, method, url):
+            yield ErrorStreamResponse()
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+
+    with pytest.raises(HTTPException) as exc:
+        await fetch_remote_pdf("https://example.com/doc.pdf")
+
+    assert exc.value.status_code == 502
+    assert exc.value.detail == "PDF URL returned HTTP 429"
 
 
 @pytest.mark.asyncio

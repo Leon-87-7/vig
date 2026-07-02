@@ -194,14 +194,17 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-// Telegram avatar with an initial-letter fallback (photo_url is optional).
+// Telegram avatar with an initial-letter fallback — used when photo_url is
+// absent or the CDN URL has gone stale (Telegram photo links expire).
 function Avatar({ user, className }: { user: InviteUser; className?: string }) {
-  if (user.photo_url) {
+  const [failed, setFailed] = useState(false);
+  if (user.photo_url && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- external Telegram CDN, no next/image domains configured
       <img
         src={user.photo_url}
         alt=""
+        onError={() => setFailed(true)}
         className={`rounded-full object-cover ${className ?? ''}`}
       />
     );
@@ -277,6 +280,12 @@ export function Sidebar() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [disconnectFailed, setDisconnectFailed] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Clear a stale failure note if connection state changes underneath us
+  // (e.g. the server revoked the token despite the disconnect call erroring).
+  useEffect(() => {
+    setDisconnectFailed(false);
+  }, [connected]);
 
   const handleDisconnect = async () => {
     if (!window.confirm('Disconnect Google? Exports to your Drive/Sheets stop until you reconnect (full consent flow).')) return;

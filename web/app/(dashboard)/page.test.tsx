@@ -4,15 +4,21 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { JobSummary } from '@/components/job-card';
 import FeedPage from './page';
 
-const navigationMock = vi.hoisted(() => ({
-  replace: vi.fn(),
-  searchParams: new URLSearchParams(),
-}));
+const navigationMock = vi.hoisted(() => {
+  const replace = vi.fn();
+  return {
+    replace,
+    // Stable identity like the real useRouter — an unstable object re-fires
+    // effects that depend on the router.
+    router: { push: vi.fn(), replace, back: vi.fn() },
+    searchParams: new URLSearchParams(),
+  };
+});
 
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   useParams: () => ({}),
-  useRouter: () => ({ push: vi.fn(), replace: navigationMock.replace, back: vi.fn() }),
+  useRouter: () => navigationMock.router,
   usePathname: () => '/',
   useSearchParams: () => navigationMock.searchParams,
 }));
@@ -149,6 +155,23 @@ describe('FeedPage', () => {
     navigationMock.searchParams = new URLSearchParams('type=short&google=connected');
     render(<FeedPage />);
     expect(navigationMock.replace).toHaveBeenCalledWith('/?type=short', { scroll: false });
+  });
+
+  it('strips ?google= and an unsupported ?type= in a single replace', () => {
+    navigationMock.searchParams = new URLSearchParams('type=bogus&google=connected');
+    render(<FeedPage />);
+    expect(screen.getByText(/google connected/i)).toBeTruthy();
+    expect(navigationMock.replace).toHaveBeenCalledTimes(1);
+    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+  });
+
+  it('still drops an unsupported ?type= without a google param', () => {
+    const setCtFilter = vi.fn();
+    setupMocks({ setCtFilter });
+    navigationMock.searchParams = new URLSearchParams('type=bogus');
+    render(<FeedPage />);
+    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(setCtFilter).toHaveBeenCalledWith('');
   });
 
   it('shows job count when loaded', () => {

@@ -75,18 +75,27 @@ function FeedPageContent() {
   useInFlightPolling(jobs, reload);
   useBackgroundFreshness(reload);
 
-  // One-time OAuth-return banner: capture ?google= into state, then strip the
-  // param so refresh/back doesn't re-trigger it (CONTEXT.md `Account affordance`).
+  // One URL-cleanup effect for the two transient params: capture the one-time
+  // ?google= OAuth result into state (CONTEXT.md `Account affordance`) and drop
+  // an unsupported ?type=, in a single replace so the two never race each other
+  // back into the address bar.
   const [oauthResult, setOauthResult] = useState<'connected' | 'denied' | null>(null);
   useEffect(() => {
     const google = searchParams.get('google');
-    if (google !== 'connected' && google !== 'denied') return;
-    setOauthResult(google);
+    const rawType = searchParams.get('type');
+    const oauthReturn = google === 'connected' || google === 'denied';
+    const badType = Boolean(rawType && !CONTENT_TYPES.has(rawType));
+    if (!oauthReturn && !badType) return;
+    if (oauthReturn) setOauthResult(google as 'connected' | 'denied');
     const params = new URLSearchParams(searchParams.toString());
     params.delete('google');
+    if (badType) {
+      params.delete('type');
+      setCtFilter('');
+    }
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchParams, pathname, router]);
+  }, [searchParams, pathname, router, setCtFilter]);
 
   const refreshFeed = useCallback(async () => {
     await reload();
@@ -112,13 +121,6 @@ function FeedPageContent() {
     },
     [pathname, router, searchParams, setCtFilter],
   );
-
-  // Drop an unsupported ?type= from the URL so deep links/bookmarks match the
-  // actual ("All") view instead of advertising a filter that isn't applied.
-  useEffect(() => {
-    const raw = searchParams.get('type');
-    if (raw && !CONTENT_TYPES.has(raw)) setContentType('');
-  }, [searchParams, setContentType]);
 
   const contentTypeCounts = useMemo(
     () => stats?.by_content_type ?? {},
