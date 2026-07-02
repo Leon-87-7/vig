@@ -77,9 +77,9 @@ async def mint_handoff(session_id: str) -> str:
 
 
 async def redeem_handoff(token: str) -> str | None:
-    """Fetch and immediately delete the session id for a handoff token."""
-    key = f"{_HANDOFF_PREFIX}{token}"
-    session_id = await _client().get(key)
-    if session_id is not None:
-        await _client().delete(key)
-    return session_id
+    """Atomically fetch-and-delete the session id for a handoff token.
+
+    Uses GETDEL (single round trip) rather than GET+DELETE so a concurrent retry
+    within the 60s TTL can't redeem the same token twice.
+    """
+    return await _client().getdel(f"{_HANDOFF_PREFIX}{token}")

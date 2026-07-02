@@ -59,7 +59,10 @@ export default function MiniAppPage() {
   function connectGoogle() {
     setState('connecting');
     if (window.Telegram?.WebApp?.openLink) {
-      window.Telegram.WebApp.openLink(connectUrl);
+      // openLink requires an absolute URL — on native iOS/Android clients it hands
+      // the string straight to the platform's URL opener, which can't resolve a
+      // relative path and silently does nothing.
+      window.Telegram.WebApp.openLink(new URL(connectUrl, window.location.origin).href);
       return;
     }
     window.location.assign(connectUrl);

@@ -109,6 +109,9 @@ class FakeRedis:
     async def delete(self, *keys: str) -> int:
         return sum(1 for k in keys if self._store.pop(k, None) is not None)
 
+    async def getdel(self, key: str) -> str | None:
+        return self._store.pop(key, None)
+
     async def close(self) -> None:
         pass
 
@@ -250,6 +253,28 @@ class TestSessionMiddleware:
         assert resp.json()["user"]["id"] == 9
         # Single-use: the token must be gone after redemption.
         assert "connect_handoff:handoff-tok" not in fr._store
+
+    def test_google_connect_falls_back_to_token_with_stale_cookie(
+        self, auth_client: TestClient
+    ) -> None:
+        """A stale/expired same-origin cookie in the system browser must not shadow a
+        valid handoff token — the fallback must still run when cookie resolution fails."""
+        import src.auth.session as session_module
+        from src import database
+
+        user = {"id": 11, "username": "mini_user_2"}
+        asyncio.run(database.set_user_status(11, "approved"))
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["session:mini-connect-sid-2"] = json.dumps(user)
+        fr._store["connect_handoff:handoff-tok-2"] = "mini-connect-sid-2"
+
+        resp = auth_client.get(
+            "/api/google/connect",
+            params={"token": "handoff-tok-2"},
+            cookies={"vig_session": "stale-or-expired-cookie"},
+        )
+        assert resp.status_code == 200, f"Unexpected: {resp.text}"
+        assert resp.json()["user"]["id"] == 11
 
     def test_probe_endpoint_ignores_handoff_token(self, auth_client: TestClient) -> None:
         """The handoff-token fallback is scoped to /api/google/connect only, not every route."""

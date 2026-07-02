@@ -41,16 +41,17 @@ class SessionMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         session_id = request.cookies.get(COOKIE_NAME)
-        if not session_id and path in _HANDOFF_TOKEN_PATHS:
+        user = await session_store.resolve(session_id) if session_id else None
+        # A stale/expired same-origin cookie must not block the handoff-token
+        # fallback — fall back to it whenever cookie resolution didn't yield a user.
+        if user is None and path in _HANDOFF_TOKEN_PATHS:
             token = request.query_params.get("token")
             if token:
-                session_id = await session_store.redeem_handoff(token)
-        if not session_id:
-            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
-
-        user = await session_store.resolve(session_id)
+                handoff_session_id = await session_store.redeem_handoff(token)
+                if handoff_session_id:
+                    user = await session_store.resolve(handoff_session_id)
         if user is None:
-            return JSONResponse({"detail": "Invalid or expired session"}, status_code=401)
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
 
         request.state.user = user
         # Only these auth routes are intentionally reachable before approval.
