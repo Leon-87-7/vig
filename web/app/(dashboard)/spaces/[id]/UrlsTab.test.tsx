@@ -40,10 +40,10 @@ function setupMocks(overrides: Partial<ReturnType<typeof useSpaceUrls>> = {}) {
 beforeEach(() => { setupMocks(); });
 
 describe('UrlsTab', () => {
-  it('shows loading spinner when loading', () => {
+  it('shows loading skeleton when loading', () => {
     setupMocks({ loading: true, spaceUrls: [], allJobs: [] });
     render(<UrlsTab spaceId="s1" />);
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
   it('shows empty message when no URLs', () => {

@@ -54,6 +54,14 @@ export function SkeletonGrid() {
   );
 }
 
+export function SkeletonLine({ width = 'w-2/3' }: { width?: string }) {
+  return <div className={`h-4 ${width} animate-pulse rounded bg-raised`} aria-hidden="true" />;
+}
+
+export function SkeletonBlock({ className = 'h-24' }: { className?: string }) {
+  return <div className={`w-full animate-pulse rounded-lg border border-line bg-surface ${className}`} aria-hidden="true" />;
+}
+
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-line bg-status-error-tint px-4 py-3">

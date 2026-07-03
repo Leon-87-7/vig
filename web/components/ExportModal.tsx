@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useGdocExport } from "@/lib/hooks/useGdocExport";
-import { Spinner } from "@/components/ui";
+import { SkeletonLine } from "@/components/feed/feed-states";
 
 interface ExportModalProps {
   spaceId: string;
@@ -109,9 +109,10 @@ export default function ExportModal({ spaceId, spaceName, onClose }: ExportModal
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-body">
-            <Spinner />
-            Composing export…
+          <div className="space-y-2 py-2">
+            <SkeletonLine width="w-full" />
+            <SkeletonLine width="w-5/6" />
+            <SkeletonLine width="w-3/4" />
           </div>
         ) : loadError ? (
           <p className="py-4 text-sm text-status-error">Failed to compose export. Please try again.</p>

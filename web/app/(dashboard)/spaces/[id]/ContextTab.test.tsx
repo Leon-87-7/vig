@@ -48,10 +48,10 @@ function setupMocks(overrides: Partial<ReturnType<typeof useSpaceContext>> = {})
 beforeEach(() => { setupMocks(); });
 
 describe('ContextTab', () => {
-  it('shows loading spinner when loading', () => {
+  it('shows loading skeleton when loading', () => {
     setupMocks({ loading: true, blobs: [] });
     render(<ContextTab spaceId="s1" />);
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
   it('shows empty message when no blobs', () => {

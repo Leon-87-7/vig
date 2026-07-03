@@ -115,10 +115,10 @@ describe('CopyButton', () => {
 });
 
 describe('JobDetailPage', () => {
-  it('shows loading spinner when fetchState is loading', () => {
+  it('shows loading skeleton when fetchState is loading', () => {
     setupMocks({ fetchState: 'loading', job: null });
     render(<JobDetailPage params={{ id: 'j1' }} />);
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
   it('shows not found when fetchState is not_found', () => {
