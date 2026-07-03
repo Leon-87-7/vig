@@ -29,6 +29,32 @@ def test_spawn_background_retains_reference_until_done() -> None:
     asyncio.run(scenario())
 
 
+def test_spawn_background_logs_unhandled_exception(monkeypatch) -> None:
+    import src.utils.background_tasks as bg
+
+    logged = {}
+
+    def fake_error(event, **kwargs):
+        logged["event"] = event
+        logged.update(kwargs)
+
+    monkeypatch.setattr(bg.logger, "error", fake_error)
+
+    async def scenario() -> None:
+        async def boom() -> None:
+            raise ValueError("kaput")
+
+        task = spawn_background(boom())
+        await asyncio.gather(task, return_exceptions=True)
+        await asyncio.sleep(0)  # let the done_callback fire
+
+        assert logged["event"] == "background_task_failed"
+        assert isinstance(logged["exc_info"], ValueError)
+        assert task not in _BACKGROUND_TASKS
+
+    asyncio.run(scenario())
+
+
 def test_spawn_background_runs_the_coroutine() -> None:
     async def scenario() -> None:
         result = {}
