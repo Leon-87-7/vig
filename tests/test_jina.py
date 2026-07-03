@@ -211,5 +211,4 @@ async def test_fetch_markdown_uses_explicit_timeout(monkeypatch):
 
     await jina.fetch_markdown("https://example.com")
 
-    assert captured.get("timeout") is not None
-    assert captured["timeout"] != 5
+    assert captured.get("timeout") == 30
