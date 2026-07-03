@@ -53,6 +53,9 @@
 | [#289](https://github.com/Leon-87-7/vig/issues/289) | perf(web): hoist SegmentedTabs/FilterBar tab definitions to stable references                 | Web              | —          |
 | [#290](https://github.com/Leon-87-7/vig/issues/290) | fix: retain strong references to fire-and-forget asyncio tasks (prevent mid-run GC)           | Backend          | —          |
 | [#291](https://github.com/Leon-87-7/vig/issues/291) | docs: document context-blob and brain-endpoint ownership-scoping decisions                    | Brain            | —          |
+| [#300](https://github.com/Leon-87-7/vig/issues/300) | feat(web): replace in-content spinners with content-shaped skeletons (6 views + skeleton primitives) | Web       | —          |
+| [#301](https://github.com/Leon-87-7/vig/issues/301) | fix(webhook): skip invite-gate email-parsing branch on callback button presses (via_callback) | Webhook          | —          |
+| [#302](https://github.com/Leon-87-7/vig/issues/302) | fix(webhook): message-copy hygiene sweep (trailing spaces, _HELP_TEXT backticks, capitalize waiting message) | Webhook | #301   |
 
 ---
 
@@ -365,6 +368,12 @@ Council fixes chunk 4 — eyebrow sweep, tabs hoisting, background-task tracking
 #291 document context-blob + brain-endpoint ownership-scoping decisions (confirmed: single shared graph, not per-user — future marketing point for Brain page + public home page, docs/TASK.md §14)
 Critical path: #288, #289, #290, #291 are all independent — no dependency between them
 (Task 27/HKDF key derivation skipped per user decision — not an active vulnerability, no issue filed)
+
+Council fixes chunk 5 — spinner→skeleton conversion, webhook callback gate + copy sweep (docs/superpowers/council/sub-plans/main-council-fixes-chunk5-skeletons-and-webhook.md)
+#300 replace in-content spinners with content-shaped skeletons (web — independent)
+#301 skip invite-gate email-parsing branch on callback button presses (via_callback)
+└── #302 message-copy hygiene sweep ◄── #301 (same-file ordering, not a logical dependency — one agent does 23→24 on webhook.py)
+Critical path: #301 → #302; #300 parallel
 
 Account affordance — Google connection + Telegram identity (grill 2026-07-02 — task #17 from docs/TASK.md; CONTEXT.md `Account affordance`)
 #292 session-user context + sidebar identity row (root) ✅-Done ──┐
