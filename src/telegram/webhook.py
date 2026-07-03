@@ -1422,6 +1422,9 @@ async def _invite_gate_allows(
         )
         return False
 
+    if via_callback:
+        return False
+
     if not user or not user.get("email"):
         await database.set_chat_state(
             chat_id=chat_id,

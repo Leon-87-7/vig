@@ -520,7 +520,7 @@ async def test_invite_gate_captures_email_notifies_operator_and_keeps_pending(
     buttons = kwargs["buttons"]
     assert buttons[0][0]["callback_data"] == "invite_approve:100"
     assert buttons[0][1]["callback_data"] == "invite_block:100"
-    assert "still waiting on the operator" in sent.await_args.args[1]
+    assert "still waiting on the operator" in sent.await_args.args[1].lower()
 
 
 @pytest.mark.asyncio
@@ -721,7 +721,8 @@ async def test_callback_from_pending_awaiting_email_does_not_send_email_validati
     monkeypatch.setattr(webhook.database, "get_chat_state", AsyncMock(return_value={"mode": "awaiting_email"}))
     monkeypatch.setattr(webhook, "_resolve_chat_state", lambda state: True)
     monkeypatch.setattr(webhook.database, "upsert_user", AsyncMock())
-    monkeypatch.setattr(webhook.database, "set_chat_state", AsyncMock())
+    set_chat_state = AsyncMock()
+    monkeypatch.setattr(webhook.database, "set_chat_state", set_chat_state)
 
     allowed = await webhook._invite_gate_allows(
         123,
@@ -731,7 +732,8 @@ async def test_callback_from_pending_awaiting_email_does_not_send_email_validati
     )
 
     assert allowed is False
-    assert "valid email address" not in " ".join(sent)
+    assert sent == []
+    set_chat_state.assert_not_awaited()
 
 
 @pytest.mark.asyncio
