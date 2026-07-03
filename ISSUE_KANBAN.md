@@ -76,6 +76,12 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                            | Area                     | Depends On       |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------------ | ------------------------ | ---------------- |
+| [#305](https://github.com/Leon-87-7/vig/issues/305) | Links table — truncate & expand the title · topic description                                    | Web / Brain              | —                |
+| [#307](https://github.com/Leon-87-7/vig/issues/307) | Sidebar footer — Terms/Privacy links + Sign out icon                                              | Web / Sidebar            | —                |
+| [#308](https://github.com/Leon-87-7/vig/issues/308) | Sidebar footer — Google-connect row redesign                                                      | Web / Account            | —                |
+| [#309](https://github.com/Leon-87-7/vig/issues/309) | Job details — previous/next navigation                                                            | Web / Jobs               | —                |
+| [#310](https://github.com/Leon-87-7/vig/issues/310) | Feed — Docs tab linking to Doc Parser                                                             | Web / Feed               | —                |
+| [#306](https://github.com/Leon-87-7/vig/issues/306) | Links table — mobile TableCard stacked layout                                                     | Web / Brain              | #305             |
 
 ---
 
@@ -382,6 +388,15 @@ Account affordance — Google connection + Telegram identity (grill 2026-07-02 �
 #293 Google-status provider + Feed disconnected-only nudge ✅-Done ┘
 #294 OAuth-return one-time banner (independent) ✅-Done
 Critical path: {#292, #293} → #295; #294 parallel (all ✅-Done via PR #296)
+
+Sidebar footer + Brain Links + job navigation (grill 2026-07-03 — tasks #7/#10/#15/#18/#20 from docs/TASK.md)
+#305 Links table — truncate & expand title · topic description (root)
+└── #306 Links table — mobile TableCard stacked layout ◄── #305
+#307 Sidebar Terms/Privacy links + Sign out icon (independent)
+#308 Sidebar Google-connect row redesign (independent)
+#309 Job details previous/next navigation (independent)
+#310 Feed Docs tab → Doc Parser (independent)
+Critical path: #305 → #306; #307, #308, #309, #310 are independent — no dependency between them
 ```
 
 ---
