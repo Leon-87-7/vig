@@ -20,6 +20,10 @@
 | [#251](https://github.com/Leon-87-7/vig/issues/251) | Brain Links table: richer navigation + persisted per-tenant view                                           | Web / Brain              | Merged; PR #257; closed on GH                                                             |
 | [#252](https://github.com/Leon-87-7/vig/issues/252) | Brain graph on-canvas controls overlay (zoom/fit/recenter + topic filter)                                  | Web / Brain              | Merged; PR #260; closed on GH                                                             |
 | [#254](https://github.com/Leon-87-7/vig/issues/254) | feat(db): users email + status columns, awaiting_email state, cutover (invite gate)                        | DB / Access              | Merged; PR #262; closed on GH                                                             |
+| [#292](https://github.com/Leon-87-7/vig/issues/292) | feat(web): session-user context — InviteGate exposes identity, sidebar shows avatar + name                 | Web / Account            | Merged; PR #296; closed on GH                                                             |
+| [#293](https://github.com/Leon-87-7/vig/issues/293) | feat(web): shared Google-status provider + Feed panel becomes disconnected-only nudge                      | Web / Account            | Merged; PR #296; closed on GH                                                             |
+| [#294](https://github.com/Leon-87-7/vig/issues/294) | feat(web): one-time OAuth-return banner on the Feed (?google=connected\|denied)                            | Web / Account            | Merged; PR #296; closed on GH                                                             |
+| [#295](https://github.com/Leon-87-7/vig/issues/295) | feat(web): sidebar Google-connection state — brand-blue token, confirm-disconnect, rail glow               | Web / Account            | Merged; PR #296; closed on GH                                                             |
 
 ---
 
@@ -40,6 +44,15 @@
 | [#279](https://github.com/Leon-87-7/vig/issues/279) | fix(web): surface space-delete failures instead of silently swallowing them                 | Web              | —          |
 | [#280](https://github.com/Leon-87-7/vig/issues/280) | fix(web): align Connect Google button with the shared button-signal spec                    | Web              | —          |
 | [#281](https://github.com/Leon-87-7/vig/issues/281) | feat(web): add loading skeleton and empty state to Doc Parser page                          | Web              | —          |
+| [#283](https://github.com/Leon-87-7/vig/issues/283) | fix(webhook): configurable ADMIN_CONTACT_NAME replaces hardcoded 'Leon' in invite copy       | Access           | —          |
+| [#284](https://github.com/Leon-87-7/vig/issues/284) | fix(web): drop decorative signal-orange accents (logout glow, doc-parser Sparkles)           | Web              | —          |
+| [#285](https://github.com/Leon-87-7/vig/issues/285) | fix(jina): explicit 30s httpx timeout on fetch_markdown                                      | Jina             | —          |
+| [#286](https://github.com/Leon-87-7/vig/issues/286) | chore(jobs): delete unused _DETAIL_FIELDS tuple                                              | API              | —          |
+| [#287](https://github.com/Leon-87-7/vig/issues/287) | fix(validators): raise explicit ValueError in normalize_repo_url instead of unguarded IndexError | Validators   | —          |
+| [#288](https://github.com/Leon-87-7/vig/issues/288) | fix(web): drop banned uppercase-tracked eyebrow labels per DESIGN.md                          | Web              | —          |
+| [#289](https://github.com/Leon-87-7/vig/issues/289) | perf(web): hoist SegmentedTabs/FilterBar tab definitions to stable references                 | Web              | —          |
+| [#290](https://github.com/Leon-87-7/vig/issues/290) | fix: retain strong references to fire-and-forget asyncio tasks (prevent mid-run GC)           | Backend          | —          |
+| [#291](https://github.com/Leon-87-7/vig/issues/291) | docs: document context-blob and brain-endpoint ownership-scoping decisions                    | Brain            | —          |
 
 ---
 
@@ -335,6 +348,30 @@ Council fixes chunk 2 — event loop + shim deletion + React race/cleanup batch 
 #280 Connect Google button-signal spec alignment
 #281 Doc Parser loading skeleton + empty state
 Critical path: #276, #277, #278, #279, #280, #281 are all independent — no dependency between them
+
+Council fixes chunk 3 — admin-contact copy, decorative-signal removal, timeouts, dead code (docs/superpowers/council/sub-plans/main-council-fixes-chunk3-copy-and-hygiene.md)
+#283 configurable ADMIN_CONTACT_NAME replaces hardcoded 'Leon' (webhook + invite-gate)
+#284 drop decorative signal-orange accents (logout glow, doc-parser Sparkles)
+#285 Jina fetch_markdown — explicit 30s httpx timeout
+#286 delete unused _DETAIL_FIELDS tuple
+#287 normalize_repo_url — explicit ValueError guard instead of unguarded IndexError
+Critical path: #283, #284, #285, #286, #287 are all independent — no dependency between them
+(Task 21/APScheduler→asyncio sleep-loop skipped per user decision — kept APScheduler, no issue filed)
+
+Council fixes chunk 4 — eyebrow sweep, tabs hoisting, background-task tracking, scoping docs (docs/superpowers/council/sub-plans/main-council-fixes-chunk4-design-and-tasks.md)
+#288 drop banned uppercase-tracked eyebrow labels per DESIGN.md
+#289 hoist SegmentedTabs/FilterBar tab definitions to stable references
+#290 retain strong references to fire-and-forget asyncio tasks
+#291 document context-blob + brain-endpoint ownership-scoping decisions (confirmed: single shared graph, not per-user — future marketing point for Brain page + public home page, docs/TASK.md §14)
+Critical path: #288, #289, #290, #291 are all independent — no dependency between them
+(Task 27/HKDF key derivation skipped per user decision — not an active vulnerability, no issue filed)
+
+Account affordance — Google connection + Telegram identity (grill 2026-07-02 — task #17 from docs/TASK.md; CONTEXT.md `Account affordance`)
+#292 session-user context + sidebar identity row (root) ✅-Done ──┐
+                                                                 ├──► #295 sidebar Google-connection state ✅-Done
+#293 Google-status provider + Feed disconnected-only nudge ✅-Done ┘
+#294 OAuth-return one-time banner (independent) ✅-Done
+Critical path: {#292, #293} → #295; #294 parallel (all ✅-Done via PR #296)
 ```
 
 ---

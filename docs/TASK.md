@@ -23,12 +23,6 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
 
-- add a link pipeline, user sends a URL the bot sends a native preview block and the dashboard has it in the links table.
-
-- there is a UI gap: current dashboard always shows the “Connect Google” panel. The backend has /api/google/status, but the dashboard page is not using it yet. So the connection is real, but the product does not visibly remember it. Slightly rude of it, honestly
-
-- Add a dashboard account/status affordance that shows the Telegram user avatar/name, persistent Google export connection state with connect/disconnect actions, and turns the OAuth return into a one-time success message instead of leaving the page stuck on “Connect Google.”
-
 ---
 
 ## Briefs
@@ -447,3 +441,112 @@ hover:text-ink`, `transition-ui`, and the drawer's tabbability pattern
   footer's full-width-row pattern?
 - Icon choice — lucide has no canonical legal glyphs; `ScrollText` for terms
   and `Shield`/`FileText` for privacy, or one shared glyph?
+
+## 16. Link pipeline — bare URLs get a native Telegram preview + a Brain Links row
+
+`detect_pipeline` (`src/utils/validators.py:50`) only recognizes short/long/article/repo/document
+(`Pipeline = Literal[...]`, `validators.py:8`) — anything else is `"rejected"`, and `_route_url`
+(`src/telegram/webhook.py:1348`) sends every rejected URL straight to `_reject_url`
+(`webhook.py:1274`): a canned "Unsupported URL" reply, no job, no persistence. Meanwhile the
+`links` table (`src/database.py:151`) and `ingest_links` (`src/brain.py:282`) already do exactly
+"capture a URL, dedupe by canonical URL, store title/topic" — but today only get fed from
+enrichment output, 5 callers all in `src/processors/article.py` and `src/processors/prd.py`,
+never from a raw user-pasted link.
+
+**Wanted:** sending a bare URL that isn't a video/article/repo/document gets a native Telegram
+link-preview card in reply and a row in the Brain Links table on the dashboard — capture only, no
+enrichment job.
+
+**Backend**
+
+- Extend `Pipeline` (`validators.py:8`) with a new value (e.g. `"link"`), or repurpose part of the
+  current `"rejected"` tail of `detect_pipeline` (`validators.py:73-100`) — decide which URLs move
+  from rejected to accepted (see Open questions).
+- New branch in `_route_url` (`webhook.py:1348`) beside `_route_document_url`/`_route_article`/
+  `_route_repo` that calls `ingest_links` (`src/brain.py:282`) with a single-item list, then
+  replies via `send_message` (`src/telegram/sender.py:101`) with the raw URL as the message text —
+  no caller currently sets `disable_web_page_preview`, so Telegram's default native preview card is
+  the off-the-shelf behavior here; no custom preview rendering needed.
+- `ingest_links` requires `topic` and `source_job_id` (used to look up the source job's URL for the
+  Obsidian `.md`, `_get_source_job_info`, `brain.py:423`) — a bare link has neither. Resolve before
+  wiring the call (see Open questions).
+
+**UI**
+
+- No new component: `LinksTable` (`web/app/(dashboard)/brain/page.tsx`) and `GET /api/brain/links`
+  (`src/api/brain.py`) already render the `links` table as-is. Confirm whatever `topic`/`title`
+  Backend resolves for link-only rows doesn't break that table's existing display assumptions.
+
+**Open questions** (resolve in grill)
+
+- Scope: every URL `detect_pipeline` currently rejects, or a narrower class (exclude bare domains,
+  search-result URLs, non-http schemes)?
+- What populates `ingest_links`'s `topic` and `source_job_id` for a link with no enrichment job —
+  empty/placeholder topic, a lightweight job row created just to anchor `source_job_id`, or does
+  `ingest_links`/`_build_obsidian_md` get adapted to tolerate a missing source job?
+- Precedence: if a pasted URL also matches an allowlisted article domain, does full article
+  enrichment still win, or does "just save + preview" only apply when nothing else claims the URL?
+- Spam/dedup: does this need the same recent-submission guard other pipelines get
+  (`find_recent_job_by_url`), scoped to `links.url` instead of `jobs`?
+
+## 17. Persistent account/status affordance — Google connection state + Telegram identity ✅ DONE — issued #292–#295, merged PR #296
+
+The Feed page (`web/app/(dashboard)/page.tsx:167-176`) renders a "Connect Google" panel
+unconditionally — hardcoded `<h2>Connect Google</h2>` plus an `/api/google/connect` link — with no
+fetch of `GET /api/google/status` (`src/api/google_oauth.py:96`, returns `{"connected": bool}`)
+anywhere in `web/`. The OAuth callback (`google_oauth_callback`, `google_oauth.py:60`) redirects to
+`/?google=connected` or `/?google=denied` on completion, but nothing in `web/` reads that
+`?google=` param, so a successful connect silently lands back on a page that still says "Connect
+Google." Session identity (`first_name`, `username`, `photo_url`) is already available via
+`GET /api/auth/me` (`src/api/auth.py:138`) and is already fetched once by `InviteGate`
+(`web/components/invite-gate.tsx:164`) for approval-gating — but it stays in that component's local
+state (its `InviteUser` type doesn't even include `photo_url`) and nothing downstream, including
+`web/components/sidebar.tsx`, surfaces it.
+
+**Wanted:** a persistent affordance showing who's signed in (Telegram avatar/name) and whether
+Google export is connected, with connect/disconnect actions, and a one-time success/denied message
+on OAuth return instead of a page that looks stuck.
+
+**Backend**
+
+- None needed — `GET /api/google/status`, `POST /api/google/disconnect`
+  (`google_oauth.py:96,102`) and `GET /api/auth/me` (`auth.py:138`) already cover status,
+  disconnect, and identity.
+
+**UI**
+
+- Feed panel (`page.tsx:167-176`): fetch `/api/google/status` on mount; when `connected: true`,
+  swap the "Connect Google" CTA for a connected state + a disconnect action
+  (`POST /api/google/disconnect`).
+- Read `?google=connected`/`?google=denied` via `useSearchParams` (already imported, `page.tsx:7`),
+  show a one-time toast/banner, then strip the param with `router.replace` so a refresh doesn't
+  re-trigger it.
+- Identity affordance: reuse the `/api/auth/me` fetch `InviteGate` already performs instead of
+  adding a second one — lift it into context `InviteGate` provides to children, or a sibling hook
+  both consume (reuse, don't fork). Render name + `photo_url` in `sidebar.tsx`'s footer (same
+  drawer area as the GitHub/Sign out rows, `sidebar.tsx:413-436`), matching that area's muted
+  footer-row idiom per DESIGN.md.
+
+**Resolved decisions** (grilled 2026-07-02 — terms captured in CONTEXT.md: Session identity,
+Google connection, Account affordance)
+
+- **Placement:** sidebar footer is the persistent home (identity + Google state, visible
+  everywhere). The Feed's "Connect Google" panel becomes a **disconnected-only nudge** — renders
+  only while disconnected, disappears once connected. Not a second source of truth.
+- **Identity plumbing:** `InviteGate` exposes the user it already fetches via a session-user
+  context + `useSessionUser()` hook (its `InviteUser` type gains `photo_url`, already in the API
+  response). No second `/api/auth/me` fetch.
+- **Google status state:** one shared provider in the dashboard layout —
+  `{ connected, disconnect, refresh }` — consumed by both the sidebar and the Feed nudge, so
+  connect/disconnect updates every surface instantly.
+- **Footer layout:** expanded drawer = one row, avatar + first_name/username, with a simple-icons
+  Google mark next to the name; "Connected to Google" in **Google brand blue `#4285F4`** (new
+  deliberate off-system token — not signal orange, not the status ramp) and a muted Disconnect
+  action. Collapsed rail = avatar only, static brand-blue glow when connected, tooltip carries
+  name + connection state.
+- **Disconnect UX:** `window.confirm` first (repo precedent: space delete), then POST with a
+  'Disconnecting…' disabled state and a visible failure message on error.
+- **OAuth return:** handled on the Feed page — `useSearchParams` reads `?google=connected|denied`,
+  renders a one-time **inline banner** (no toast system exists), strips the param with
+  `router.replace`. No task-14 dependency: if `/` stops meaning Feed, the backend redirect
+  constant moves then (one line).
