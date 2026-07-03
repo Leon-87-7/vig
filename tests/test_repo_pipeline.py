@@ -779,7 +779,7 @@ async def test_freestyle_with_sheets_row_id_calls_update_not_append(monkeypatch:
     monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
     monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
     monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
-    monkeypatch.setattr(repo_mod.asyncio, "create_task", eager_create_task)
+    monkeypatch.setattr(repo_mod, "spawn_background", eager_create_task)
 
     job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
            "freestyle_prompt": "explain for a Rust developer",
@@ -817,7 +817,7 @@ async def test_fresh_job_calls_append_not_update(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("src.processors.repo.send_inline_keyboard", AsyncMock())
     monkeypatch.setattr("src.processors.repo.database.update_job_status", AsyncMock())
     monkeypatch.setattr("src.processors.repo.settings.GITHUB_TOKEN", "tok")
-    monkeypatch.setattr(repo_mod.asyncio, "create_task", eager_create_task)
+    monkeypatch.setattr(repo_mod, "spawn_background", eager_create_task)
 
     job = {"id": "abc", "chat_id": 1, "url": "https://github.com/anthropics/claude-code",
            "freestyle_prompt": None, "template_analysis": None, "sheets_row_id": None}
