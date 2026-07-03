@@ -23,6 +23,10 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
 
+- in the job details page add navigation btns (previous / next).
+- add a delete btn for the jobs (in every instance of a job, row or card) and the job should be deleted from the DB and the telegram chat. On the desktop mode on mobile it should be the sweep left motion. AND it should be with warning (can be selected as "don't show again" checkbox)
+- the feed should have a Docs tab that redirects to the doc parser page
+
 ---
 
 ## Briefs
