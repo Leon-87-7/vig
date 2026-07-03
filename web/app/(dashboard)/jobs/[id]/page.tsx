@@ -5,7 +5,6 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { TagMenu, TagChips } from "@/components/TagPicker";
 import { StatusBadge, TypeBadge } from "@/components/badges";
-import { Spinner } from "@/components/ui";
 import { useJobDetail } from "@/lib/hooks/useJobDetail";
 import { useJobAnnotation } from "@/lib/hooks/useJobAnnotation";
 import { useJobTags } from "@/lib/hooks/useJobTags";
@@ -23,6 +22,7 @@ import {
   parseLinks,
 } from "@/lib/job-detail-utils";
 import { PageShell } from "@/components/page-shell";
+import { SkeletonBlock } from "@/components/feed/feed-states";
 import { Tooltip } from "@/components/ui/tooltip";
 
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
@@ -241,10 +241,13 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   if (fetchState === "loading") {
     return (
-      <div className="flex items-center gap-2 text-sm text-body">
-        <Spinner />
-        Loading…
-      </div>
+      <PageShell width="narrow">
+        <div className="space-y-3">
+          <SkeletonBlock className="h-16" />
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
+        </div>
+      </PageShell>
     );
   }
   if (fetchState === "not_found") return <div className="text-sm text-body">Job not found. <Link href="/" className="text-signal hover:underline">Back to feed</Link></div>;

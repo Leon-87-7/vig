@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSpaceContext } from '@/lib/hooks/useSpaceContext';
-import { Spinner } from '@/components/ui';
+import { SkeletonLine } from '@/components/feed/feed-states';
 
 const MarkdownEditor = dynamic(() => import('@/components/MarkdownEditor'), {
   ssr: false,
@@ -33,9 +33,9 @@ export function ContextTab({ spaceId }: { spaceId: string }) {
   return (
     <section className="space-y-4">
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-body">
-          <Spinner size={3} />
-          Loading…
+        <div className="space-y-2">
+          <SkeletonLine width="w-full" />
+          <SkeletonLine width="w-full" />
         </div>
       ) : blobs.length === 0 ? (
         <p className="text-sm text-muted">

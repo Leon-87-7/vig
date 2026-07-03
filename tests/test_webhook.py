@@ -520,7 +520,7 @@ async def test_invite_gate_captures_email_notifies_operator_and_keeps_pending(
     buttons = kwargs["buttons"]
     assert buttons[0][0]["callback_data"] == "invite_approve:100"
     assert buttons[0][1]["callback_data"] == "invite_block:100"
-    assert "still waiting on the operator" in sent.await_args.args[1]
+    assert "still waiting on the operator" in sent.await_args.args[1].lower()
 
 
 @pytest.mark.asyncio
@@ -702,6 +702,38 @@ async def test_invite_gate_skips_unchanged_approved_upsert_but_keeps_pending_ups
         last_name="Hopper",
         username="grace",
     )
+
+
+@pytest.mark.asyncio
+async def test_callback_from_pending_awaiting_email_does_not_send_email_validation_error(monkeypatch):
+    """A button press from a pending, awaiting_email chat must not trigger the
+    'Please send a valid email address' text-input error message."""
+    from src.telegram import webhook
+
+    sent: list[str] = []
+
+    async def fake_send_message(chat_id, text, **kwargs):
+        sent.append(text)
+
+    monkeypatch.setattr(webhook, "send_message", fake_send_message)
+    monkeypatch.setattr(webhook.database, "get_user_status", AsyncMock(return_value="pending"))
+    monkeypatch.setattr(webhook.database, "get_user", AsyncMock(return_value={"email": None}))
+    monkeypatch.setattr(webhook.database, "get_chat_state", AsyncMock(return_value={"mode": "awaiting_email"}))
+    monkeypatch.setattr(webhook, "_resolve_chat_state", lambda state: True)
+    monkeypatch.setattr(webhook.database, "upsert_user", AsyncMock())
+    set_chat_state = AsyncMock()
+    monkeypatch.setattr(webhook.database, "set_chat_state", set_chat_state)
+
+    allowed = await webhook._invite_gate_allows(
+        123,
+        "",
+        {"first_name": "X", "last_name": None, "username": None},
+        via_callback=True,
+    )
+
+    assert allowed is False
+    assert sent == []
+    set_chat_state.assert_not_awaited()
 
 
 @pytest.mark.asyncio

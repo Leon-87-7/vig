@@ -8,8 +8,9 @@ import { useSpaceDetail } from "@/lib/hooks/useSpaceDetail";
 import { useSpaceEdit } from "@/lib/hooks/useSpaceEdit";
 import { UrlsTab } from "./UrlsTab";
 import { ContextTab } from "./ContextTab";
-import { Spinner, TabBar } from "@/components/ui";
+import { TabBar } from "@/components/ui";
 import { PageShell } from "@/components/page-shell";
+import { SkeletonBlock } from "@/components/feed/feed-states";
 
 type ActiveTab = "urls" | "context";
 
@@ -43,10 +44,12 @@ export default function SpaceDetailPage({ params }: { params: { id: string } }) 
 
   if (fetchState === "loading") {
     return (
-      <div className="flex items-center gap-2 text-sm text-body">
-        <Spinner />
-        Loading…
-      </div>
+      <PageShell width="narrow">
+        <div className="space-y-3">
+          <SkeletonBlock className="h-8 w-32" />
+          <SkeletonBlock className="h-40" />
+        </div>
+      </PageShell>
     );
   }
   if (fetchState === "not_found") return <div className="text-sm text-body">Space not found. <Link href="/spaces" className="text-signal hover:underline">Back to spaces</Link></div>;

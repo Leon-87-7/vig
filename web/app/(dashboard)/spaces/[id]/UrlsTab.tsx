@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useSpaceUrls } from '@/lib/hooks/useSpaceUrls';
 import { TypeBadge } from '@/components/badges';
-import { Spinner } from '@/components/ui';
+import { SkeletonLine } from '@/components/feed/feed-states';
 import { Tooltip } from '@/components/ui/tooltip';
 
 export function UrlsTab({ spaceId }: { spaceId: string }) {
@@ -29,9 +29,10 @@ export function UrlsTab({ spaceId }: { spaceId: string }) {
   return (
     <section className="space-y-4">
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-body">
-          <Spinner size={3} />
-          Loading…
+        <div className="space-y-2">
+          <SkeletonLine width="w-full" />
+          <SkeletonLine width="w-full" />
+          <SkeletonLine width="w-2/3" />
         </div>
       ) : spaceUrls.length === 0 ? (
         <p className="text-sm text-muted">No jobs added yet.</p>

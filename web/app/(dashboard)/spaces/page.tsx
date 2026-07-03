@@ -3,7 +3,7 @@ import { LayoutGrid } from 'lucide-react';
 import { SpaceCard } from '@/components/SpaceCard';
 import { useSpaceList } from '@/lib/hooks/useSpaceList';
 import { useCreateSpace } from '@/lib/hooks/useCreateSpace';
-import { Spinner } from '@/components/ui';
+import { SkeletonBlock } from '@/components/feed/feed-states';
 import { SPACE_ICONS } from '@/lib/space-icons';
 import { PageShell, PageHeader } from '@/components/page-shell';
 
@@ -26,10 +26,13 @@ export default function SpacesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-body">
-        <Spinner />
-        Loading…
-      </div>
+      <PageShell>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <SkeletonBlock className="h-[100px]" />
+          <SkeletonBlock className="h-[100px]" />
+          <SkeletonBlock className="h-[100px]" />
+        </div>
+      </PageShell>
     );
   }
 

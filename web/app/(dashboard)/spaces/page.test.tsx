@@ -63,10 +63,10 @@ describe('SpacesPage', () => {
     expect(screen.getByText('Spaces')).toBeTruthy();
   });
 
-  it('shows loading spinner when loading', () => {
+  it('shows loading skeleton when loading', () => {
     setupMocks({ loading: true, spaces: [] });
     render(<SpacesPage />);
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
   it('shows error message on error', () => {

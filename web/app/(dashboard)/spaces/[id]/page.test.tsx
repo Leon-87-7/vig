@@ -76,10 +76,10 @@ beforeEach(() => {
 });
 
 describe('SpaceDetailPage', () => {
-  it('shows loading spinner when fetchState is loading', () => {
+  it('shows loading skeleton when fetchState is loading', () => {
     setupMocks({ fetchState: 'loading', space: null });
     render(<SpaceDetailPage params={{ id: 's1' }} />);
-    expect(screen.getByText('Loading…')).toBeTruthy();
+    expect(document.querySelector('.animate-pulse')).toBeTruthy();
   });
 
   it('shows not found message', () => {

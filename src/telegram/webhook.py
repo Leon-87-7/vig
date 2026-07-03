@@ -59,7 +59,7 @@ def _admin_label() -> str:
 _INVITE_EMAIL_PROMPT_TEMPLATE = (
     "VIG is invite-only — what's your email so {admin} can approve you?"
 )
-_INVITE_WAITING_MESSAGE_TEMPLATE = "still waiting on {admin}."
+_INVITE_WAITING_MESSAGE_TEMPLATE = "Still waiting on {admin}."
 _INVITE_APPROVED_MESSAGE = "You're in, send a link."
 _INVITE_BLOCKED_MESSAGE = "Access blocked."
 
@@ -405,7 +405,7 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
     task_type = _task_for(job["content_type"])
     await queue.enqueue({"task": task_type, "job_id": new_job_id})
     log.info("reprocess_enqueued", orphan_job_id=ctx.job_id, new_job_id=new_job_id)
-    await send_message(ctx.chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
+    await send_message(ctx.chat_id, f"📥 Received!\njob_{new_job_id[-4:]}")
 
 
 async def _cb_show_done(ctx: CallbackCtx) -> None:
@@ -523,7 +523,7 @@ async def _handle_callback(callback: dict) -> None:
             "last_name": sender.get("last_name") or chat.get("last_name"),
             "username": sender.get("username") or chat.get("username"),
         }
-        if not await _invite_gate_allows(chat_id, "", identity):
+        if not await _invite_gate_allows(chat_id, "", identity, via_callback=True):
             await answer_callback_query(cq_id, text="Access restricted.")
             return
 
@@ -606,7 +606,7 @@ async def _cmd_freestyle(ctx: SlashCtx) -> None:
             message_id=ctx.message_id,
         )
         await queue.enqueue({"task": "repo", "job_id": job_id})
-        await send_message(ctx.chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        await send_message(ctx.chat_id, f"📥 Received!\njob_{job_id[-4:]}")
         return
     await _handle_freestyle_url(ctx.chat_id, url, pipeline, ctx.message_id)
 
@@ -1022,21 +1022,21 @@ _START_TEXT = (
 
 _HELP_TEXT = (
     "📖 *Commands*\n\n"
-    "/start — show welcome message\n"
-    "/help — this message\n"
-    "/find <query> — search your processed content\n"
-    "/spec <suffix> [intent] — generate a mini-PRD from a long video\n"
-    "/freestyle — use a custom Gemini prompt for the next job\n"
-    "/force <url> — reprocess a URL (skip cache)\n"
-    "/cancel — cancel the current pending prompt\n"
-    "/ignore <domain> — hide a domain from link results\n"
-    "/unignore <domain> — stop hiding a domain\n"
+    "`/start` — show welcome message\n"
+    "`/help` — this message\n"
+    "`/find` <query> — search your processed content\n"
+    "`/spec` <suffix> [intent] — generate a mini-PRD from a long video\n"
+    "`/freestyle` — use a custom Gemini prompt for the next job\n"
+    "`/force` <url> — reprocess a URL (skip cache)\n"
+    "`/cancel` — cancel the current pending prompt\n"
+    "`/ignore` <domain> — hide a domain from link results\n"
+    "`/unignore` <domain> — stop hiding a domain\n"
     "`/ignore_list` — show ignored domains\n"
-    "/allowlist <domain> — add an article domain\n"
-    "/unallowlist <domain> — remove an article domain\n"
+    "`/allowlist` <domain> — add an article domain\n"
+    "`/unallowlist` <domain> — remove an article domain\n"
     "`/allowlist_list` — show allowlisted domains\n"
     "`/download_md` <suffix> — download a job result as Markdown\n"
-    "/rebuild-graph — rebuild the Second Brain link graph"
+    "`/rebuild-graph` — rebuild the Second Brain link graph"
 )
 
 
@@ -1118,7 +1118,7 @@ async def _handle_awaiting_intent(chat_id: int, text: str, state: dict) -> None:
             else ("article" if pipeline == "article" else "video")
         )
         await queue.enqueue({"task": task_type, "job_id": new_job_id})
-        await send_message(chat_id, f"📥 Received! \njob_{new_job_id[-4:]}")
+        await send_message(chat_id, f"📥 Received!\njob_{new_job_id[-4:]}")
         return
     stripped = text.strip()
     if len(stripped) < 5:
@@ -1391,6 +1391,8 @@ async def _invite_gate_allows(
     chat_id: int,
     text: str,
     identity: dict[str, str | None] | None,
+    *,
+    via_callback: bool = False,
 ) -> bool:
     status = await database.get_user_status(chat_id)
     user = await database.get_user(chat_id)
@@ -1402,7 +1404,12 @@ async def _invite_gate_allows(
         return False
 
     state = await database.get_chat_state(chat_id)
-    if state and state.get("mode") == "awaiting_email" and _resolve_chat_state(state):
+    if (
+        not via_callback
+        and state
+        and state.get("mode") == "awaiting_email"
+        and _resolve_chat_state(state)
+    ):
         email = normalize_email(text)
         if email is None:
             await send_message(chat_id, "Please send a valid email address.")
@@ -1413,6 +1420,9 @@ async def _invite_gate_allows(
         await send_message(
             chat_id, _INVITE_WAITING_MESSAGE_TEMPLATE.format(admin=_admin_label())
         )
+        return False
+
+    if via_callback:
         return False
 
     if not user or not user.get("email"):
@@ -1503,7 +1513,7 @@ async def _enqueue_simple_job(
         message_id=message_id,
     )
     await queue.enqueue({"task": content_type, "job_id": job_id})
-    await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+    await send_message(chat_id, f"📥 Received!\njob_{job_id[-4:]}")
 
 
 async def _reject_url(chat_id: int, text: str) -> None:
@@ -1592,7 +1602,7 @@ async def _route_video(
             f"📥 Received\n✨ Kicking off Gemini analysis ({pending_template})\njob_{job_id[-4:]}",
         )
     else:
-        await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+        await send_message(chat_id, f"📥 Received!\njob_{job_id[-4:]}")
 
 
 async def _route_url(chat_id: int, text: str, message_id: int) -> None:
@@ -1812,7 +1822,7 @@ async def _enqueue_document_job(
         message_id=message_id,
     )
     await queue.enqueue({"task": "document", "job_id": job_id})
-    await send_message(chat_id, f"📥 Received! \njob_{job_id[-4:]}")
+    await send_message(chat_id, f"📥 Received!\njob_{job_id[-4:]}")
 
 
 async def _ingest_document(
