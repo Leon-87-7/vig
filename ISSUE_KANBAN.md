@@ -88,6 +88,12 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                            | Area                     | Depends On       |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------------ | ------------------------ | ---------------- |
+| [#318](https://github.com/Leon-87-7/vig/issues/318) | Extract shared job-creation core (create_and_enqueue_job)                                        | —                        | —                |
+| [#319](https://github.com/Leon-87-7/vig/issues/319) | POST /api/jobs — dashboard job-creation endpoint                                                 | —                        | #318             |
+| [#321](https://github.com/Leon-87-7/vig/issues/321) | Repo follow-up after short-video enrichment                                                      | —                        | #318             |
+| [#320](https://github.com/Leon-87-7/vig/issues/320) | Feed page submit control — URL + template picker                                                 | —                        | #319             |
+| [#322](https://github.com/Leon-87-7/vig/issues/322) | Repo follow-up after article enrichment                                                          | —                        | #321             |
+| [#323](https://github.com/Leon-87-7/vig/issues/323) | Repo follow-up after long-video enrichment                                                       | —                        | #321             |
 
 ---
 
@@ -410,6 +416,15 @@ Repo analysis "more informational" (job 20260703_211658 review 2026-07-04 — pr
 └── #314 prompt field-guidance tightening ◄── #312 (same region of repo.py — conflict-avoidance ordering, not logical) ✅-Done (PR #315)
 #313 job detail raw-JSON render fix (web — independent) ✅-Done (PR #315)
 Critical path: #312 → #314; #311, #313 parallel (all ✅-Done via PR #315)
+
+Dashboard job submission + repo follow-up (grill 2026-07-04 — tasks #4/#9 from docs/TASK.md; ADR-0032, ADR-0033)
+#318 Shared job-creation core (root, unblocked)
+├── #319 POST /api/jobs endpoint ◄── #318
+│   └── #320 Feed page submit UI ◄── #319
+└── #321 Repo follow-up: short pipeline ◄── #318
+    ├── #322 Repo follow-up: article pipeline ◄── #321
+    └── #323 Repo follow-up: long-video pipeline ◄── #321
+Critical path: #318 → {#319, #321}; #319 → #320; #321 → {#322, #323}
 ```
 
 ---

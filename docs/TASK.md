@@ -36,14 +36,18 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 ## 4. Dashboard URL submission — a second ingest surface
 
-> **Grill together with task 9.** Both add a new caller of the create-job +
-> enqueue core: task 4 from the web surface, task 9 from the post-enrichment
-> repo follow-up. Decide the shape of the one shared service so neither forks it.
+> **Grilled together with task 9** on 2026-07-04. Both add a new caller of the
+> shared job-creation core: task 4 from the web surface, task 9 from the
+> post-enrichment repo follow-up. See ADR-0032 (dashboard supersedes
+> read-mostly) and ADR-0033 (shared core shape) in `docs/adr/`.
 
 Today URLs only enter through the Telegram webhook
 (`src/telegram/webhook.py`). PRODUCT.md calls for the operator to drive the
 pipeline from the dashboard too ("submitting URLs, triggering and re-running
-jobs … without leaving the dashboard").
+jobs … without leaving the dashboard"). This was previously deferred (see
+CONTEXT.md `Web dashboard` entry) — now unblocked by an upcoming conference
+demo + parity with the Doc Parser page, and treated as a permanent capability,
+not a demo-scoped exception.
 
 **Wanted:** let the operator submit a URL from the web UI and get the same job
 the Telegram path produces — including the per-template behavior exposed by the
@@ -52,31 +56,27 @@ and `/freestyle`).
 
 **Backend**
 
-- Add a write endpoint (e.g. `POST /api/jobs`, in `src/api/jobs.py`) that
-  classifies the URL with `detect_pipeline()` (`src/utils/validators.py`),
-  creates the job row, and enqueues the worker task.
-- **Reuse, don't fork:** the create-job + enqueue core currently lives inside
-  `webhook.py`'s handlers (the `content_type` + `template` + `_task_for(...)`
-  path). Extract it into a shared function/service so the Telegram and web
-  surfaces share one code path and can't drift.
+- Add `POST /api/jobs` (in `src/api/jobs.py`) that classifies the URL with
+  `detect_pipeline()` (`src/utils/validators.py`) and calls the shared
+  `create_and_enqueue_job` core (new `src/services/jobs.py`, ADR-0033) —
+  same function the webhook and task 9's repo follow-up use.
+- `chat_id` comes from `request.state.user["id"]` (the session's tenant),
+  identical to every other `/api/jobs/*` endpoint. No `OPERATOR_CHAT_ID`
+  interaction — that gate governs Drive/Sheets export writes only (ADR-0030),
+  not job creation.
 - Templates come from `PROMPT_TEMPLATES` (`src/templates.py`); accept an optional
-  `template` field. Reject `rejected`/unsupported URLs with the same semantics
-  the bot uses.
+  `template` field, including `freestyle` (custom prompt — in scope for v1).
+  Reject `rejected`/unsupported URLs with the same semantics the bot uses.
+- Pipelines: `short`/`long`/`article`/`repo` on day one. `document` stays on
+  its own Doc Parser page (`/doc-parser`, `/api/parsed/*`) — not folded in.
 
 **UI**
 
 - Add a submit control to the Feed page (`web/app/(dashboard)/page.tsx`): a URL
-  input plus a template selector mirroring the slash commands. Follow DESIGN.md
-  tokens (signal orange on the submit action only). New job should surface in the
-  Feed (prepend / refetch).
-
-**Open questions** (resolve in grill)
-
-- Is `/freestyle` (custom prompt) in scope for v1, or templates-only?
-- Ownership: what `chat_id` does a web-submitted job carry, and how does that
-  interact with the `OPERATOR_CHAT_ID` export gate (#202 / #208, see task 5)?
-- All pipelines (short/long/article/repo/document) on day one, or videos first?
-- Optimistic insert vs. wait-for-`job_id` before showing the row.
+  input plus a template selector mirroring the slash commands (incl.
+  Freestyle). Follow DESIGN.md tokens (signal orange on the submit action
+  only). Insert an optimistic placeholder row on submit, reconciled with the
+  real `job_id` once `POST /api/jobs` resolves.
 
 ## 5. Reconcile the export-isolation PRs (#207, #208) before building on them ✅ DONE
 
@@ -128,9 +128,10 @@ user-facing controls today (no zoom, recenter, or filtering).
 
 ## 9. Offer extracted GitHub repos as a follow-up repo analysis
 
-> **Grill together with task 4.** This is a third caller of the create-job +
-> enqueue core (alongside the Telegram webhook and task 4's web surface). Settle
-> the shared service shape so the repo follow-up reuses it instead of forking.
+> **Grilled together with task 4** on 2026-07-04. This is a third caller of the
+> shared job-creation core (alongside the Telegram webhook and task 4's web
+> surface). See ADR-0033 in `docs/adr/` and the CONTEXT.md `Repo follow-up`
+> entry for the resolved shape.
 
 When a short-form video finishes, enrichment (`src/processors/enrichment.py`,
 `enrich`) returns `tools_raw` — a list of `{name, type, url, description}` where
@@ -143,37 +144,38 @@ job processed by `enrich_repo` (`src/services/github.py`).
 
 **Wanted:** after a short video is processed, if its enrichment yielded one or
 more GitHub repos, the bot prompts the operator to pick which repo(s) to analyze
-next, and enqueues a repo job for each chosen one.
+next, and enqueues a repo job for each chosen one. Ships for all three
+non-document text/URL-derived pipelines: short, article, and long-video —
+three trigger sites feeding the same offer + enqueue mechanism.
 
 **Backend**
 
-- In the short pipeline (`src/processors/short_video.py`), after enrichment,
-  collect candidate repo URLs from `tools_raw` and present them via the existing
-  inline-keyboard machinery (`send_inline_keyboard` + `CallbackCtx` /
-  `_handle_callback` / `answer_callback_query`, `src/telegram/sender.py` +
-  `webhook.py`). Validate each candidate with `detect_pipeline()` /
-  `normalize_repo_url` before offering it.
-- On selection, **reuse, don't fork** the repo create+enqueue path that
-  `_route_repo` already drives — route the chosen URL(s) through the same shared
-  service task 4 extracts, not a parallel copy.
-- The spawned repo job inherits the same `chat_id`; honor the existing
-  recent-job cache (`database.find_recent_job_by_url`) so an already-analyzed
-  repo isn't re-queued.
-
-**Open questions** (resolve in grill)
-
-- Multi-select on a Telegram inline keyboard is not native (one tap = one
-  callback). Toggle-state checkboxes + a "Confirm" button (re-render the keyboard
-  per tap), or one tap = enqueue that repo immediately and allow repeated taps?
-- Which `tools_raw` entries qualify — only `type == "repo"`, or any entry whose
-  `url` `detect_pipeline()` resolves to `"repo"` (Gemini sometimes labels a repo
-  as `"library"`)?
-- Cap on how many repo buttons to show when enrichment returns many; dedupe by
-  normalized URL.
-- Scope to the short pipeline only (as asked), or also offer this after long /
-  article jobs that extract repos?
-- Encoding selected repos in callback data given Telegram's 64-byte limit — index
-  into a cached candidate list, or pack the URL?
+- **Trigger sites** (data shape differs per pipeline):
+  - Short (`processors/short_video.py`): candidates from `enrichment.tools_raw`.
+  - Article (`processors/article.py`): candidates from its own Gemini `tools` list.
+  - Long-video (`processors/long_video.py`): candidates from
+    `extract_description_links` + `enrich_github_links` output (not a Gemini
+    tools list — a different mechanism, same repo-offer outcome).
+- **Candidate filter:** any candidate entry whose `url` resolves to `"repo"`
+  via `detect_pipeline()` — not Gemini's own `type` label (which can mislabel
+  a repo as `"library"`).
+- **Dedupe + cap:** dedupe by `normalize_repo_url`, cap at 5 buttons (matches
+  the template-picker keyboard's precedent).
+- **Selection UX:** one tap = enqueue that repo immediately (no toggle/confirm
+  step — avoids needing new `editMessageReplyMarkup` plumbing this codebase
+  doesn't have yet). Present via `send_inline_keyboard` +
+  `CallbackCtx`/`_handle_callback`/`answer_callback_query` (all in
+  `src/telegram/webhook.py` + `sender.py` — see CONTEXT.md `Webhook dispatch
+  table`, there is no separate `dispatch.py`/`callbacks.py`).
+- **Callback encoding:** `repo_pick:{job_id}:{idx}`, indexing into a short-TTL
+  Redis-cached candidate list keyed by the source `job_id` — stays well under
+  Telegram's 64-byte `callback_data` limit and fits `CallbackCtx`'s existing
+  single-payload-after-`:` convention.
+- On selection, **reuse, don't fork**: route the chosen URL through the same
+  `create_and_enqueue_job` core task 4 extracts (`src/services/jobs.py`,
+  ADR-0033), which already owns the `find_recent_job_by_url` dedup check — an
+  already-analyzed repo isn't re-queued for free.
+- The spawned repo job inherits the same `chat_id` as the source job.
 
 ## 10. Char-count truncation for the links-table description (ui/ux) ✅ ISSUED TO GITHUB #305
 
