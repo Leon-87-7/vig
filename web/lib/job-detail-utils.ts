@@ -20,6 +20,21 @@ export const SHORT_FIELDS: Array<{ key: keyof JobDetail; label: string; render: 
 ]
 
 
+/** Job-detail href carrying the Feed's active filter scope (#309) — the detail
+ * page reads these params back to scope its prev/next adjacent lookup. */
+export function buildJobHref(
+  id: string,
+  scope: { contentType?: string; status?: string },
+) {
+  return {
+    pathname: `/jobs/${id}`,
+    query: {
+      ...(scope.contentType ? { content_type: scope.contentType } : {}),
+      ...(scope.status ? { status: scope.status } : {}),
+    },
+  }
+}
+
 export interface JobLink {
   url: string
   label?: string | null

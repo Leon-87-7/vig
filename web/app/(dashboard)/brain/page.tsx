@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Brain, ExternalLink } from 'lucide-react';
-import { BrainGraph } from '@/components/brain-graph';
-import { SegmentedTabs } from '@/components/filter-bar';
-import { useSemanticSearch } from '@/lib/hooks/useSemanticSearch';
-import type { BrainResult } from '@/lib/hooks/useSemanticSearch';
-import { PageShell, PageHeader } from '@/components/page-shell';
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, Brain, ExternalLink } from "lucide-react";
+import { BrainGraph } from "@/components/brain-graph";
+import { SegmentedTabs } from "@/components/filter-bar";
+import { useSemanticSearch } from "@/lib/hooks/useSemanticSearch";
+import type { BrainResult } from "@/lib/hooks/useSemanticSearch";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
-type BrainTab = 'search' | 'links';
+type BrainTab = "search" | "links";
 
 type LinkRow = {
   url: string;
@@ -26,8 +26,8 @@ type LinksResponse = {
   total: number;
 };
 
-type LinksSort = 'last_seen' | 'appearances';
-type LinksOrder = 'asc' | 'desc';
+type LinksSort = "last_seen" | "appearances";
+type LinksOrder = "asc" | "desc";
 
 type LinksView = {
   sort: LinksSort;
@@ -35,22 +35,24 @@ type LinksView = {
   size: 25 | 50 | 100;
 };
 
-const DEFAULT_LINKS_VIEW: LinksView = { sort: 'last_seen', order: 'desc', size: 25 };
-const LINKS_PAGE_SIZES: LinksView['size'][] = [25, 50, 100];
+const DEFAULT_LINKS_VIEW: LinksView = {
+  sort: "last_seen",
+  order: "desc",
+  size: 25,
+};
+const LINKS_PAGE_SIZES: LinksView["size"][] = [25, 50, 100];
 const BRAIN_TABS = [
-  { label: 'Search', value: 'search' },
-  { label: 'Links', value: 'links', dividerBefore: true },
+  { label: "Search", value: "search" },
+  { label: "Links", value: "links", dividerBefore: true },
 ] as const;
 
 function IdleBanner() {
   return (
     <div className="rounded-lg border border-line bg-surface px-6 py-12 text-center">
-      <p className="text-lg font-medium text-ink">
-        Search your Second Brain
-      </p>
+      <p className="text-lg font-medium text-ink">Search your Second Brain</p>
       <p className="mt-1 text-pretty text-sm text-body">
-        Type a query above to find semantically similar videos and
-        articles you have saved.
+        Type a query above to find semantically similar videos and articles you
+        have saved.
       </p>
     </div>
   );
@@ -59,8 +61,7 @@ function IdleBanner() {
 function EmptyBanner() {
   return (
     <p className="text-pretty rounded-lg border border-line bg-surface px-6 py-8 text-center text-sm text-body">
-      No results found. Try a different query or add more videos to
-      your Brain.
+      No results found. Try a different query or add more videos to your Brain.
     </p>
   );
 }
@@ -76,7 +77,7 @@ function ErrorBanner({ message }: { message: string }) {
 function safeUrl(url: string): string | undefined {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+    return parsed.protocol === "https:" || parsed.protocol === "http:"
       ? url
       : undefined;
   } catch {
@@ -120,21 +121,93 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    dateStyle: "medium",
+    timeStyle: "short",
   }).format(date);
+}
+
+function TruncatedDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <span className="inline-flex max-w-full items-center gap-2">
+      <span
+        title={text}
+        className={`min-w-0 text-xs text-body ${
+          expanded
+            ? "whitespace-normal break-words"
+            : "max-w-[40ch] truncate sm:max-w-[60ch]"
+        }`}
+      >
+        {text}
+      </span>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+        className="relative shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] font-medium text-muted transition-ui before:absolute before:-inset-x-2 before:-inset-y-2.5 hover:bg-raised hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96]"
+      >
+        {expanded ? "Less" : "More"}
+      </button>
+    </span>
+  );
+}
+
+function LinkUrl({ link }: { link: LinkRow }) {
+  const href = safeUrl(link.url);
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex max-w-full items-center gap-2 font-mono text-xs text-ink transition-ui hover:text-signal hover:underline"
+    >
+      <span className="truncate">{link.url}</span>
+      <ExternalLink
+        className="h-3.5 w-3.5 shrink-0 text-muted transition-ui group-hover:text-signal"
+        aria-hidden="true"
+      />
+    </a>
+  ) : (
+    <span className="block truncate font-mono text-xs text-muted">
+      {link.url}
+    </span>
+  );
+}
+
+function LinkDescription({ link }: { link: LinkRow }) {
+  const description = [link.title, link.topic].filter(Boolean).join(" · ");
+  return description ? <TruncatedDescription text={description} /> : null;
+}
+
+function TableCard({ link }: { link: LinkRow }) {
+  return (
+    <article className="rounded-lg border border-line bg-surface px-4 py-3">
+      <div className="min-w-0">
+        <LinkUrl link={link} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-muted">
+        <span>Last seen {formatDate(link.last_seen ?? link.first_seen)}</span>
+        <span>
+          {link.seen_count} appearance{link.seen_count === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="mt-2 font-mono">
+        <LinkDescription link={link} />
+      </div>
+    </article>
+  );
 }
 
 function SortIcon({ active, order }: { active: boolean; order: LinksOrder }) {
   if (!active) return null;
-  const Icon = order === 'desc' ? ArrowDown : ArrowUp;
+  const Icon = order === "desc" ? ArrowDown : ArrowUp;
   return <Icon className="h-3.5 w-3.5" aria-hidden="true" />;
 }
 
 function LinksTable() {
   const [page, setPage] = useState(0);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [view, setView] = useState<LinksView>(DEFAULT_LINKS_VIEW);
   const [viewLoaded, setViewLoaded] = useState(false);
   const [data, setData] = useState<LinksResponse>({
@@ -143,15 +216,15 @@ function LinksTable() {
     offset: 0,
     total: 0,
   });
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [message, setMessage] = useState('');
-  const [jumpPage, setJumpPage] = useState('1');
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [message, setMessage] = useState("");
+  const [jumpPage, setJumpPage] = useState("1");
 
   useEffect(() => {
     let cancelled = false;
     const loadView = async () => {
       try {
-        const res = await fetch('/api/brain/links/view');
+        const res = await fetch("/api/brain/links/view");
         if (!res.ok) throw new Error(`View request failed (${res.status})`);
         // GET returns server-normalized values only; no need to re-coerce here.
         const payload = (await res.json()) as LinksView;
@@ -178,27 +251,29 @@ function LinksTable() {
     if (!viewLoaded) return;
     let cancelled = false;
     const load = async () => {
-      setState('loading');
-      setMessage('');
+      setState("loading");
+      setMessage("");
       const params = new URLSearchParams({
         limit: String(view.size),
         offset: String(page * view.size),
         sort: view.sort,
         order: view.order,
       });
-      if (debouncedQuery.trim()) params.set('q', debouncedQuery.trim());
+      if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
       try {
         const res = await fetch(`/api/brain/links?${params}`);
         if (!res.ok) throw new Error(`Links request failed (${res.status})`);
         const payload = (await res.json()) as LinksResponse;
         if (!cancelled) {
           setData(payload);
-          setState('ready');
+          setState("ready");
         }
       } catch (err) {
         if (!cancelled) {
-          setState('error');
-          setMessage(err instanceof Error ? err.message : 'Unable to load links.');
+          setState("error");
+          setMessage(
+            err instanceof Error ? err.message : "Unable to load links.",
+          );
         }
       }
     };
@@ -216,9 +291,9 @@ function LinksTable() {
       skipFirstPut.current = false;
       return;
     }
-    void fetch('/api/brain/links/view', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    void fetch("/api/brain/links/view", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(view),
     }).catch(() => {
       // Preference persistence is best-effort.
@@ -244,7 +319,7 @@ function LinksTable() {
   const toggleSort = (sort: LinksSort) => {
     updateView({
       sort,
-      order: view.sort === sort && view.order === 'desc' ? 'asc' : 'desc',
+      order: view.sort === sort && view.order === "desc" ? "asc" : "desc",
     });
   };
 
@@ -265,7 +340,9 @@ function LinksTable() {
           </p>
         </div>
         <p className="font-mono text-xs tabular-nums text-muted">
-          {state === 'loading' ? 'Loading…' : `${start}-${end} of ${data.total}`}
+          {state === "loading"
+            ? "Loading…"
+            : `${start}-${end} of ${data.total}`}
         </p>
       </div>
 
@@ -286,73 +363,148 @@ function LinksTable() {
           <select
             value={view.size}
             disabled={!viewLoaded}
-            onChange={(e) => updateView({ size: Number(e.target.value) as LinksView['size'] })}
+            onChange={(e) =>
+              updateView({ size: Number(e.target.value) as LinksView["size"] })
+            }
             className="h-10 rounded-lg border border-line bg-canvas px-3 font-mono text-xs tabular-nums text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none disabled:opacity-50"
           >
             {LINKS_PAGE_SIZES.map((size) => (
-              <option key={size} value={size}>{size}</option>
+              <option key={size} value={size}>
+                {size}
+              </option>
             ))}
           </select>
         </label>
       </div>
 
-      {state === 'error' && <ErrorBanner message={message} />}
+      {state === "error" && <ErrorBanner message={message} />}
 
-      <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_0_rgba(255,255,255,0.03)]">
+      {/* Same 639px breakpoint as the table's `hidden sm:block` — CSS gates both. */}
+      <div className="space-y-2 sm:hidden">
+        {state === "loading" && (
+          <p className="rounded-lg border border-line bg-surface px-4 py-8 text-center text-body">
+            Loading extracted links…
+          </p>
+        )}
+        {state === "ready" && data.items.length === 0 && (
+          <p className="rounded-lg border border-line bg-surface px-4 py-8 text-center text-body">
+            {query.trim()
+              ? "No links match your search."
+              : "No extracted links have been saved yet."}
+          </p>
+        )}
+        {state === "ready" &&
+          data.items.map((link) => <TableCard key={link.url} link={link} />)}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-line bg-surface shadow-[0_1px_0_rgba(255,255,255,0.03)] sm:block">
         <div className="max-h-[70vh] overflow-auto">
           <table className="min-w-full divide-y divide-line text-left text-sm">
             <thead className="sticky top-0 z-10 bg-raised text-xs text-muted shadow-[0_1px_0_rgba(255,255,255,0.06)]">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">URL</th>
-                <th scope="col" aria-sort={view.sort === 'last_seen' ? (view.order === 'asc' ? 'ascending' : 'descending') : 'none'} className="px-4 py-3 font-medium">
-                  <button type="button" disabled={!viewLoaded} onClick={() => toggleSort('last_seen')} className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-left transition-ui hover:bg-surface hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96] disabled:text-muted disabled:opacity-50">
-                    Last seen <SortIcon active={view.sort === 'last_seen'} order={view.order} />
+                <th scope="col" className="px-4 py-3 font-medium">
+                  URL
+                </th>
+                <th
+                  scope="col"
+                  aria-sort={
+                    view.sort === "last_seen"
+                      ? view.order === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className="px-4 py-3 font-medium"
+                >
+                  <button
+                    type="button"
+                    disabled={!viewLoaded}
+                    onClick={() => toggleSort("last_seen")}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-left transition-ui hover:bg-surface hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96] disabled:text-muted disabled:opacity-50"
+                  >
+                    Last seen{" "}
+                    <SortIcon
+                      active={view.sort === "last_seen"}
+                      order={view.order}
+                    />
                   </button>
                 </th>
-                <th scope="col" aria-sort={view.sort === 'appearances' ? (view.order === 'asc' ? 'ascending' : 'descending') : 'none'} className="px-4 py-3 text-right font-medium">
-                  <button type="button" disabled={!viewLoaded} onClick={() => toggleSort('appearances')} className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-right transition-ui hover:bg-surface hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96] disabled:text-muted disabled:opacity-50">
-                    Appearances <SortIcon active={view.sort === 'appearances'} order={view.order} />
+                <th
+                  scope="col"
+                  aria-sort={
+                    view.sort === "appearances"
+                      ? view.order === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className="px-4 py-3 text-right font-medium"
+                >
+                  <button
+                    type="button"
+                    disabled={!viewLoaded}
+                    onClick={() => toggleSort("appearances")}
+                    className="ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-right transition-ui hover:bg-surface hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96] disabled:text-muted disabled:opacity-50"
+                  >
+                    Appearances{" "}
+                    <SortIcon
+                      active={view.sort === "appearances"}
+                      order={view.order}
+                    />
                   </button>
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {state === 'loading' && (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-body">Loading extracted links…</td></tr>
+              {state === "loading" && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-body">
+                    Loading extracted links…
+                  </td>
+                </tr>
               )}
-              {state === 'ready' && data.items.length === 0 && (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-body">{query.trim() ? 'No links match your search.' : 'No extracted links have been saved yet.'}</td></tr>
+              {state === "ready" && data.items.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-body">
+                    {query.trim()
+                      ? "No links match your search."
+                      : "No extracted links have been saved yet."}
+                  </td>
+                </tr>
               )}
-              {state === 'ready' && data.items.map((link) => {
-                const href = safeUrl(link.url);
-                return (
-                  <tr key={link.url} className="transition-colors hover:bg-raised/60">
+              {state === "ready" &&
+                data.items.map((link) => (
+                  <tr
+                    key={link.url}
+                    className="transition-colors hover:bg-raised/60"
+                  >
                     <td className="max-w-[36rem] px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        {href ? (
-                          <a href={href} target="_blank" rel="noopener noreferrer" className="group inline-flex max-w-full items-center gap-2 font-mono text-xs text-ink transition-ui hover:text-signal hover:underline">
-                            <span className="truncate">{link.url}</span>
-                            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted transition-ui group-hover:text-signal" aria-hidden="true" />
-                          </a>
-                        ) : (
-                          <span className="block truncate font-mono text-xs text-muted">{link.url}</span>
-                        )}
-                        {(link.title || link.topic) && <span className="text-xs text-body">{[link.title, link.topic].filter(Boolean).join(' · ')}</span>}
+                        <LinkUrl link={link} />
+                        <LinkDescription link={link} />
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-body">{formatDate(link.last_seen ?? link.first_seen)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-ink">{link.seen_count}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-body">
+                      {formatDate(link.last_seen ?? link.first_seen)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-ink">
+                      {link.seen_count}
+                    </td>
                   </tr>
-                );
-              })}
+                ))}
             </tbody>
           </table>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <form onSubmit={submitJump} className="flex items-center gap-2 text-xs text-muted">
-          <span className="font-mono tabular-nums">Page {currentPage} of {pageCount}</span>
+        <form
+          onSubmit={submitJump}
+          className="flex items-center gap-2 text-xs text-muted"
+        >
+          <span className="font-mono tabular-nums">
+            Page {currentPage} of {pageCount}
+          </span>
           <label className="flex items-center gap-2">
             Jump to
             <input
@@ -364,11 +516,31 @@ function LinksTable() {
               className="h-10 w-20 rounded-lg border border-line bg-canvas px-3 font-mono text-xs tabular-nums text-ink transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
             />
           </label>
-          <button type="submit" disabled={state === 'loading'} className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50">Go</button>
+          <button
+            type="submit"
+            disabled={state === "loading"}
+            className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50"
+          >
+            Go
+          </button>
         </form>
         <div className="flex gap-2">
-          <button type="button" disabled={!hasPrevious || state === 'loading'} onClick={() => setPage((value) => Math.max(0, value - 1))} className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50">Previous</button>
-          <button type="button" disabled={!hasNext || state === 'loading'} onClick={() => setPage((value) => value + 1)} className="h-10 rounded-lg bg-signal px-3 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:scale-[0.96] disabled:bg-surface disabled:text-muted">Next</button>
+          <button
+            type="button"
+            disabled={!hasPrevious || state === "loading"}
+            onClick={() => setPage((value) => Math.max(0, value - 1))}
+            className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50"
+          >
+            Previous
+          </button>
+          <button
+            type="button"
+            disabled={!hasNext || state === "loading"}
+            onClick={() => setPage((value) => value + 1)}
+            className="h-10 rounded-lg bg-signal px-3 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:scale-[0.96] disabled:bg-surface disabled:text-muted"
+          >
+            Next
+          </button>
         </div>
       </div>
     </section>
@@ -376,16 +548,10 @@ function LinksTable() {
 }
 
 export default function BrainPage() {
-  const {
-    query,
-    setQuery,
-    results,
-    searchState,
-    errorMessage,
-    runSearch,
-  } = useSemanticSearch();
+  const { query, setQuery, results, searchState, errorMessage, runSearch } =
+    useSemanticSearch();
   const [blankWarning, setBlankWarning] = useState(false);
-  const [activeTab, setActiveTab] = useState<BrainTab>('search');
+  const [activeTab, setActiveTab] = useState<BrainTab>("search");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleRun = () => {
@@ -398,20 +564,16 @@ export default function BrainPage() {
     runSearch();
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === 'Enter') handleRun();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleRun();
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
     if (blankWarning && e.target.value.trim()) setBlankWarning(false);
   };
 
-  const loading = searchState === 'loading';
+  const loading = searchState === "loading";
 
   return (
     <PageShell>
@@ -428,7 +590,7 @@ export default function BrainPage() {
         tabs={BRAIN_TABS}
       />
 
-      {activeTab === 'search' && (
+      {activeTab === "search" && (
         <>
           <section className="flex gap-2">
             <input
@@ -457,7 +619,7 @@ export default function BrainPage() {
                   Searching…
                 </span>
               ) : (
-                'Search'
+                "Search"
               )}
             </button>
           </section>
@@ -468,27 +630,19 @@ export default function BrainPage() {
             </p>
           )}
 
-          <BrainGraph
-            results={results}
-            searchState={searchState}
-          />
+          <BrainGraph results={results} searchState={searchState} />
 
-          {searchState === 'idle' && <IdleBanner />}
-          {searchState === 'error' && (
-            <ErrorBanner message={errorMessage} />
-          )}
-          {searchState === 'empty' && <EmptyBanner />}
-          {searchState === 'results' && (
+          {searchState === "idle" && <IdleBanner />}
+          {searchState === "error" && <ErrorBanner message={errorMessage} />}
+          {searchState === "empty" && <EmptyBanner />}
+          {searchState === "results" && (
             <section>
               <p className="mb-2 font-mono text-xs text-muted">
-                {results.length} result{results.length === 1 ? '' : 's'}
+                {results.length} result{results.length === 1 ? "" : "s"}
               </p>
               <ul className="space-y-2">
                 {results.map((r) => (
-                  <ResultRow
-                    key={r.url}
-                    result={r}
-                  />
+                  <ResultRow key={r.url} result={r} />
                 ))}
               </ul>
             </section>
@@ -496,7 +650,7 @@ export default function BrainPage() {
         </>
       )}
 
-      {activeTab === 'links' && <LinksTable />}
+      {activeTab === "links" && <LinksTable />}
     </PageShell>
   );
 }

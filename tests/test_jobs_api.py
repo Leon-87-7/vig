@@ -222,6 +222,78 @@ async def test_list_jobs_includes_resolved_thumbnail_fields(monkeypatch) -> None
 
 
 # ---------------------------------------------------------------------------
+# adjacent-jobs scope + ordering (issue #309)
+# ---------------------------------------------------------------------------
+
+
+def test_job_scope_where_defaults_exclude_cancelled() -> None:
+    where, params = jobs._job_scope_where(1, None, None)
+    assert where == "chat_id = ? AND status != 'cancelled'"
+    assert params == [1]
+
+    where, params = jobs._job_scope_where(1, "short", "error")
+    assert where == "chat_id = ? AND content_type = ? AND status = ?"
+    assert params == [1, "short", "error"]
+
+
+class _FetchOneCursor:
+    def __init__(self, payload):
+        self.payload = payload
+
+    async def fetchone(self):
+        return self.payload
+
+
+class _AdjacentConn:
+    """Records (sql, params); returns one canned row per execute call."""
+
+    def __init__(self, payloads):
+        self.payloads = payloads
+        self.calls: list[tuple[str, object]] = []
+
+    async def execute(self, sql, params=None):
+        self.calls.append((sql, params))
+        return _FetchOneCursor(self.payloads[len(self.calls) - 1])
+
+
+@pytest.mark.asyncio
+async def test_get_adjacent_jobs_queries_and_payload(monkeypatch) -> None:
+    conn = _AdjacentConn([{"id": "older"}, None])
+    monkeypatch.setattr(jobs.database, "connection", lambda: _RecordingConnection(conn))
+
+    async def _fake_get_owned_job(job_id, _request):
+        return {"id": job_id, "created_at": "2026-07-04 09:00:00"}
+
+    monkeypatch.setattr(jobs, "get_owned_job", _fake_get_owned_job)
+
+    response = await jobs.get_adjacent_jobs(
+        "j2",
+        SimpleNamespace(state=SimpleNamespace(user={"id": 1})),
+        content_type="short",
+        status=None,
+    )
+
+    prev_sql, prev_params = conn.calls[0]
+    next_sql, next_params = conn.calls[1]
+    # Neighbor selection is created_at with an id tie-break, scoped like list_jobs.
+    assert "created_at < ? OR (created_at = ? AND id < ?)" in prev_sql
+    assert "ORDER BY created_at DESC, id DESC" in prev_sql
+    assert "created_at > ? OR (created_at = ? AND id > ?)" in next_sql
+    assert "status != 'cancelled'" in prev_sql
+    assert prev_params == [1, "short", "2026-07-04 09:00:00", "2026-07-04 09:00:00", "j2"]
+    assert next_params == prev_params
+    assert response == {"previous_id": "older", "next_id": None}
+
+
+def test_list_jobs_order_matches_adjacent_tiebreak() -> None:
+    # The feed and /adjacent must sort identically or prev/next drifts from the
+    # visible list for same-second jobs (created_at is second-precision).
+    import inspect as _inspect
+
+    assert "ORDER BY created_at DESC, id DESC" in _inspect.getsource(jobs.list_jobs)
+
+
+# ---------------------------------------------------------------------------
 # list_jobs limit cap tests (issue #175 — raised from 50 to 1000)
 # ---------------------------------------------------------------------------
 

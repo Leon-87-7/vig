@@ -25,6 +25,10 @@ type TooltipProps = {
   side?: TooltipContentProps['side'];
   align?: TooltipContentProps['align'];
   mono?: boolean;
+  /** Controlled mode — Radix tooltips are hover/focus-only; pass these to also
+   * open on tap (trigger sets open=true, Radix closes on outside/escape). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 export function TooltipProvider({ children }: { children: ReactNode }) {
@@ -41,11 +45,13 @@ export function Tooltip({
   side = 'top',
   align = 'center',
   mono = false,
+  open,
+  onOpenChange,
 }: TooltipProps) {
   if (content == null || content === false || content === '') return children;
 
   return (
-    <RadixTooltip.Root>
+    <RadixTooltip.Root open={open} onOpenChange={onOpenChange}>
       <RadixTooltip.Trigger asChild>{focusableTrigger(children)}</RadixTooltip.Trigger>
       <RadixTooltip.Portal>
         <RadixTooltip.Content

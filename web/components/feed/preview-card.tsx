@@ -1,23 +1,24 @@
-import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
-import { StatusBadge } from '@/components/badges';
-import { DateTime } from '@/components/date-time';
-import type { JobSummary } from '@/components/job-card';
-import { JobCardTags } from '@/components/job-card-tags';
-import { PlatformGlyph } from '@/components/platform-icon';
+import Link from "next/link";
+import { useState, type ReactNode } from "react";
+import { StatusBadge } from "@/components/badges";
+import { DateTime } from "@/components/date-time";
+import type { JobSummary } from "@/components/job-card";
+import { JobCardTags } from "@/components/job-card-tags";
+import { PlatformGlyph } from "@/components/platform-icon";
+import { buildJobHref } from "@/lib/job-detail-utils";
 
 interface PreviewCardProps {
   job: JobSummary;
   platformGlyph?: ReactNode;
+  contentType?: string;
+  status?: string;
 }
 
 function Thumbnail({ job }: { job: JobSummary }) {
   const [failed, setFailed] = useState(false);
   const display = job.title?.trim() || job.url;
   const aspectClass =
-    job.thumbnail_kind === 'portrait'
-      ? 'aspect-[9/16]'
-      : 'aspect-video';
+    job.thumbnail_kind === "portrait" ? "aspect-[9/16]" : "aspect-video";
   const showImage = Boolean(job.thumbnail_url) && !failed;
 
   return (
@@ -27,7 +28,7 @@ function Thumbnail({ job }: { job: JobSummary }) {
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={job.thumbnail_url ?? ''}
+          src={job.thumbnail_url ?? ""}
           alt=""
           className="h-full w-full object-cover"
           loading="lazy"
@@ -53,13 +54,15 @@ function Thumbnail({ job }: { job: JobSummary }) {
 export function PreviewCard({
   job,
   platformGlyph,
+  contentType,
+  status,
 }: PreviewCardProps) {
+  const href = buildJobHref(job.id, { contentType, status });
   const display = job.title?.trim() || job.url;
-  const titleText =
-    display.length > 30 ? `${display.slice(0, 30)}…` : display;
+  const titleText = display.length > 30 ? `${display.slice(0, 30)}…` : display;
   const glyph =
     platformGlyph ??
-    (job.content_type === 'short' ? (
+    (job.content_type === "short" ? (
       <PlatformGlyph
         url={job.url}
         contentType={job.content_type}
@@ -73,7 +76,7 @@ export function PreviewCard({
   return (
     <div className="group relative flex h-full flex-col rounded-lg border border-line bg-surface p-3 transition-ui hover:border-line-strong hover:bg-raised">
       <Link
-        href={`/jobs/${job.id}`}
+        href={href}
         aria-label={display}
         className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-inset"
       />
@@ -107,10 +110,7 @@ export function PreviewCard({
             <DateTime iso={job.created_at} />
           </span>
           <span className="pointer-events-auto relative z-10 shrink-0">
-            <JobCardTags
-              jobId={job.id}
-              countOnly
-            />
+            <JobCardTags jobId={job.id} countOnly />
           </span>
         </div>
       </div>
