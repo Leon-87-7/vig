@@ -99,13 +99,26 @@ function FeedPageContent() {
   const [submitOpen, setSubmitOpen] = useState(false);
   const submitPanelRef = useRef<HTMLDivElement>(null);
   const submitTriggerRef = useRef<HTMLButtonElement>(null);
-  const mergedJobs = useMemo(
-    () => [...optimisticJobs, ...jobs],
-    [optimisticJobs, jobs],
-  );
+  const mergedJobs = useMemo(() => {
+    const feedIds = new Set(jobs.map((job) => job.id));
+    return [...optimisticJobs.filter((job) => !feedIds.has(job.id)), ...jobs];
+  }, [optimisticJobs, jobs]);
   const { query, setQuery, displayedJobs } = useFuseSearch(mergedJobs);
   const { connected: googleConnected } = useGoogleStatus();
-  useInFlightPolling(jobs, reload);
+  // Poll on mergedJobs, not jobs: an accepted submission held as an optimistic
+  // row keeps the poll hot, so a failed post-submit refresh retries until the
+  // feed actually carries the job.
+  useInFlightPolling(mergedJobs, reload);
+
+  // Drop optimistic rows once the refreshed feed carries the same job id.
+  useEffect(() => {
+    setOptimisticJobs((current) => {
+      if (current.length === 0) return current;
+      const feedIds = new Set(jobs.map((job) => job.id));
+      const next = current.filter((job) => !feedIds.has(job.id));
+      return next.length === current.length ? current : next;
+    });
+  }, [jobs]);
   useBackgroundFreshness(reload);
 
   // One URL-cleanup effect for the two transient params: capture the one-time
@@ -237,14 +250,47 @@ function FeedPageContent() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || "Could not submit job");
+        // The submit is accepted at this point. reload() swallows fetch errors
+        // (it is shared with background polling), so the accepted job must not
+        // depend on the refresh landing: promote the placeholder to the real
+        // job from the response and keep it until the feed carries that id —
+        // the reconcile effect on `jobs` removes it, and in-flight polling
+        // retries the refresh for as long as the row reads as pending.
+        const acceptedId =
+          typeof data.id === "string" && data.id ? data.id : null;
+        if (acceptedId) {
+          setOptimisticJobs((current) =>
+            current.map((job) =>
+              job.id === tempId
+                ? {
+                    ...job,
+                    id: acceptedId,
+                    title: typeof data.title === "string" ? data.title : null,
+                    content_type:
+                      typeof data.content_type === "string"
+                        ? data.content_type
+                        : job.content_type,
+                    status:
+                      typeof data.status === "string"
+                        ? data.status
+                        : job.status,
+                  }
+                : job,
+            ),
+          );
+        }
         setSubmitUrl("");
         setFreestylePrompt("");
         submitTriggerRef.current?.focus();
         setSubmitOpen(false);
         await reload();
-        setOptimisticJobs((current) =>
-          current.filter((job) => job.id !== tempId),
-        );
+        if (!acceptedId) {
+          // No job id in the response — nothing to reconcile against, so fall
+          // back to dropping the placeholder after the refresh attempt.
+          setOptimisticJobs((current) =>
+            current.filter((job) => job.id !== tempId),
+          );
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Could not submit job";
         setSubmitError(message);
