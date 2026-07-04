@@ -339,6 +339,10 @@ _ANALYSIS = {
     "title": "anthropics/claude-code",
     "tagline": "AI coding assistant for the terminal",
     "tech_stack": ["TypeScript", "Node.js"],
+    "key_components": [
+        {"path": "src/tools/", "purpose": "LLM tool implementations"},
+        {"path": "src/cli/", "purpose": "Terminal entrypoint and REPL"},
+    ],
     "for_developers": {
         "project_ideas": ["Build custom AI workflows", "Extend with plugins"],
         "when_to_use": "When you need AI assistance in the terminal",
@@ -444,7 +448,7 @@ from src.processors.repo import render_repo_markdown, _sanitize_filename
 
 def test_render_has_all_section_headings() -> None:
     md = render_repo_markdown(_ANALYSIS, _BUNDLE)
-    for heading in ("## Tech Stack", "## 🛠 For Developers", "## 🎓 For Education", "### Curriculum Hooks"):
+    for heading in ("## Tech Stack", "## For Developers", "## For Education", "### Curriculum Hooks"):
         assert heading in md, f"missing: {heading}"
 
 
@@ -455,12 +459,12 @@ def test_render_includes_tagline() -> None:
 
 def test_render_archived_includes_warning_h2() -> None:
     bundle = {**_BUNDLE, "metadata": {**_BUNDLE["metadata"], "archived": True}}
-    assert "## ⚠️ Archived" in render_repo_markdown(_ANALYSIS, bundle)
+    assert "## Archived" in render_repo_markdown(_ANALYSIS, bundle)
 
 
 def test_render_no_readme_includes_info_h2() -> None:
     bundle = {**_BUNDLE, "no_readme": True}
-    assert "## ℹ️ No README" in render_repo_markdown(_ANALYSIS, bundle)
+    assert "## Note — No README" in render_repo_markdown(_ANALYSIS, bundle)
 
 
 def test_render_hook_with_file_pointer_includes_backtick_path() -> None:
@@ -483,6 +487,35 @@ def test_render_empty_tech_stack_shows_none_placeholder() -> None:
     analysis = {**_ANALYSIS, "tech_stack": []}
     md = render_repo_markdown(analysis, _BUNDLE)
     assert "_(none)_" in md
+
+
+# ---------------------------------------------------------------------------
+# key_components rendering (#312)
+# ---------------------------------------------------------------------------
+
+def test_render_key_components_section() -> None:
+    md = render_repo_markdown(_ANALYSIS, _BUNDLE)
+    assert "## Key Components" in md
+    assert "- `src/tools/` — LLM tool implementations" in md
+
+
+def test_render_key_components_omitted_when_missing() -> None:
+    analysis = {k: v for k, v in _ANALYSIS.items() if k != "key_components"}
+    assert "## Key Components" not in render_repo_markdown(analysis, _BUNDLE)
+
+
+def test_summary_message_shows_key_components() -> None:
+    from src.processors.repo import _format_summary_message
+    msg = _format_summary_message("anthropics", "claude-code", _ANALYSIS, _BUNDLE)
+    assert "🧩 Key components" in msg
+    assert "src/tools/ — LLM tool implementations" in msg
+
+
+def test_summary_message_omits_components_when_missing() -> None:
+    from src.processors.repo import _format_summary_message
+    analysis = {k: v for k, v in _ANALYSIS.items() if k != "key_components"}
+    msg = _format_summary_message("anthropics", "claude-code", analysis, _BUNDLE)
+    assert "🧩" not in msg
 
 
 def test_sanitize_filename_basic() -> None:
