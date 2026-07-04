@@ -340,7 +340,11 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
         f"{tag}\nWhat's next?",
         buttons=[[{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}]],
     )
-    await offer_repo_followups(refreshed or job, tools)
+    # Best-effort UX add-on — a follow-up failure must not block Brain ingest.
+    try:
+        await offer_repo_followups(refreshed or job, tools)
+    except Exception:
+        log.warning("repo_followup_offer_failed", job_id=job_id, exc_info=True)
 
     # 9. Brain ingest (fire-and-forget — article URL only, no body links)
     if settings.GOOGLE_DRIVE_FOLDER_BRAIN:

@@ -31,10 +31,15 @@ async def create_and_enqueue_job(
     the cache/dedup decision and the create+enqueue write path so all ingest
     surfaces share identical behavior.
     """
-    cached = await database.find_recent_job_by_url(chat_id, url)
-    if cached:
-        log.info("job_create_dedup_hit", chat_id=chat_id, job_id=cached["id"], url=url)
-        return {**cached, "_deduped": True}
+    # Explicit template/freestyle requests always run fresh — a cached
+    # URL-only job would silently ignore the requested analysis.
+    if template is None and freestyle_prompt is None:
+        cached = await database.find_recent_job_by_url(chat_id, url)
+        if cached:
+            log.info(
+                "job_create_dedup_hit", chat_id=chat_id, job_id=cached["id"], url=url
+            )
+            return {**cached, "_deduped": True}
 
     job_id = await database.create_job(
         chat_id=chat_id,

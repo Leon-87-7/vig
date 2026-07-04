@@ -163,7 +163,10 @@ async def create_job(request: Request, body: JobCreateRequest) -> dict:
 
     template = body.template.strip() if body.template else None
     freestyle_prompt = body.freestyle_prompt.strip() if body.freestyle_prompt else None
-    if template:
+    if pipeline == "repo":
+        template = None
+        freestyle_prompt = None
+    elif template:
         if template == "freestyle":
             if not freestyle_prompt:
                 raise HTTPException(
@@ -171,9 +174,6 @@ async def create_job(request: Request, body: JobCreateRequest) -> dict:
                 )
         elif template not in PROMPT_TEMPLATES:
             raise HTTPException(status_code=422, detail="Unknown template")
-        elif pipeline == "repo":
-            template = None
-            freestyle_prompt = None
     url_for_job = normalize_repo_url(url) if pipeline == "repo" else url
     job = await create_and_enqueue_job(
         chat_id,

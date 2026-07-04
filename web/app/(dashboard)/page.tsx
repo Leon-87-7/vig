@@ -210,31 +210,14 @@ function FeedPageContent() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Could not submit job");
-      setOptimisticJobs((current) =>
-        current.map((job) =>
-          job.id === tempId
-            ? {
-                ...job,
-                id: data.id ?? data.job_id,
-                title: data.title ?? job.url,
-                content_type: data.content_type ?? job.content_type,
-                status: data.status ?? "pending",
-              }
-            : job,
-        ),
-      );
       setSubmitUrl("");
       setFreestylePrompt("");
       await reload();
-      setOptimisticJobs((current) => current.filter((job) => job.id !== (data.id ?? data.job_id)));
+      setOptimisticJobs((current) => current.filter((job) => job.id !== tempId));
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not submit job";
       setSubmitError(message);
-      setOptimisticJobs((current) =>
-        current.map((job) =>
-          job.id === tempId ? { ...job, title: `Submit failed: ${message}`, status: "error" } : job,
-        ),
-      );
+      setOptimisticJobs((current) => current.filter((job) => job.id !== tempId));
     } finally {
       setSubmitting(false);
     }
