@@ -396,3 +396,51 @@ than filtering `document` jobs into the Feed itself.
 - **Sidebar nav item stays** — both paths coexist. The sidebar entry is the persistent, page-independent
   path; the Feed tab is a contextual shortcut for someone already browsing jobs. Same dual-presence
   precedent as GitHub (collapsed rail + expanded drawer).
+
+## 13. Brand the /privacy and /terms pages ✅ DONE
+
+> **Grill together with task 14.** Both reuse the login page's
+> background+logo treatment — a public home page makes it four consumers, so
+> the "extract `<BrandBackground>` or duplicate once more" call must be made
+> once, for both.
+
+The two legal pages (`web/app/privacy/page.tsx`, `web/app/terms/page.tsx`, added
+for OAuth verification, issue #203) are plain `prose prose-invert` text blocks on
+bare `bg-canvas` — no background art, no logo, no plate. By contrast
+`web/app/login/page.tsx` (the other unauthenticated page, exempted in
+`web/middleware.ts`'s `PUBLIC_PATHS` alongside `/privacy`/`/terms`) renders the
+`/backgrounds/layered-waves-log.svg` waves image with a fade mask + opacity/
+saturation treatment, plus the `vig_logo_lockup.svg` lockup. The authenticated
+dashboard instead uses per-route `PageBackground` (`web/components/page-background.tsx`)
+webp images layered under a radial + linear gradient — a different pattern, built
+for the sidebar-having dashboard shell, not a standalone page.
+
+**Wanted:** `/privacy` and `/terms` look on-brand instead of like an unstyled
+document — reuse the login page's background/brand treatment rather than
+inventing a third pattern.
+
+**UI**
+
+- Reuse the `layered-waves-log.svg` background + fade-mask/opacity treatment
+  from `login/page.tsx:56-68`. Since it would now back three pages, factor it
+  into a shared piece (component or small snippet) rather than copy-pasting the
+  `<img>` + className block a third time — reuse, don't fork.
+- Reuse the `vig_logo_lockup.svg` brand mark the same way `login/page.tsx` does.
+- The legal copy itself (long-form text) likely wants a `bg-surface`/`bg-raised`
+  plate card wrapping the `prose prose-invert` block so it reads as a panel
+  sitting on the dark-plate-ladder chassis, rather than text floating directly
+  over the background image — consistent with DESIGN.md's plate-ladder identity.
+- Keep the existing `max-w-2xl` reading width and `text-ink`/`text-muted` tokens.
+
+**Open questions** (resolve in grill)
+
+- Extract the background+logo block into a shared component (e.g.
+  `<BrandBackground>`) now that three pages use it, or is duplicating it once
+  more acceptable until a fourth page shows up?
+- Does the legal text sit inside a `surface`/`raised` plate card, or directly on
+  the background like the login page's logo/CTA do?
+- Any navigation back to `/login` or the dashboard from these pages, or are they
+  meant to be dead-end pages a cold visitor (e.g. a Google reviewer) lands on
+  directly?
+- Same logo treatment as login (full lockup), or a smaller/plainer mark since
+  these are read-only legal pages, not a branded entry moment?
