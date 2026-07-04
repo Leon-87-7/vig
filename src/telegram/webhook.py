@@ -1494,6 +1494,8 @@ async def _handle_user_template_shortcut(
         message_id=message_id,
         template="freestyle" if extra_instructions else None,
         freestyle_prompt=extra_instructions or None,
+        # Even a blank saved template is an explicit request for a fresh run.
+        skip_cache=True,
     )
     if job.get("_deduped"):
         await _reply_cached_job(chat_id, job)

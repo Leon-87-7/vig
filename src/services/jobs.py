@@ -24,6 +24,7 @@ async def create_and_enqueue_job(
     template: str | None = None,
     message_id: int | None = None,
     freestyle_prompt: str | None = None,
+    skip_cache: bool = False,
 ) -> dict[str, Any]:
     """Create and enqueue a job, or return a recent matching job.
 
@@ -32,8 +33,9 @@ async def create_and_enqueue_job(
     surfaces share identical behavior.
     """
     # Explicit template/freestyle requests always run fresh — a cached
-    # URL-only job would silently ignore the requested analysis.
-    if template is None and freestyle_prompt is None:
+    # URL-only job would silently ignore the requested analysis. Callers
+    # with template intent the arguments can't express set skip_cache.
+    if not skip_cache and template is None and freestyle_prompt is None:
         cached = await database.find_recent_job_by_url(chat_id, url)
         if cached:
             log.info(
