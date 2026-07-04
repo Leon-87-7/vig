@@ -130,6 +130,17 @@ REPO_ANALYSIS_SCHEMA = {
         "title": {"type": "string"},
         "tagline": {"type": "string"},
         "tech_stack": {"type": "array", "items": {"type": "string"}},
+        "key_components": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "purpose": {"type": "string"},
+                },
+                "required": ["path", "purpose"],
+            },
+        },
         "for_developers": {
             "type": "object",
             "properties": {
@@ -160,7 +171,7 @@ REPO_ANALYSIS_SCHEMA = {
             "required": ["concepts_taught", "prerequisites", "curriculum_hooks"],
         },
     },
-    "required": ["title", "tagline", "tech_stack", "for_developers", "for_education"],
+    "required": ["title", "tagline", "tech_stack", "key_components", "for_developers", "for_education"],
 }
 
 
@@ -188,6 +199,9 @@ def _build_repo_prompt(
         "alternatives — not a rephrasing of the GitHub description.\n"
         "- tech_stack: languages, libraries, runtimes, and build tools directly "
         "used in this repo.\n"
+        "- key_components: the 3-6 top-level parts of the repo — path must exist "
+        "in the provided file tree; purpose says what a developer gets from that "
+        "directory.\n"
         "- project_ideas: concrete mini-projects a developer could start this "
         "weekend — name the artifact, not just the domain.\n"
         "- when_to_use: the specific scenario where this is the right tool — name "
@@ -219,8 +233,8 @@ def _build_repo_prompt(
         "- tech_stack: only include technologies directly evidenced by files, "
         "imports, or manifests in THIS repo. Do not infer from config files that "
         "reference external systems.\n"
-        "- file_pointer: must be an exact path from the provided file tree. "
-        "Never invent a path."
+        "- file_pointer and key_components[].path: must be an exact path (or "
+        "directory prefix of paths) from the provided file tree. Never invent a path."
     )
 
     tree_sample = _prioritize_tree(tree, 300)
@@ -288,6 +302,8 @@ def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict)
     dev_para = for_dev.get("when_to_use") or (project_ideas[0] if project_ideas else "—")
     concepts = (analysis.get("for_education") or {}).get("concepts_taught") or []
     edu_para = " • ".join(concepts) if concepts else "—"
+    components = analysis.get("key_components") or []
+    component_lines = [f"  {c.get('path', '')} — {c.get('purpose', '')}" for c in components]
 
     return "\n".join(
         [
@@ -296,6 +312,7 @@ def _format_summary_message(owner: str, repo: str, analysis: dict, bundle: dict)
             "",
             f"⭐ {stars:,} | 🔀 {forks:,} | 💻 {language} | 📅 {_humanize_age(days)}",
             "",
+            *(["🧩 Key components", *component_lines, ""] if component_lines else []),
             "🛠 For developers",
             f"  {dev_para}",
             "",
@@ -343,6 +360,10 @@ def render_repo_markdown(analysis: dict, bundle: dict) -> str:
 
     lines += ["## Tech Stack", ""]
     lines += [f"- {t}" for t in tech_stack] or ["_(none)_"]
+    components = analysis.get("key_components") or []
+    if components:
+        lines += ["", "## Key Components", ""]
+        lines += [f"- `{c.get('path', '')}` — {c.get('purpose', '')}" for c in components]
     lines += ["", "## For Developers", "", "### Project Ideas", ""]
     lines += [f"- {i}" for i in (for_dev.get("project_ideas") or [])] or ["_(none)_"]
     lines += [
