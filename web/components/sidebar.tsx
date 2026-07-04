@@ -274,6 +274,11 @@ export function Sidebar() {
   // Google glyph shows the connection-state text (Radix closes on outside/escape).
   const [googleTipOpen, setGoogleTipOpen] = useState(false);
 
+  // The tooltip portals outside the drawer; don't let it outlive a closed drawer.
+  useEffect(() => {
+    if (!open) setGoogleTipOpen(false);
+  }, [open]);
+
   const handleDisconnect = async () => {
     if (
       !window.confirm(
