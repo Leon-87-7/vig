@@ -210,6 +210,24 @@ async def _resolve_thumbnail(
     return None, None
 
 
+def _job_scope_where(
+    chat_id: int, content_type: str | None, status: str | None
+) -> tuple[str, list]:
+    """Feed-scope filter shared by list_jobs and get_adjacent_jobs — the two must
+    agree on what's visible or prev/next navigation drifts from the feed."""
+    conditions = ["chat_id = ?"]
+    params: list = [chat_id]
+    if content_type is not None:
+        conditions.append("content_type = ?")
+        params.append(content_type)
+    if status is not None:
+        conditions.append("status = ?")
+        params.append(status)
+    else:
+        conditions.append("status != 'cancelled'")
+    return " AND ".join(conditions), params
+
+
 @jobs_router.get("")
 async def list_jobs(
     request: Request,
@@ -222,19 +240,7 @@ async def list_jobs(
     chat_id: int = request.state.user["id"]
     offset = (page - 1) * limit
 
-    conditions = ["chat_id = ?"]
-    params: list = [chat_id]
-
-    if content_type is not None:
-        conditions.append("content_type = ?")
-        params.append(content_type)
-    if status is not None:
-        conditions.append("status = ?")
-        params.append(status)
-    else:
-        conditions.append("status != 'cancelled'")
-
-    where = " AND ".join(conditions)
+    where, params = _job_scope_where(chat_id, content_type, status)
 
     async with database.connection() as conn:
         cur_total = await conn.execute(
@@ -248,7 +254,7 @@ async def list_jobs(
             SELECT id, title, content_type, status, url, created_at, og_image_url, telegram_delivery
             FROM jobs
             WHERE {where}
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, id DESC
             LIMIT ? OFFSET ?
             """,
             [*params, limit, offset],
@@ -352,6 +358,53 @@ async def detach_tag(job_id: str, tag_id: str, request: Request) -> Response:
     if not deleted:
         raise HTTPException(status_code=404, detail="Tag not attached to this job")
     return Response(status_code=204)
+
+
+@jobs_router.get("/{job_id}/adjacent")
+async def get_adjacent_jobs(
+    job_id: str,
+    request: Request,
+    content_type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+) -> dict[str, str | None]:
+    """Return neighboring job IDs for the caller within an optional Feed scope.
+
+    Semantics are chronological by design: previous_id = closest OLDER job,
+    next_id = closest NEWER job ("Next →" moves forward in time, not down the
+    newest-first feed list). Won't-fix suggestions to invert this.
+    """
+    job = await get_owned_job(job_id, request)
+    chat_id: int = request.state.user["id"]
+
+    where, params = _job_scope_where(chat_id, content_type, status)
+
+    created_at = job["created_at"]
+    async with database.connection() as conn:
+        prev_cur = await conn.execute(
+            f"""
+            SELECT id FROM jobs
+            WHERE {where} AND (created_at < ? OR (created_at = ? AND id < ?))
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            [*params, created_at, created_at, job_id],
+        )
+        prev = await prev_cur.fetchone()
+        next_cur = await conn.execute(
+            f"""
+            SELECT id FROM jobs
+            WHERE {where} AND (created_at > ? OR (created_at = ? AND id > ?))
+            ORDER BY created_at ASC, id ASC
+            LIMIT 1
+            """,
+            [*params, created_at, created_at, job_id],
+        )
+        next_row = await next_cur.fetchone()
+
+    return {
+        "previous_id": prev["id"] if prev else None,
+        "next_id": next_row["id"] if next_row else None,
+    }
 
 
 # ---------------------------------------------------------------------------

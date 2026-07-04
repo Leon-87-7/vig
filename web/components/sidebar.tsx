@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Tooltip } from '@/components/ui/tooltip';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import Link from "next/link";
+import { Tooltip } from "@/components/ui/tooltip";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   Rss,
   Brain,
@@ -14,11 +14,15 @@ import {
   ChevronLeft,
   Tally2,
   FileCode2,
+  Handshake,
+  ShieldUser,
+  LogOut,
+  Unplug,
   type LucideIcon,
-} from 'lucide-react';
-import { siGithub, siGoogle } from 'simple-icons';
-import { useSessionUser, type InviteUser } from '@/components/invite-gate';
-import { useGoogleStatus } from '@/components/google-status';
+} from "lucide-react";
+import { siGithub, siGoogle } from "simple-icons";
+import { useSessionUser, type InviteUser } from "@/components/invite-gate";
+import { useGoogleStatus } from "@/components/google-status";
 
 interface NavItem {
   href: string;
@@ -27,12 +31,12 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: '/', label: 'Feed', icon: Rss },
-  { href: '/doc-parser', label: 'Doc Parser', icon: FileCode2 },
-  { href: '/brain', label: 'Brain', icon: Brain },
-  { href: '/spaces', label: 'Spaces', icon: LayoutGrid },
-  { href: '/prompts', label: 'Prompts', icon: MessageSquareText },
-  { href: '/controls', label: 'Controls', icon: SlidersHorizontal },
+  { href: "/", label: "Feed", icon: Rss },
+  { href: "/doc-parser", label: "Doc Parser", icon: FileCode2 },
+  { href: "/brain", label: "Brain", icon: Brain },
+  { href: "/spaces", label: "Spaces", icon: LayoutGrid },
+  { href: "/prompts", label: "Prompts", icon: MessageSquareText },
+  { href: "/controls", label: "Controls", icon: SlidersHorizontal },
 ];
 
 function LogoMark({ className }: { className?: string }) {
@@ -52,18 +56,9 @@ function LogoMark({ className }: { className?: string }) {
           y2="238"
           gradientUnits="userSpaceOnUse"
         >
-          <stop
-            offset="0"
-            stopColor="#1c1f25"
-          />
-          <stop
-            offset="0.58"
-            stopColor="#0b0c0f"
-          />
-          <stop
-            offset="1"
-            stopColor="#050607"
-          />
+          <stop offset="0" stopColor="#1c1f25" />
+          <stop offset="0.58" stopColor="#0b0c0f" />
+          <stop offset="1" stopColor="#050607" />
         </linearGradient>
         <linearGradient
           id="vig-logo-aqua"
@@ -73,22 +68,10 @@ function LogoMark({ className }: { className?: string }) {
           y2="208"
           gradientUnits="userSpaceOnUse"
         >
-          <stop
-            offset="0"
-            stopColor="#e3fdff"
-          />
-          <stop
-            offset="1"
-            stopColor="#7deaf7"
-          />
+          <stop offset="0" stopColor="#e3fdff" />
+          <stop offset="1" stopColor="#7deaf7" />
         </linearGradient>
-        <filter
-          id="vig-logo-lift"
-          x="-20%"
-          y="-20%"
-          width="140%"
-          height="140%"
-        >
+        <filter id="vig-logo-lift" x="-20%" y="-20%" width="140%" height="140%">
           <feDropShadow
             dx="0"
             dy="5"
@@ -149,15 +132,8 @@ function LogoMark({ className }: { className?: string }) {
           strokeLinejoin="round"
           opacity="0.72"
         />
-        <path
-          d="M100 80 100 178 189 128Z"
-          fill="#b96a06"
-          opacity="0.35"
-        />
-        <path
-          d="M106 72 106 184 202 128Z"
-          fill="#f6921e"
-        />
+        <path d="M100 80 100 178 189 128Z" fill="#b96a06" opacity="0.35" />
+        <path d="M106 72 106 184 202 128Z" fill="#f6921e" />
       </g>
     </svg>
   );
@@ -180,12 +156,20 @@ function GithubIcon({ className }: { className?: string }) {
 }
 
 // Google mark from simple-icons, same pattern as GithubIcon below.
-function GoogleIcon({ className }: { className?: string }) {
+function GoogleIcon({
+  className,
+  outline = false,
+}: {
+  className?: string;
+  outline?: boolean;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
       className={className}
-      fill="currentColor"
+      fill={outline ? "none" : "currentColor"}
+      stroke={outline ? "currentColor" : undefined}
+      strokeWidth={outline ? 1.8 : undefined}
       aria-hidden="true"
       focusable="false"
     >
@@ -205,23 +189,22 @@ function Avatar({ user, className }: { user: InviteUser; className?: string }) {
         src={user.photo_url}
         alt=""
         onError={() => setFailed(true)}
-        className={`rounded-full object-cover ${className ?? ''}`}
+        className={`rounded-full object-cover ${className ?? ""}`}
       />
     );
   }
   return (
     <span
       aria-hidden="true"
-      className={`flex items-center justify-center rounded-full bg-raised font-mono text-[11px] font-medium text-body ${className ?? ''}`}
+      className={`flex items-center justify-center rounded-full bg-raised font-mono text-[11px] font-medium text-body ${className ?? ""}`}
     >
-      {(user.first_name?.[0] ?? '?').toUpperCase()}
+      {(user.first_name?.[0] ?? "?").toUpperCase()}
     </span>
   );
 }
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === '/')
-    return pathname === '/' || pathname.startsWith('/jobs');
+  if (href === "/") return pathname === "/" || pathname.startsWith("/jobs");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -241,19 +224,19 @@ function NavLink({
   const { href, label, icon: Icon } = item;
   const active = isActive(pathname, href);
   const layout = collapsed
-    ? 'flex h-9 w-9 items-center justify-center'
-    : 'flex items-center gap-3 px-3 py-2';
+    ? "flex h-9 w-9 items-center justify-center"
+    : "flex items-center gap-3 px-3 py-2";
   return (
     <Tooltip content={collapsed ? label : undefined}>
       <Link
         href={href}
         aria-label={collapsed ? label : undefined}
-        aria-current={active ? 'page' : undefined}
+        aria-current={active ? "page" : undefined}
         tabIndex={tabbable ? undefined : -1}
         className={`${layout} rounded-md text-sm font-medium transition-ui ${
           active
-            ? 'bg-raised text-signal'
-            : 'text-body hover:bg-raised hover:text-ink'
+            ? "bg-raised text-signal"
+            : "text-body hover:bg-raised hover:text-ink"
         }`}
       >
         <Icon
@@ -287,8 +270,22 @@ export function Sidebar() {
     setDisconnectFailed(false);
   }, [connected]);
 
+  // #308: Radix tooltips don't open on touch — controlled open so tapping the
+  // Google glyph shows the connection-state text (Radix closes on outside/escape).
+  const [googleTipOpen, setGoogleTipOpen] = useState(false);
+
+  // The tooltip portals outside the drawer; don't let it outlive a closed drawer.
+  useEffect(() => {
+    if (!open) setGoogleTipOpen(false);
+  }, [open]);
+
   const handleDisconnect = async () => {
-    if (!window.confirm('Disconnect Google? Exports to your Drive/Sheets stop until you reconnect (full consent flow).')) return;
+    if (
+      !window.confirm(
+        "Disconnect Google? Exports to your Drive/Sheets stop until you reconnect (full consent flow).",
+      )
+    )
+      return;
     setDisconnecting(true);
     setDisconnectFailed(false);
     const ok = await disconnect();
@@ -307,10 +304,10 @@ export function Sidebar() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   // Move focus into the drawer on open; return it on close (APG dialog pattern).
@@ -328,7 +325,7 @@ export function Sidebar() {
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previous;
     };
@@ -346,7 +343,7 @@ export function Sidebar() {
         aria-controls="vig-nav-panel"
         tabIndex={open ? -1 : undefined}
         className={`fixed left-0 top-1/2 z-30 flex h-14 w-4 -translate-y-1/2 items-center justify-center rounded-r-md border border-l-0 border-line bg-surface text-muted shadow-overlay transition-opacity hover:text-ink sm:hidden ${
-          open ? 'pointer-events-none opacity-0' : 'opacity-100'
+          open ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
         <Tally2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
@@ -365,10 +362,7 @@ export function Sidebar() {
           <LogoMark className="h-8 w-8" />
         </button>
 
-        <nav
-          className="flex flex-col items-center gap-1"
-          aria-label="Primary"
-        >
+        <nav className="flex flex-col items-center gap-1" aria-label="Primary">
           {NAV.map((item) => (
             <NavLink
               key={item.href}
@@ -385,9 +379,9 @@ export function Sidebar() {
             <Tooltip
               content={
                 connected === null
-                  ? (user.first_name ?? 'Signed in')
-                  : `${user.first_name ?? 'Signed in'} — ${
-                      connected ? 'Connected to Google' : 'Google not connected'
+                  ? (user.first_name ?? "Signed in")
+                  : `${user.first_name ?? "Signed in"} — ${
+                      connected ? "Connected to Google" : "Google not connected"
                     }`
               }
             >
@@ -396,8 +390,8 @@ export function Sidebar() {
                 <span
                   className={`flex rounded-full ${
                     connected
-                      ? 'ring-2 ring-google/70 shadow-[0_0_10px_rgba(66,133,244,0.45)]'
-                      : ''
+                      ? "ring-2 ring-google/70 shadow-[0_0_10px_rgba(66,133,244,0.45)]"
+                      : ""
                   }`}
                 >
                   <Avatar user={user} className="h-6 w-6" />
@@ -442,7 +436,7 @@ export function Sidebar() {
         onClick={() => setOpen(false)}
         aria-hidden="true"
         className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ease-out-quart ${
-          open ? 'opacity-100' : 'pointer-events-none opacity-0'
+          open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
 
@@ -454,10 +448,10 @@ export function Sidebar() {
         // ponytail: close on clicks in the drawer's dead space; links/buttons
         // (closest a/button) keep their own handlers.
         onClick={(e) => {
-          if (!(e.target as HTMLElement).closest('a,button')) setOpen(false);
+          if (!(e.target as HTMLElement).closest("a,button")) setOpen(false);
         }}
         className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-line bg-surface px-4 py-5 shadow-overlay transition-transform duration-200 ease-out-quart ${
-          open ? 'translate-x-0' : '-translate-x-full'
+          open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="mb-6 flex items-center justify-between px-1">
@@ -480,10 +474,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <nav
-          className="flex flex-col gap-1"
-          aria-label="Primary expanded"
-        >
+        <nav className="flex flex-col gap-1" aria-label="Primary expanded">
           {NAV.map((item) => (
             <NavLink
               key={item.href}
@@ -498,46 +489,77 @@ export function Sidebar() {
         <div className="mt-auto flex flex-col gap-1">
           {user && (
             <div className="px-3 py-2">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-body">
                 <Avatar user={user} className="h-[26px] w-[26px] shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-sm font-medium text-body">
-                    <span className="truncate">{user.first_name ?? 'Signed in'}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {user.first_name ?? "Signed in"}
+                </span>
+                <Tooltip
+                  open={googleTipOpen}
+                  onOpenChange={setGoogleTipOpen}
+                  content={
+                    connected
+                      ? "Connected to Google"
+                      : connected === false
+                        ? "Google not connected"
+                        : "Checking Google connection"
+                  }
+                >
+                  <button
+                    type="button"
+                    tabIndex={open ? undefined : -1}
+                    onClick={() => setGoogleTipOpen(true)}
+                    className="-m-2 shrink-0 rounded p-2 text-muted transition-ui hover:text-ink focus:outline-none focus:ring-1 focus:ring-signal"
+                  >
                     <GoogleIcon
-                      className={`h-3 w-3 shrink-0 ${connected ? 'text-google' : 'text-muted'}`}
+                      outline={!connected}
+                      className={`h-3.5 w-3.5 ${connected ? "text-google" : "text-muted"}`}
                     />
-                  </p>
-                  {user.username && (
-                    <p className="truncate font-mono text-[11px] text-muted">@{user.username}</p>
-                  )}
-                </div>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2 pl-[38px] text-[11px]">
+                    <span className="sr-only">
+                      {connected
+                        ? "Connected to Google"
+                        : connected === false
+                          ? "Google not connected"
+                          : "Checking Google connection"}
+                    </span>
+                  </button>
+                </Tooltip>
                 {connected ? (
                   <>
-                    <span className="text-google">Connected to Google</span>
+                    <span className="text-muted" aria-hidden="true">
+                      ·
+                    </span>
                     <button
                       type="button"
+                      aria-label={
+                        disconnecting ? "Disconnecting" : "Disconnect"
+                      }
                       onClick={handleDisconnect}
                       disabled={disconnecting}
                       tabIndex={open ? undefined : -1}
-                      className="text-muted transition-ui hover:text-ink disabled:opacity-50"
+                      className="-m-2 rounded p-2 text-muted transition-ui hover:text-status-error focus:outline-none focus:ring-1 focus:ring-signal active:scale-[0.96] disabled:opacity-50"
                     >
-                      {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                      <Unplug className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </>
                 ) : connected === false ? (
                   <a
                     href="/api/google/connect"
+                    aria-label="Connect Google"
                     tabIndex={open ? undefined : -1}
-                    className="text-muted transition-ui hover:text-ink"
+                    className="-m-2 shrink-0 rounded p-2 text-xs text-muted transition-ui hover:text-ink"
                   >
-                    Connect Google
+                    Connect
                   </a>
                 ) : null}
               </div>
+              {user.username && (
+                <p className="mt-1 truncate pl-[34px] font-mono text-[11px] text-muted">
+                  @{user.username}
+                </p>
+              )}
               {disconnectFailed && (
-                <p className="mt-1 pl-[38px] text-[11px] text-status-error">
+                <p className="mt-1 pl-[34px] text-[11px] text-status-error">
                   Couldn&apos;t disconnect — try again.
                 </p>
               )}
@@ -553,16 +575,41 @@ export function Sidebar() {
             <GithubIcon className="h-[18px] w-[18px] shrink-0" />
             GitHub
           </a>
-          <form
-            action="/api/auth/logout"
-            method="POST"
-          >
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <Link
+              href="/terms"
+              tabIndex={open ? undefined : -1}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+            >
+              <Handshake
+                className="h-[18px] w-[18px] shrink-0"
+                aria-hidden="true"
+              />
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              tabIndex={open ? undefined : -1}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+            >
+              <ShieldUser
+                className="h-[18px] w-[18px] shrink-0"
+                aria-hidden="true"
+              />
+              Privacy
+            </Link>
+          </div>
+          <form action="/api/auth/logout" method="POST">
             <button
               type="submit"
               tabIndex={open ? undefined : -1}
-              className="w-full rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+              className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
             >
-              Sign out
+              <span>Sign Out</span>
+              <LogOut
+                className="h-[18px] w-[18px] text-status-error"
+                aria-hidden="true"
+              />
             </button>
           </form>
         </div>

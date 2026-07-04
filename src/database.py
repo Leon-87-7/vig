@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_chat_created ON jobs(chat_id, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url);
 
 CREATE TABLE IF NOT EXISTS job_thumbnails (

@@ -89,6 +89,10 @@ export function useFetchDetail<T>(url: string) {
   const [fetchState, setFetchState] = useState<FetchState>('loading');
 
   useEffect(() => {
+    // Reset on url change: without this, navigating /jobs/A → /jobs/B keeps
+    // rendering A's data (and state derived from it) until B's fetch resolves.
+    setData(null);
+    setFetchState('loading');
     const controller = new AbortController();
     fetchJson<T>(url, { signal: controller.signal })
       .then((result) => {

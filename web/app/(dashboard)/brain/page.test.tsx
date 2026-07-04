@@ -140,10 +140,11 @@ describe('BrainPage', () => {
     render(<BrainPage />);
     fireEvent.click(screen.getByRole('button', { name: /links/i }));
 
+    // The URL renders twice: mobile card list + desktop table (CSS-gated by breakpoint).
     await waitFor(() => {
-      expect(screen.getByText('https://example.com/canonical')).toBeTruthy();
+      expect(screen.getAllByText('https://example.com/canonical').length).toBeGreaterThan(0);
     });
-    const link = screen.getByRole('link', { name: /https:\/\/example.com\/canonical/i });
+    const [link] = screen.getAllByRole('link', { name: /https:\/\/example.com\/canonical/i });
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByText('4')).toBeTruthy();
