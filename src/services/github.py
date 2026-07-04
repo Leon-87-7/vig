@@ -171,31 +171,34 @@ async def fetch_repo_bundle(owner: str, repo: str, token: str | None) -> dict:
     readme_text = readme_raw_bytes_obj.decode("utf-8", errors="replace") if readme_raw_bytes_obj else ""
     readme_preprocessed = preprocess_readme(readme_text)
 
+    # Manifests and sub-READMEs are optional context: fetch both sets in one
+    # gather, and never let a transient per-file error abort the bundle.
     manifest_paths = _detect_manifests(tree)
-    manifest_contents: list[str | None] = []
-    if manifest_paths:
-        manifest_contents = list(await asyncio.gather(*[
-            asyncio.to_thread(_manifest_sync, owner, repo, path, token)
-            for path in manifest_paths
-        ]))
+    sub_readme_paths = _detect_sub_readmes(tree)
+    optional_paths = manifest_paths + sub_readme_paths
+    optional_contents: list[str | None] = []
+    if optional_paths:
+        results = await asyncio.gather(
+            *[asyncio.to_thread(_manifest_sync, owner, repo, path, token) for path in optional_paths],
+            return_exceptions=True,
+        )
+        for path, res in zip(optional_paths, results, strict=True):
+            if isinstance(res, BaseException):
+                log.warning(
+                    "github_optional_fetch_failed",
+                    repo=f"{owner}/{repo}", path=path, error=str(res)[:120],
+                )
+        optional_contents = [r if isinstance(r, str) else None for r in results]
 
     manifests = {
         path: content
-        for path, content in zip(manifest_paths, manifest_contents)
+        for path, content in zip(manifest_paths, optional_contents[: len(manifest_paths)], strict=True)
         if content is not None
     }
 
-    sub_readme_paths = _detect_sub_readmes(tree)
-    sub_readme_contents: list[str | None] = []
-    if sub_readme_paths:
-        sub_readme_contents = list(await asyncio.gather(*[
-            asyncio.to_thread(_manifest_sync, owner, repo, path, token)
-            for path in sub_readme_paths
-        ]))
-
     sub_readmes = {
         path: preprocess_readme(content)[:_SUB_README_MAX]
-        for path, content in zip(sub_readme_paths, sub_readme_contents)
+        for path, content in zip(sub_readme_paths, optional_contents[len(manifest_paths):], strict=True)
         if content is not None
     }
 

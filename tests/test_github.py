@@ -223,6 +223,33 @@ async def test_fetch_repo_bundle_includes_sub_readmes(monkeypatch: pytest.Monkey
     assert len(result["sub_readmes"]["okf/README.md"]) <= 4_000
 
 
+@pytest.mark.asyncio
+async def test_fetch_repo_bundle_survives_optional_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transient error on a sub-README (or manifest) fetch must not abort the bundle."""
+    fake_redis = FakeRedis()
+    import src.queue as q
+    monkeypatch.setattr(q, "_redis", fake_redis)
+
+    meta = {"stars": 5, "forks": 1, "language": "Go", "pushed_at": None,
+            "description": None, "archived": False, "default_branch": "main", "topics": []}
+
+    def flaky_manifest_sync(owner, repo, path, token):
+        if path == "okf/README.md":
+            raise RuntimeError("503 from GitHub")
+        return "module x"
+
+    with (
+        patch("src.services.github._fetch_bundle_meta_sync", return_value=meta),
+        patch("src.services.github._readme_sync", return_value=b"# Root"),
+        patch("src.services.github._tree_sync", return_value=["README.md", "go.mod", "okf/README.md"]),
+        patch("src.services.github._manifest_sync", side_effect=flaky_manifest_sync),
+    ):
+        result = await fetch_repo_bundle("octocat", "monorepo", "tok")
+
+    assert result["manifests"] == {"go.mod": "module x"}
+    assert result["sub_readmes"] == {}
+
+
 # ---------------------------------------------------------------------------
 # fetch_readme
 # ---------------------------------------------------------------------------
