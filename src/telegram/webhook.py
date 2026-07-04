@@ -1486,10 +1486,15 @@ async def _handle_user_template_shortcut(
             "Instagram Reels, TikTok videos, and allowlisted article domains.",
         )
         return True
-    extra_instructions = (tmpl_row.get("extra_instructions") or "").strip()
+    # Repo jobs run the standard repo prompt — template inputs are cleared,
+    # matching the dashboard path.
+    is_repo = pipeline == "repo"
+    extra_instructions = (
+        "" if is_repo else (tmpl_row.get("extra_instructions") or "").strip()
+    )
     job = await create_and_enqueue_job(
         chat_id,
-        normalize_repo_url(url) if pipeline == "repo" else url,
+        normalize_repo_url(url) if is_repo else url,
         pipeline,
         message_id=message_id,
         template="freestyle" if extra_instructions else None,
