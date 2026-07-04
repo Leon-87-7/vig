@@ -191,9 +191,11 @@ function TableCard({ link }: { link: LinkRow }) {
           {link.seen_count} appearance{link.seen_count === 1 ? "" : "s"}
         </span>
       </div>
-      <div className="mt-2 font-mono">
-        <LinkDescription link={link} />
-      </div>
+      {Boolean(link.title || link.topic) && (
+        <div className="mt-2 font-mono">
+          <LinkDescription link={link} />
+        </div>
+      )}
     </article>
   );
 }

@@ -20,19 +20,24 @@ export const SHORT_FIELDS: Array<{ key: keyof JobDetail; label: string; render: 
 ]
 
 
-/** Job-detail href carrying the Feed's active filter scope (#309) — the detail
- * page reads these params back to scope its prev/next adjacent lookup. */
+/** Single source of truth for the Feed-scope query params (#309): card links
+ * write them, the detail page reads them back for its adjacent lookup. */
+export function jobScopeQuery(scope: {
+  contentType?: string
+  status?: string
+}): Record<string, string> {
+  return {
+    ...(scope.contentType ? { content_type: scope.contentType } : {}),
+    ...(scope.status ? { status: scope.status } : {}),
+  }
+}
+
+/** Job-detail href carrying the Feed's active filter scope (#309). */
 export function buildJobHref(
   id: string,
   scope: { contentType?: string; status?: string },
 ) {
-  return {
-    pathname: `/jobs/${id}`,
-    query: {
-      ...(scope.contentType ? { content_type: scope.contentType } : {}),
-      ...(scope.status ? { status: scope.status } : {}),
-    },
-  }
+  return { pathname: `/jobs/${id}`, query: jobScopeQuery(scope) }
 }
 
 export interface JobLink {

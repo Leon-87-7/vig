@@ -21,6 +21,7 @@ import {
   fieldCopyText,
   buildMarkdown,
   parseLinks,
+  jobScopeQuery,
 } from "@/lib/job-detail-utils";
 import { PageShell } from "@/components/page-shell";
 import { SkeletonBlock } from "@/components/feed/feed-states";
@@ -328,14 +329,12 @@ function AdjacentNavLink({
 function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const contentType = searchParams.get("content_type");
-  const status = searchParams.get("status");
-  const scopeQuery = useMemo(() => {
-    const params = new URLSearchParams();
-    if (contentType) params.set("content_type", contentType);
-    if (status) params.set("status", status);
-    return params.toString();
-  }, [contentType, status]);
+  const contentType = searchParams.get("content_type") ?? undefined;
+  const status = searchParams.get("status") ?? undefined;
+  const scopeQuery = useMemo(
+    () => new URLSearchParams(jobScopeQuery({ contentType, status })).toString(),
+    [contentType, status],
+  );
   const [adjacent, setAdjacent] = useState<AdjacentJobs>({
     previous_id: null,
     next_id: null,
