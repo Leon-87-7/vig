@@ -1525,11 +1525,12 @@ async def _handle_user_template_shortcut(
 
 
 async def _enqueue_simple_job(
-    chat_id: int, url: str, content_type: str, message_id: int
+    chat_id: int, url: str, content_type: str, message_id: int, *,
+    skip_cache: bool = False,
 ) -> dict:
     """Create + enqueue an article/repo job and ack the user."""
     job = await create_and_enqueue_job(
-        chat_id, url, content_type, message_id=message_id
+        chat_id, url, content_type, message_id=message_id, skip_cache=skip_cache
     )
     if job.get("_deduped"):
         await _reply_cached_job(chat_id, job)
@@ -1561,12 +1562,11 @@ async def _reject_url(chat_id: int, text: str) -> None:
 async def _route_article(
     chat_id: int, text: str, message_id: int, pending_template: str | None
 ) -> None:
-    if not pending_template:
-        cached = await database.find_recent_job_by_url(chat_id, text)
-        if cached:
-            await _reply_cached_job(chat_id, cached)
-            return
-    await _enqueue_simple_job(chat_id, text, "article", message_id)
+    # A pending template is an explicit request for a fresh run; the shared
+    # helper would otherwise return a cached URL-only job.
+    await _enqueue_simple_job(
+        chat_id, text, "article", message_id, skip_cache=bool(pending_template)
+    )
 
 
 async def _route_repo(
