@@ -1,3 +1,8 @@
+> **SUPERSEDED** — the recommendation below was an early draft, revised after
+> the "$0 only" constraint (Google Workspace and the raw-SMTP `/broadcast`
+> loop were dropped). The live decision is `docs/headless CRM.md`; the five
+> requirements below are recorded there verbatim and remain canonical.
+
 Iwell I think I need to add context for what I want from the task 21.
 	1.	A place where I can manage the contacts, having the user’s info for reaching out: email address, telegram chat_id.
 	2.	I want to have an email address associated with leondev.xyz.xyz.
