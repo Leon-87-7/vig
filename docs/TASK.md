@@ -23,6 +23,8 @@ its body to `docs/archive/TASK-archive.md`, leaving the title behind here.
 _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
+
+- Operator-only `/pending` bot command that lists pending invite-gate users and re-sends the approve/block keyboard (closes the missed-push gap noted in task 21 / `docs/headless CRM.md`)
 ---
 
 ## Briefs

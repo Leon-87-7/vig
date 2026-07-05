@@ -53,13 +53,62 @@
   access ever becomes a hard need, the cheapest escape hatches are Zoho Mail
   Lite (~$1/user/mo) or Migadu (~$19/yr) — both paid, so out of scope now.
 
+## Approval stays in Telegram — Zoho cannot manage it
+
+Considered and rejected (2026-07-05): managing approve/block from the Zoho
+mailbox.
+
+- Approval is a state change in vig's DB (`users.status`) plus a Telegram
+  notify — it must reach vig's backend. Zoho Mail is a dumb inbox with no way
+  to call an API on read/reply.
+- Reply-to-approve is structurally impossible on Zoho free: no IMAP/POP3 and
+  no forwarding means vig can never read that mailbox programmatically.
+- The one workable email variant — signed one-time **action links** in an
+  approval-request email hitting a new authenticated vig endpoint — is real
+  net-new code (token minting/expiry, endpoint, confirm page because mail
+  scanners prefetch links and would auto-"click" a bare GET). It duplicates a
+  flow that already works one-tap in Telegram. Optional future task, not
+  part of task 21.
+- Related gap kept as a follow-up: `list_pending_users` still has no
+  production caller, so a missed Telegram push leaves pending users
+  invisible. A tiny Operator-only `/pending` bot command that re-sends the
+  approve/block keyboard closes that with existing machinery — no email
+  involved.
+
+## Self-hosting on the VPS — where the line is (2026-07-05)
+
+The VPS ("small", docker-compose deploys — `docs/handoff/VPS to prebuilt
+docker images via GHCR.md`) has room, so self-hosting parts of the stack was
+weighed:
+
+- **Never self-host the mail server** (Mailcow/Mailu/postfix), regardless of
+  room. VPS IP ranges are pre-distrusted by Gmail/Outlook and outbound port
+  25 is often blocked — deliverability is unwinnable at this volume; the
+  stack is the highest-maintenance category of self-hosted software (Mailcow
+  alone wants ~6 GB RAM); and you would still relay outbound through a hosted
+  provider anyway. Zoho keeps the mailbox.
+- **Listmonk is the named upgrade path for the newsletter layer.** A single
+  lightweight Go binary (contacts, campaigns, unsubscribe, bounces —
+  self-hosted Brevo). Gains over Brevo free: no "Sent with Brevo" badge, no
+  300/day requeue, contact data on your own box. Costs: it requires
+  Postgres (vig runs SQLite + Redis, so that's **two** new containers to
+  deploy/back up/update), and it still needs an external SMTP relay to
+  deliver (Brevo free's SMTP, 300/day, as a dumb pipe — Brevo would see
+  sends but not hold the contact list).
+- **Decision: ship v1 all-hosted (Brevo + Zoho, zero new containers).**
+  Switch trigger for Listmonk: the Brevo badge or daily cap actually starts
+  to bite. The switch is cheap later — the vig-side one-way push just changes
+  its target URL from Brevo's REST API to Listmonk's.
+
 ## Rejected
 
 - **Self-hosted CRMs (Twenty, IDURAR, erpjs/iDempiere micro)** — the original
   candidates in this file. Real ops overhead (Docker/Postgres to run, back up,
   patch), a forked copy of the `users` contact data, and none of them do
   email send/receive. They solve a generic-contact-database problem vig
-  doesn't have and skip the email problem it does.
+  doesn't have and skip the email problem it does. (Heavier than Listmonk,
+  too — Node + Postgres + Redis each — while duplicating contact management
+  Listmonk/Brevo already covers.)
 - **Google Workspace** (~$7/user/mo) and **Migadu** — fail req 6 (paid).
 - **Transactional email APIs (Postmark, Resend, Mailgun)** — Postmark's
   inbound parse is the best of the class but it delivers webhook *events*,
