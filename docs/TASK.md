@@ -23,7 +23,7 @@ its body to `docs/archive/TASK-archive.md`, leaving the title behind here.
 _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
-
+ - i need a way to manage the email approval system, some kind of a CRM it should be small without overhead and i don't want to build it from scratch. also this should be a system where i call send emails to customers and resive them there (maybe i need a new email address under leondev.xyz)
 ---
 
 ## Briefs
