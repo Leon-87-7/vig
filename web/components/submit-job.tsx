@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -35,6 +36,17 @@ const SubmitJobContext = createContext<SubmitJobContextValue | null>(
   null,
 );
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    target.isContentEditable
+  );
+}
+
 export function useSubmitJob(): SubmitJobContextValue {
   const ctx = useContext(SubmitJobContext);
   if (!ctx)
@@ -63,6 +75,24 @@ export function SubmitJobProvider({
   const [submitting, setSubmitting] = useState(false);
   const [lastAccepted, setLastAccepted] =
     useState<AcceptedJob | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'n' ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isEditableShortcutTarget(event.target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setOpen(true);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const submitJob = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {

@@ -318,6 +318,7 @@ function FeedPageContent() {
             onClick={() => setSubmitOpen(true)}
             aria-label="Submit URL"
             aria-haspopup="dialog"
+            aria-keyshortcuts="N"
             className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-line border-b-2 border-b-signal bg-surface px-1.5 text-[13px] font-medium text-signal transition-ui hover:bg-raised active:scale-[0.96] motion-reduce:active:scale-100 sm:hidden"
           >
             <Plus

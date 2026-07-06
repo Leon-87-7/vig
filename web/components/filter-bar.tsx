@@ -15,6 +15,18 @@ import type { LucideIcon } from 'lucide-react';
 const useIsoLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    target.isContentEditable ||
+    Boolean(target.closest('[role="dialog"]'))
+  );
+}
+
 export interface FilterTab {
   label: string;
   value: string;
@@ -239,6 +251,7 @@ export function FilterBar({
   // #187: status filters + recovery panel collapse behind a disclosure on mobile.
   // Default collapsed; component remounts on navigation so it resets naturally.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Track the < sm (640px) breakpoint in JS so the collapsed panel is also
   // removed from the tab order / AT tree (inert), not just hidden visually.
@@ -254,6 +267,25 @@ export function FilterBar({
   }, []);
 
   const collapsed = isMobile && !filtersOpen;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== '/' ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        isEditableShortcutTarget(event.target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <section
@@ -271,10 +303,12 @@ export function FilterBar({
           />
         </div>
         <input
+          ref={searchRef}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label={searchLabel}
+          aria-keyshortcuts="/"
           placeholder={searchPlaceholder}
           className="h-9 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:min-w-0 sm:flex-1"
         />
