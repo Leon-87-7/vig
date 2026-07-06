@@ -43,8 +43,28 @@ function isEditableShortcutTarget(target: EventTarget | null) {
     tag === 'input' ||
     tag === 'textarea' ||
     tag === 'select' ||
-    target.isContentEditable
+    target.isContentEditable ||
+    Boolean(target.closest('[role="dialog"]'))
   );
+}
+
+function inferContentTypeFromUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+
+    if (host === 'github.com') return 'repo';
+    if (host.endsWith('youtube.com') && path === '/watch') return 'long';
+    if (host === 'youtu.be') return 'long';
+    if (host.endsWith('youtube.com') && path.startsWith('/shorts/')) return 'short';
+    if (host.endsWith('instagram.com') && path.startsWith('/reel/')) return 'short';
+    if (host.endsWith('tiktok.com') && path.includes('/video/')) return 'short';
+  } catch {
+    return 'article';
+  }
+
+  return 'article';
 }
 
 export function useSubmitJob(): SubmitJobContextValue {
@@ -124,7 +144,7 @@ export function SubmitJobProvider({
           content_type:
             typeof data.content_type === 'string'
               ? data.content_type
-              : 'short',
+              : inferContentTypeFromUrl(trimmed),
           status:
             typeof data.status === 'string' ? data.status : 'pending',
           at: Date.now(),

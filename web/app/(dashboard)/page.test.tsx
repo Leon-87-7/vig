@@ -103,6 +103,10 @@ function setupMocks(overrides: Partial<ReturnType<typeof useFeedData>> = {}) {
   vi.mocked(useInFlightPolling).mockReturnValue(undefined);
 }
 
+async function openRecoveryActions() {
+  fireEvent.click(await screen.findByRole('button', { name: /4 need attention/i }));
+}
+
 beforeEach(() => {
   navigationMock.replace.mockClear();
   navigationMock.searchParams = new URLSearchParams();
@@ -290,6 +294,7 @@ describe('FeedPage', () => {
     setupMocks({ ctFilter: 'short' });
 
     render(<FeedTree />);
+    await openRecoveryActions();
 
     expect(await screen.findByRole('button', { name: /retry pending \(2\)/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /retry failed \(2\)/i })).toBeTruthy();
@@ -305,6 +310,7 @@ describe('FeedPage', () => {
     setupMocks({ ctFilter: 'short', reload });
 
     render(<FeedTree />);
+    await openRecoveryActions();
     fireEvent.click(await screen.findByRole('button', { name: /retry pending \(2\)/i }));
 
     await waitFor(() => {
@@ -324,6 +330,7 @@ describe('FeedPage', () => {
     vi.stubGlobal('confirm', confirmMock);
 
     render(<FeedTree />);
+    await openRecoveryActions();
     fireEvent.click(await screen.findByRole('button', { name: /clear failed \(1\)/i }));
 
     expect(confirmMock).toHaveBeenCalledWith(

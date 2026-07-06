@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@/test/render';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@/test/render';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SubmitJobProvider, useSubmitJob } from './submit-job';
 
 function ShortcutProbe() {
@@ -8,7 +8,25 @@ function ShortcutProbe() {
   return <span>{open ? 'submit open' : 'submit closed'}</span>;
 }
 
+function LastAcceptedProbe() {
+  const { lastAccepted } = useSubmitJob();
+  return <span>{lastAccepted?.content_type ?? 'no accepted job'}</span>;
+}
+
+function OpenSubmitButton() {
+  const { setOpen } = useSubmitJob();
+  return (
+    <button type="button" onClick={() => setOpen(true)}>
+      Open submit
+    </button>
+  );
+}
+
 describe('SubmitJobProvider', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('opens Submit URL with the N shortcut', () => {
     render(
       <SubmitJobProvider>
@@ -36,5 +54,52 @@ describe('SubmitJobProvider', () => {
     fireEvent.keyDown(notes, { key: 'n' });
 
     expect(screen.getByText('submit closed')).toBeTruthy();
+  });
+
+  it('does not open Submit URL while focus is inside another dialog', () => {
+    render(
+      <SubmitJobProvider>
+        <div role="dialog">
+          <button type="button">Dialog action</button>
+        </div>
+        <ShortcutProbe />
+      </SubmitJobProvider>,
+    );
+
+    const action = screen.getByRole('button', { name: 'Dialog action' });
+    action.focus();
+    fireEvent.keyDown(action, { key: 'n' });
+
+    expect(screen.getByText('submit closed')).toBeTruthy();
+  });
+
+  it('infers an optimistic article type when the accepted response omits content_type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            id: 'job-article',
+            status: 'pending',
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <SubmitJobProvider>
+        <OpenSubmitButton />
+        <LastAcceptedProbe />
+      </SubmitJobProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open submit' }));
+    const input = screen.getByPlaceholderText('Paste a video, article, or repo URL…');
+    fireEvent.change(input, {
+      target: { value: 'https://example.com/deep-dive' },
+    });
+    fireEvent.submit(input.closest('form')!);
+
+    await waitFor(() => expect(screen.getByText('article')).toBeTruthy());
   });
 });
