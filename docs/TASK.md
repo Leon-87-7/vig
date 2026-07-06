@@ -267,13 +267,12 @@ the change without edits. `DESIGN.md` also pins a derived signal ramp:
 
 ## 14. Public home page — fix Google OAuth branding verification rejection
 
-> **Grill:** `/grilling` — product/UX + Google's branding checklist; no
-> repo-domain-model hinge.
-
-> **Grill together with task 13.** Both reuse the login page's
-> background+logo treatment — a public home page makes it four consumers, so
-> the "extract `<BrandBackground>` or duplicate once more" call must be made
-> once, for both.
+> **Grilled 2026-07-06** — all open questions resolved below. Task 13 shipped
+> meanwhile: `PublicShell` (`web/components/public-shell.tsx`) is the shared
+> public-page chrome for `/terms`+`/privacy`, but the **waves background**
+> still lives inline in `login/page.tsx` + `logout/page.tsx` only — the
+> landing is its third consumer, so extraction into a shared
+> `<BrandBackground>` is now settled: extract.
 
 Google rejected the OAuth app's branding verification (the consent-screen
 review tracked in issue #203, epic #201): the submitted homepage must be
@@ -322,14 +321,24 @@ satisfying Google's homepage requirements so branding verification passes.
   points at `/feed` directly, sidestepping the redirect.
 - ~~What does a logged-in operator see at the landing URL~~ → resolved by the
   same decision: auto-forward (307) to `/feed`.
-- How much content is "the face of the project": logo + purpose paragraph +
-  legal links + sign-in CTA only, or also a feature overview of the pipelines
-  / dashboard screenshots?
-- Does Google's sensitive-scope disclosure (how the app uses Google user
-  data / Limited Use statement) need to appear on the homepage itself, or is
-  the `/privacy` link sufficient for the branding review?
-- Does `/login` itself also gain the purpose copy, or does it stay minimal
-  once the landing page exists upstream of it?
+- ~~How much content~~ → **Resolved 2026-07-06: full marketing page.** Waves
+  hero (via the extracted `<BrandBackground>`) + purpose paragraph + feature
+  overview of the pipelines + dashboard visuals + one signal-orange CTA +
+  legal footer reusing `PublicShell`'s links. Section ordering is design
+  execution, not spec.
+- **Visuals (new, resolved): staged screenshots.** Seed a demo account with
+  curated fake jobs/links, capture Feed + Brain graph + a job details page,
+  ship as static assets. Never real operator data (no live captures, no
+  blur-redaction), re-capturable after UI changes.
+- ~~Limited Use disclosure~~ → **Resolved: privacy page only.** The landing
+  carries just the visible `/privacy` + `/terms` links. Gap found in grill:
+  `web/app/privacy/page.tsx` describes the scopes but lacks the explicit
+  "adheres to the Google API Services User Data Policy, including the
+  Limited Use requirements" affirmation — add that paragraph (with policy
+  link) to `/privacy` as part of this task.
+- ~~Does `/login` gain purpose copy~~ → **Resolved: stays minimal, plus one
+  quiet "What is VIG?" back-link to `/`** so a direct `/login` visit is
+  never a dead end. No copy duplication — the landing does the explaining.
 
 ## 15. Sidebar links to Terms & Privacy (one row, between GitHub and Sign out) ✅ ISSUED TO GITHUB #307, #308
 
