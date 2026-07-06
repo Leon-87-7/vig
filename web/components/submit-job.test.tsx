@@ -120,4 +120,34 @@ describe('SubmitJobProvider', () => {
 
     await waitFor(() => expect(screen.getByText('article')).toBeTruthy());
   });
+
+  it('infers an optimistic repo type for www.github.com when the accepted response omits content_type', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            id: 'job-repo',
+            status: 'pending',
+          }),
+        ),
+      ),
+    );
+
+    render(
+      <SubmitJobProvider>
+        <OpenSubmitButton />
+        <LastAcceptedProbe />
+      </SubmitJobProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open submit' }));
+    const input = screen.getByPlaceholderText('Paste a video, article, or repo URL…');
+    fireEvent.change(input, {
+      target: { value: 'https://www.github.com/Leon-87-7/vig' },
+    });
+    fireEvent.submit(input.closest('form')!);
+
+    await waitFor(() => expect(screen.getByText('repo')).toBeTruthy());
+  });
 });

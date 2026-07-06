@@ -60,7 +60,7 @@ function shouldIgnoreGlobalShortcut(target: EventTarget | null) {
 function inferContentTypeFromUrl(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl);
-    const host = parsed.hostname.toLowerCase();
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
     const path = parsed.pathname.toLowerCase();
 
     if (host === 'github.com') return 'repo';
