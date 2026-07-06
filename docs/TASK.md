@@ -91,7 +91,9 @@ Scope is the `web/` Next.js app (app router).
 
 - Add a web app manifest (name, maskable icons, `theme_color`/`background_color`
   from DESIGN.md `#0b0c0f` + signal, `display: standalone`) and wire it via
-  `web/app/layout.tsx` metadata.
+  `web/app/layout.tsx` metadata. `start_url` points at `/feed` — per task 14's
+  resolved routing (`/` is the public landing; authenticated visits 307 to
+  `/feed`), the PWA opens the Feed directly and sidesteps the redirect.
 - Add a service worker for installability + offline shell: precache the static
   shell/assets, network-first for `/api/*` so live data isn't served stale.
 - Provide the required icon set (incl. maskable).
@@ -308,16 +310,21 @@ satisfying Google's homepage requirements so branding verification passes.
 
 **Open questions** (resolve in grill)
 
-- Where does the landing live: `/` becomes public (Feed moves to `/feed`, or
-  `/` renders landing vs. Feed conditionally on the `vig_session` cookie), or
-  a separate path (e.g. `/home`) with that URL submitted to Google as the
-  homepage? The middleware matcher and sidebar `isActive('/')` both hinge on
-  this.
+- ~~Where does the landing live~~ → **Resolved 2026-07-06: `/` is always the
+  public landing route; the Feed moves to `/feed`.** The middleware (which
+  already reads the `vig_session` cookie on every request) 307s
+  *authenticated* visitors from `/` to `/feed`, so logged-out visitors and
+  Google's crawler get the landing and the operator never sees it after
+  login. `/` joins `PUBLIC_PATHS`; the landing stays fully static. Sweep:
+  sidebar Feed link + `isActive('/')` special-case
+  (`web/components/sidebar.tsx:27-34,180-184`) retarget to `/feed`, plus any
+  internal `href="/"` and route-pinning tests. Task 6's PWA `start_url`
+  points at `/feed` directly, sidestepping the redirect.
+- ~~What does a logged-in operator see at the landing URL~~ → resolved by the
+  same decision: auto-forward (307) to `/feed`.
 - How much content is "the face of the project": logo + purpose paragraph +
   legal links + sign-in CTA only, or also a feature overview of the pipelines
   / dashboard screenshots?
-- What does a logged-in operator see at the landing URL — auto-forward to the
-  Feed, or the landing with an "open console" CTA?
 - Does Google's sensitive-scope disclosure (how the app uses Google user
   data / Limited Use statement) need to appear on the homepage itself, or is
   the `/privacy` link sufficient for the branding review?
