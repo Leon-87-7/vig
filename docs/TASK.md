@@ -24,8 +24,6 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
 
-- Operator-only `/pending` bot command that lists pending invite-gate users and re-sends the approve/block keyboard (closes the missed-push gap noted in task 21 / `docs/headless CRM.md`)
-- Gemini resilience: extend `_call_with_fallback` (`src/services/gemini.py`) with a model-downgrade rung (pro → flash → flash-lite, separate quota pools — today only the key swaps), honor 429 retry-after by requeueing the job with backoff instead of failing, and add a non-Google OpenAI-compatible fallback provider (OpenRouter/Groq) behind the same `generate()` interface for text (vision stays Gemini)
 ---
 
 ## Briefs
@@ -512,3 +510,101 @@ receive* email with them — likely from a new address under `leondev.xyz`.
   approval); Brevo can hold a broader list later without vig changes.
 - **Still open:** the mailbox name under `leondev.xyz` (one address is enough
   to start; Zoho free allows 5).
+
+## 22. Operator-only `/pending` bot command — re-surface missed invite approvals
+
+Closes the missed-push gap recorded in task 21 / `docs/headless CRM.md`: when a
+`pending` user submits their email, `_notify_operator_invite`
+(`src/telegram/webhook.py:1384`) pushes the Operator **one** message with inline
+✅ Approve / 🚫 Block buttons — and if that push is missed, nothing re-surfaces
+it. `list_pending_users` (`src/database.py:1773`, oldest-first) still has zero
+production callers.
+
+**Wanted:** the Operator types `/pending` and gets the approve/block card
+re-sent for every user still awaiting a decision.
+
+**Backend**
+
+- New handler registered in `_SLASH_TABLE` (`webhook.py:1078`), dispatched by
+  `_dispatch_slash` (`webhook.py:1098`) with the existing `SlashCtx`.
+- **Reuse, don't fork — the whole feature is plumbing that exists:**
+  `list_pending_users` supplies the rows; the per-user card (name · email ·
+  @username + `invite_approve:{chat_id}` / `invite_block:{chat_id}` buttons) is
+  exactly what `_notify_operator_invite` renders — loop it (or extract its
+  rendering) per pending row via `send_inline_keyboard`
+  (`src/telegram/sender.py:160`). The callback side (`_cb_invite_decision`,
+  `webhook.py:448`) needs **zero** changes.
+- **Gate is the one new pattern:** no slash command is Operator-gated today —
+  `OPERATOR_CHAT_ID` is only checked in the callback handler (`webhook.py:452`)
+  and in `_notify_operator_invite`. `/pending` is the first Operator-only
+  command, so the `ctx.chat_id != settings.OPERATOR_CHAT_ID` refusal happens
+  inside the handler (mirroring `webhook.py:452`'s check + log-and-refuse
+  shape).
+
+**Open questions** (resolve in grill)
+
+- Non-operator sends `/pending`: silent ignore (like an unknown command) or an
+  explicit "not authorized" reply? (The callback path answers "Not
+  authorized." — same posture here?)
+- One message per pending user (N pushes for N users) or one message listing
+  all with per-row button pairs stacked in a single keyboard? Any cap for a
+  long backlog (the repo-picker precedent caps at 5)?
+- Empty state: what does `/pending` say when nobody is waiting?
+- Does `/pending` get a line in `_HELP_TEXT` (visible to everyone) or stay an
+  undocumented Operator command?
+
+## 23. Gemini resilience — model downgrade, 429 requeue-with-backoff, second provider
+
+Every Gemini call funnels through `_call_with_fallback`
+(`src/services/gemini.py:164`): it tries `GEMINI_FREE_API_KEY` then
+`GEMINI_PAID_API_KEY`, catches **every** exception identically (no 429/quota
+inspection, no backoff), and raises `GeminiUnavailableError`. Callers in
+`src/processors/*` catch that and fail the job; the worker's `_handle_*`
+wrappers (`src/worker.py:45-131`) then send the user "❌ … Please try again."
+Model census: 9 call sites hardcode `gemini-2.5-flash`, one uses
+`gemini-2.5-flash-lite`, PRD uses `PRD_AUTO_MODEL` (flash) /
+`PRD_INTENT_MODEL` (pro) from `src/config.py:82-83`, embeddings
+`GEMINI_EMBEDDING_MODEL`. The queue envelope is `{task, job_id}` only
+(`src/queue.py:48`) — no attempt counter, no delayed-requeue mechanism.
+
+**Wanted:** a Gemini quota hit or outage degrades (cheaper model → wait and
+retry → other provider) instead of failing the job on first contact.
+
+**Backend**
+
+- **Model-downgrade rung** in `_call_with_fallback`: on quota/429, step down a
+  model chain before giving up. Reality check from the census: most calls
+  already sit at `flash`, so the meaningful rungs are `pro → flash` (PRD
+  intent only) and `flash → flash-lite` (everything else). The chain likely
+  belongs in config next to the existing model settings, not hardcoded.
+- **429 retry-after → requeue, not fail:** distinguish quota errors from other
+  failures in the fallback loop (the google-genai SDK's error types — source
+  cached at the `google-genai` opensrc path in CLAUDE.md), and let the worker
+  requeue the task with backoff instead of `_notify_failure`. Needs an
+  `attempt` field in the queue envelope (`queue.py:48` validates only
+  `task`/`job_id` today) and a delayed-requeue mechanism — none exists
+  (options: `asyncio.sleep` in-worker, a Redis zset delay queue, or the
+  already-in-stack APScheduler).
+- **Second provider (text only):** an OpenAI-compatible fallback
+  (OpenRouter/Groq) behind the same `generate()` seam (`gemini.py:185`) as the
+  last rung. Nothing in `src/` imports an OpenAI SDK today — net-new client +
+  env keys. Vision (`call_gemini_vision`) and embeddings stay Gemini.
+
+**Open questions** (resolve in grill)
+
+- Downgrade semantics: is a `flash-lite` result acceptable for every text call
+  site, or do some (e.g. PRD intent) prefer wait-and-retry at full strength
+  over a weaker answer?
+- Retry budget: how many requeues, what backoff curve, and when does the user
+  finally see a failure message? Does the in-flight job show a "waiting for
+  quota" status anywhere?
+- Delayed-requeue mechanism: in-worker sleep (blocks a worker slot), Redis
+  zset delay queue, or APScheduler — which fits the single-worker loop
+  (`worker.py:253`)?
+- Second-provider scope: which provider/model, and what happens to
+  Gemini-specific features at that rung — `schema` structured output
+  translates to OpenAI-style JSON schema, but calls relying on Google-side
+  grounding (`_filter_grounded_links`, `resolve_tool_urls`) can't port — are
+  they excluded from the provider fallback?
+- Is the free→paid **key** rung kept as-is inside each model rung (key × model
+  matrix), or does the order become model-first/key-second?
