@@ -82,6 +82,9 @@ and `/freestyle`).
 
 ## 6. Make the web app an installable PWA
 
+> **Grill:** `/grill-with-search-docs` — hinges on manifest/service-worker
+> specifics and the `next-pwa`/Workbox dependency call.
+
 Scope is the `web/` Next.js app (app router).
 
 **Wanted:** the dashboard is installable and has an offline app shell.
@@ -104,6 +107,9 @@ Scope is the `web/` Next.js app (app router).
 ## 7. Better navigation for the Brain "Links" table ✅ ISSUED TO GITHUB #306
 
 ## 8. Controls UI on the Brain search graph
+
+> **Grill:** `/grilling` — pure product/UX; the ForceGraph ref methods are
+> already pinned in the brief.
 
 `web/components/brain-graph.tsx` renders `react-force-graph-2d` from
 `/api/brain/graph`, highlighting search matches in signal orange. There are no
@@ -181,6 +187,9 @@ three trigger sites feeding the same offer + enqueue mechanism.
 
 ## 11. Tags should follow the URL, not the job (many-to-many)
 
+> **Grill:** `/grill-with-docs` — domain-model/schema call (`link_tags` join +
+> URL canonicalization must match the repo's existing rules).
+
 Tags today attach to **jobs**: the `job_tags` join table
 (`src/database.py:205`, `job_id ↔ tag_id`, issue #88 / S5) keyed off a single job,
 with the `tags` vocabulary in the `tags` table (`src/database.py:171`, issue #87).
@@ -213,6 +222,9 @@ independent of how many jobs a URL appears in.
   tags start empty?
 
 ## 12. Repalette: new signal orange + dark plate tokens
+
+> **Grill:** `/grilling` — pure design decisions (which plate `#2A2312`
+> replaces, ramp re-derivation, WCAG re-verification).
 
 The design tokens have a single source: `web/tailwind.config.ts` defines
 `signal.DEFAULT: '#f6921e'` plus the cool plate ladder `canvas: '#0b0c0f'` →
@@ -252,6 +264,9 @@ the change without edits. `DESIGN.md` also pins a derived signal ramp:
 ## 13. Brand the /privacy and /terms pages ✅ DONE
 
 ## 14. Public home page — fix Google OAuth branding verification rejection
+
+> **Grill:** `/grilling` — product/UX + Google's branding checklist; no
+> repo-domain-model hinge.
 
 > **Grill together with task 13.** Both reuse the login page's
 > background+logo treatment — a public home page makes it four consumers, so
@@ -313,6 +328,9 @@ satisfying Google's homepage requirements so branding verification passes.
 
 ## 16. Link pipeline — bare URLs get a native Telegram preview + a Brain Links row
 
+> **Grill:** `/grill-with-docs` — domain-model call (extending the `Pipeline`
+> enum and the `ingest_links` contract).
+
 `detect_pipeline` (`src/utils/validators.py:50`) only recognizes short/long/article/repo/document
 (`Pipeline = Literal[...]`, `validators.py:8`) — anything else is `"rejected"`, and `_route_url`
 (`src/telegram/webhook.py:1348`) sends every rejected URL straight to `_reject_url`
@@ -363,6 +381,9 @@ enrichment job.
 ## 18. Job details page — previous/next navigation buttons ✅ ISSUED TO GITHUB #309
 
 ## 19. Delete button for jobs — DB + Telegram message, with confirm/"don't show again", swipe-to-delete on mobile
+
+> **Grill:** `/grilling` — UX semantics (swipe, confirm, undo); no external or
+> domain-model hinge.
 
 > Touches the same job-card real estate as task 7's dense-table thinking and task 11's per-URL
 > tagging — no shared decision, just adjacent surface area.
@@ -438,3 +459,178 @@ addition.
   removal + undo, or is a hard confirm-then-gone sufficient?
 
 ## 20. Feed — a Docs tab that redirects to the Doc Parser page ✅ ISSUED TO GITHUB #310
+
+## 21. Lightweight CRM for invite-gate contacts + two-way email under leondev.xyz
+
+> **Resolved 2026-07-05** — decision in `docs/headless CRM.md`. Operator
+> constraints: manage contacts (email + chat_id), address + real receiving
+> mailbox under leondev.xyz, broadcast newsletter, **outside the dashboard**
+> (contact data must never reach the `web/` client), **$0 only**. Pick:
+> **Brevo free** (hosted contacts + campaigns; one-way push from
+> `_cb_invite_decision` on approve — the only vig code) + **Zoho Mail free**
+> (real leondev.xyz inbox). Approval stays Telegram one-tap; no CRM/contacts
+> surface in `web/`. Remaining open: the mailbox name.
+
+The invite gate (ADR-0031, `docs/adr/0031-invite-gate-and-onboarding.md`) captures
+one email per user into `users.email` (`src/database.py:141`) with
+`status IN ('pending','approved','blocked')`, via the bot's `awaiting_email`
+chat state (`src/database.py:124`) or the dashboard modal
+(`web/components/invite-gate.tsx` → `PUT /api/auth/email`, `src/api/auth.py:151`).
+Approval is a one-shot Telegram push to `OPERATOR_CHAT_ID` with inline
+✅ Approve / 🚫 Block buttons (`_notify_operator_invite`,
+`src/telegram/webhook.py:1384`; `_cb_invite_decision`, `webhook.py:448`).
+There is **no management surface**: `list_pending_users`
+(`src/database.py:1773`) has zero production callers (tests only), no
+`/api/users` admin endpoint exists, and if the operator misses the push there
+is no way to see or act on pending users. ADR-0031 explicitly deferred email
+infra ("no SMTP infra; email is for Operator outreach, not authentication") —
+the outreach channel was never built. The `leondev.xyz` domain already carries
+`app.` and `api.` subdomains (`docs/ops/oauth-verification.md:25-28`); no
+mailbox or MX/SPF/DKIM records exist for it anywhere in the repo.
+
+**Wanted:** a small, low-overhead, not-built-from-scratch CRM-like place to see
+and manage invite-gate contacts (pending/approved/blocked) and to send *and
+receive* email with them — likely from a new address under `leondev.xyz`.
+
+**Backend / Data**
+
+- The contact source of truth is the `users` table (`tg_id`, `first_name`,
+  `username`, `email`, `status`, timestamps — `src/database.py:1743`). Any CRM
+  must mirror or read these rows; primitives already exist and are unused:
+  `list_pending_users` (`database.py:1773`), `get_user` (`database.py:1739`),
+  `set_user_status` (`database.py:1752`). **Reuse, don't fork.**
+- If the CRM can flip approval, it must converge on the same state machine the
+  Telegram buttons use (`_cb_invite_decision`, `webhook.py:448` — flips
+  `users.status` *and* notifies the user in Telegram). A CRM-side approve that
+  skips the Telegram notify would silently diverge from ADR-0031's flow.
+- Email send/receive is net-new infrastructure: nothing in `src/` imports
+  smtplib/an email SDK, and there is no inbound-mail webhook. Provider choice
+  (full mailbox vs. transactional API + inbound parse) drives the whole shape —
+  resolve in grill with docs search.
+
+**Ops**
+
+- A new address under `leondev.xyz` needs MX/SPF/DKIM/DMARC DNS records —
+  managed wherever `app.`/`api.` DNS lives today (outside this repo; deploy
+  docs at `docs/handoff/VPS to prebuilt docker images via GHCR.md` describe the
+  VPS but not DNS).
+
+**Open questions** — resolved 2026-07-05 (full rationale in `docs/headless CRM.md`)
+
+- ~~Buy vs. thin-build~~ → **buy hosted-free, build only a one-way push.** No
+  Contacts page in the dashboard (violates the never-client-side constraint);
+  Brevo's console is the management surface. vig-side code is a single Brevo
+  contact-upsert added to the approve path.
+- ~~Mailbox vs. transactional API~~ → **real mailbox (Zoho Mail free).**
+  Inbound-parse webhooks deliver events, not an inbox, and Postmark's inbound
+  is paid-tier anyway — fails the receive and $0 requirements.
+- ~~Does the CRM flip `users.status`?~~ → **No.** Approval stays Telegram
+  one-tap (`_cb_invite_decision`); Brevo is a read-mostly mirror, so
+  ADR-0031's state machine cannot diverge.
+- ~~Scope of "customers"~~ → invite-gate users (`users` rows pushed on
+  approval); Brevo can hold a broader list later without vig changes.
+- **Still open:** the mailbox name under `leondev.xyz` (one address is enough
+  to start; Zoho free allows 5).
+
+## 22. Operator-only `/pending` bot command — re-surface missed invite approvals
+
+> **Grill:** `/grill-with-docs` — hinges on ADR-0031's invite-gate flow.
+
+Closes the missed-push gap recorded in task 21 / `docs/headless CRM.md`: when a
+`pending` user submits their email, `_notify_operator_invite`
+(`src/telegram/webhook.py:1384`) pushes the Operator **one** message with inline
+✅ Approve / 🚫 Block buttons — and if that push is missed, nothing re-surfaces
+it. `list_pending_users` (`src/database.py:1773`, oldest-first) still has zero
+production callers.
+
+**Wanted:** the Operator types `/pending` and gets the approve/block card
+re-sent for every user still awaiting a decision.
+
+**Backend**
+
+- New handler registered in `_SLASH_TABLE` (`webhook.py:1078`), dispatched by
+  `_dispatch_slash` (`webhook.py:1098`) with the existing `SlashCtx`.
+- **Reuse, don't fork — the whole feature is plumbing that exists:**
+  `list_pending_users` supplies the rows; the per-user card (name · email ·
+  @username + `invite_approve:{chat_id}` / `invite_block:{chat_id}` buttons) is
+  exactly what `_notify_operator_invite` renders — loop it (or extract its
+  rendering) per pending row via `send_inline_keyboard`
+  (`src/telegram/sender.py:160`). The callback side (`_cb_invite_decision`,
+  `webhook.py:448`) needs **zero** changes.
+- **Gate is the one new pattern:** no slash command is Operator-gated today —
+  `OPERATOR_CHAT_ID` is only checked in the callback handler (`webhook.py:452`)
+  and in `_notify_operator_invite`. `/pending` is the first Operator-only
+  command, so the `ctx.chat_id != settings.OPERATOR_CHAT_ID` refusal happens
+  inside the handler (mirroring `webhook.py:452`'s check + log-and-refuse
+  shape).
+
+**Open questions** (resolve in grill)
+
+- Non-operator sends `/pending`: silent ignore (like an unknown command) or an
+  explicit "not authorized" reply? (The callback path answers "Not
+  authorized." — same posture here?)
+- One message per pending user (N pushes for N users) or one message listing
+  all with per-row button pairs stacked in a single keyboard? Any cap for a
+  long backlog (the repo-picker precedent caps at 5)?
+- Empty state: what does `/pending` say when nobody is waiting?
+- Does `/pending` get a line in `_HELP_TEXT` (visible to everyone) or stay an
+  undocumented Operator command?
+
+## 23. Gemini resilience — model downgrade, 429 requeue-with-backoff, second provider
+
+> **Grill:** `/grill-with-search-docs` — hinges on google-genai SDK error
+> types and OpenRouter/Groq API docs.
+
+Every Gemini call funnels through `_call_with_fallback`
+(`src/services/gemini.py:164`): it tries `GEMINI_FREE_API_KEY` then
+`GEMINI_PAID_API_KEY`, catches **every** exception identically (no 429/quota
+inspection, no backoff), and raises `GeminiUnavailableError`. Callers in
+`src/processors/*` catch that and fail the job; the worker's `_handle_*`
+wrappers (`src/worker.py:45-131`) then send the user "❌ … Please try again."
+Model census: 9 call sites hardcode `gemini-2.5-flash`, one uses
+`gemini-2.5-flash-lite`, PRD uses `PRD_AUTO_MODEL` (flash) /
+`PRD_INTENT_MODEL` (pro) from `src/config.py:82-83`, embeddings
+`GEMINI_EMBEDDING_MODEL`. The queue envelope is `{task, job_id}` only
+(`src/queue.py:48`) — no attempt counter, no delayed-requeue mechanism.
+
+**Wanted:** a Gemini quota hit or outage degrades (cheaper model → wait and
+retry → other provider) instead of failing the job on first contact.
+
+**Backend**
+
+- **Model-downgrade rung** in `_call_with_fallback`: on quota/429, step down a
+  model chain before giving up. Reality check from the census: most calls
+  already sit at `flash`, so the meaningful rungs are `pro → flash` (PRD
+  intent only) and `flash → flash-lite` (everything else). The chain likely
+  belongs in config next to the existing model settings, not hardcoded.
+- **429 retry-after → requeue, not fail:** distinguish quota errors from other
+  failures in the fallback loop (the google-genai SDK's error types — source
+  cached at the `google-genai` opensrc path in CLAUDE.md), and let the worker
+  requeue the task with backoff instead of `_notify_failure`. Needs an
+  `attempt` field in the queue envelope (`queue.py:48` validates only
+  `task`/`job_id` today) and a delayed-requeue mechanism — none exists
+  (options: `asyncio.sleep` in-worker, a Redis zset delay queue, or the
+  already-in-stack APScheduler).
+- **Second provider (text only):** an OpenAI-compatible fallback
+  (OpenRouter/Groq) behind the same `generate()` seam (`gemini.py:185`) as the
+  last rung. Nothing in `src/` imports an OpenAI SDK today — net-new client +
+  env keys. Vision (`call_gemini_vision`) and embeddings stay Gemini.
+
+**Open questions** (resolve in grill)
+
+- Downgrade semantics: is a `flash-lite` result acceptable for every text call
+  site, or do some (e.g. PRD intent) prefer wait-and-retry at full strength
+  over a weaker answer?
+- Retry budget: how many requeues, what backoff curve, and when does the user
+  finally see a failure message? Does the in-flight job show a "waiting for
+  quota" status anywhere?
+- Delayed-requeue mechanism: in-worker sleep (blocks a worker slot), Redis
+  zset delay queue, or APScheduler — which fits the single-worker loop
+  (`worker.py:253`)?
+- Second-provider scope: which provider/model, and what happens to
+  Gemini-specific features at that rung — `schema` structured output
+  translates to OpenAI-style JSON schema, but calls relying on Google-side
+  grounding (`_filter_grounded_links`, `resolve_tool_urls`) can't port — are
+  they excluded from the provider fallback?
+- Is the free→paid **key** rung kept as-is inside each model rung (key × model
+  matrix), or does the order become model-first/key-second?
