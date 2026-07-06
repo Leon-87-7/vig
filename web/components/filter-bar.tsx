@@ -196,7 +196,7 @@ function FilterButton({
       aria-pressed={active}
       className={`h-7 rounded-md px-3 text-[13px] font-medium transition-ui ${
         active
-          ? 'bg-signal text-onsignal hover:bg-signal-bright'
+          ? 'bg-contrasignal-deep text-onsignal hover:bg-contrasignal'
           : 'border border-line bg-surface text-body hover:bg-raised hover:text-ink'
       }`}
     >
