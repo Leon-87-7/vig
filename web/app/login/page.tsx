@@ -148,8 +148,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={retryAuth}
-                className="inline-flex min-h-10 items-center justify-center rounded-md bg-signal px-5 text-sm font-medium text-onsignal transition-[background-color,transform] duration-150 ease-out-quart hover:bg-signal-bright active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface disabled:cursor-not-allowed disabled:bg-raised disabled:text-muted"
-                disabled={authState === 'pending'}
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-signal px-5 text-sm font-medium text-onsignal transition-[background-color,transform] duration-150 ease-out-quart hover:bg-signal-bright active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface"
               >
                 Retry Telegram sign-in
               </button>
