@@ -11,15 +11,7 @@ import {
 } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { SubmitUrlForm } from '@/components/submit-url-form';
-import {
-  Brain,
-  FileCode2,
-  Link2,
-  Plus,
-  RotateCcw,
-  Search,
-  Trash2,
-} from 'lucide-react';
+import { FileCode2, Link2, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -40,14 +32,11 @@ export interface AcceptedJob {
 const CLEAR_FAILED_CONFIRM =
   'Clear failed jobs in this tab? This marks them cancelled; it does not delete them.';
 
-/** Recovery actions the Feed registers so the launcher can drive them with the
- * live scope + availability the Feed's useRecovery already computes. */
+/** Recovery action the Feed registers so the launcher can drive it with the
+ * live scope + availability the Feed's useRecovery already computes. (Retry
+ * pending/failed stay in the contextual recovery panel, not the palette.) */
 export interface FeedRecoveryCommands {
-  canRetryPending: boolean;
-  canRetryFailed: boolean;
   canClearFailed: boolean;
-  retryPending: () => void;
-  retryFailed: () => void;
   clearFailed: () => void;
 }
 
@@ -143,7 +132,7 @@ function CommandShortcut({ keys }: { keys: string }) {
       {keys.split(' ').map((key, i) => (
         <kbd
           key={i}
-          className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted"
+          className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-contrasignal-deep"
         >
           {key}
         </kbd>
@@ -283,7 +272,8 @@ export function SubmitJobProvider({
         const recovery = feedRecoveryRef.current;
         if (recovery?.canClearFailed) {
           event.preventDefault();
-          if (window.confirm(CLEAR_FAILED_CONFIRM)) recovery.clearFailed();
+          if (window.confirm(CLEAR_FAILED_CONFIRM))
+            recovery.clearFailed();
         }
         return;
       }
@@ -459,35 +449,9 @@ export function SubmitJobProvider({
                 shortcut="L"
                 onSelect={() => go('/?view=links')}
               />
-              <CommandAction
-                icon={Brain}
-                label="Open Brain"
-                shortcut="Brain"
-                onSelect={() => go('/brain')}
-              />
             </CommandGroup>
             {feedRecovery && (
               <CommandGroup label="Recovery">
-                <CommandAction
-                  icon={RotateCcw}
-                  label="Retry Pending"
-                  shortcut="R P"
-                  disabled={!feedRecovery.canRetryPending}
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    feedRecovery.retryPending();
-                  }}
-                />
-                <CommandAction
-                  icon={RotateCcw}
-                  label="Retry Failed"
-                  shortcut="R F"
-                  disabled={!feedRecovery.canRetryFailed}
-                  onSelect={() => {
-                    setCommandOpen(false);
-                    feedRecovery.retryFailed();
-                  }}
-                />
                 <CommandAction
                   icon={Trash2}
                   label="Clear Failed"
@@ -520,7 +484,9 @@ export function SubmitJobProvider({
                   onSelect={() => {
                     const search = feedSearch;
                     setCommandOpen(false);
-                    requestAnimationFrame(() => search.focusLinkSearch());
+                    requestAnimationFrame(() =>
+                      search.focusLinkSearch(),
+                    );
                   }}
                 />
               </CommandGroup>

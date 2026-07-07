@@ -300,7 +300,9 @@ describe('FeedPage', () => {
     fireEvent.keyDown(window, { key: 'd' });
     expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(screen.getByText('Ingest Docs')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /open doc parser/i })).toBeTruthy();
+    // The dialog now hosts the full DocUploadPanel (URL fetch + PDF drop),
+    // not the old "Open Doc Parser" redirect button.
+    expect(screen.getByRole('button', { name: /fetch/i })).toBeTruthy();
   });
 
   it('updates the type query param when a content tab is clicked', () => {
