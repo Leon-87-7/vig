@@ -70,6 +70,12 @@
 | [#309](https://github.com/Leon-87-7/vig/issues/309) | Job details — previous/next navigation                                                                      | Web / Jobs               | Merged; PR #316; closed on GH                                                              |
 | [#310](https://github.com/Leon-87-7/vig/issues/310) | Feed — Docs tab linking to Doc Parser                                                                       | Web / Feed               | Merged; PR #316; closed on GH                                                              |
 | [#117](https://github.com/Leon-87-7/vig/issues/117) | ExportModal: restore PDF fallback when Google Drive is not configured                                       | Web / Export             | Closed via commit 507e284; no PR; backfilled                                               |
+| [#318](https://github.com/Leon-87-7/vig/issues/318) | Extract shared job-creation core (create_and_enqueue_job)                                                   | Jobs / Core              | Merged; PR #324; closed on GH                                                              |
+| [#319](https://github.com/Leon-87-7/vig/issues/319) | POST /api/jobs — dashboard job-creation endpoint                                                            | API / Jobs               | Merged; PR #324; closed on GH                                                              |
+| [#320](https://github.com/Leon-87-7/vig/issues/320) | Feed page submit control — URL + template picker                                                            | Web / Feed               | Merged; PR #324; closed on GH                                                              |
+| [#321](https://github.com/Leon-87-7/vig/issues/321) | Repo follow-up after short-video enrichment                                                                 | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
+| [#322](https://github.com/Leon-87-7/vig/issues/322) | Repo follow-up after article enrichment                                                                     | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
+| [#323](https://github.com/Leon-87-7/vig/issues/323) | Repo follow-up after long-video enrichment                                                                  | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
 
 ---
 
@@ -87,12 +93,6 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                            | Area                     | Depends On       |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------------ | ------------------------ | ---------------- |
-| [#318](https://github.com/Leon-87-7/vig/issues/318) | Extract shared job-creation core (create_and_enqueue_job)                                        | —                        | —                |
-| [#319](https://github.com/Leon-87-7/vig/issues/319) | POST /api/jobs — dashboard job-creation endpoint                                                 | —                        | #318             |
-| [#321](https://github.com/Leon-87-7/vig/issues/321) | Repo follow-up after short-video enrichment                                                      | —                        | #318             |
-| [#320](https://github.com/Leon-87-7/vig/issues/320) | Feed page submit control — URL + template picker                                                 | —                        | #319             |
-| [#322](https://github.com/Leon-87-7/vig/issues/322) | Repo follow-up after article enrichment                                                          | —                        | #321             |
-| [#323](https://github.com/Leon-87-7/vig/issues/323) | Repo follow-up after long-video enrichment                                                       | —                        | #321             |
 | [#329](https://github.com/Leon-87-7/vig/issues/329) | Routing cutover — Feed moves to /feed, / becomes the public landing route                        | Web / Routing            | —                |
 | [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page                                       | Web / Privacy            | —                |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
@@ -422,13 +422,13 @@ Repo analysis "more informational" (job 20260703_211658 review 2026-07-04 — pr
 Critical path: #312 → #314; #311, #313 parallel (all ✅-Done via PR #315)
 
 Dashboard job submission + repo follow-up (grill 2026-07-04 — tasks #4/#9 from docs/TASK.md; ADR-0032, ADR-0033)
-#318 Shared job-creation core (root, unblocked)
-├── #319 POST /api/jobs endpoint ◄── #318
-│   └── #320 Feed page submit UI ◄── #319
-└── #321 Repo follow-up: short pipeline ◄── #318
-    ├── #322 Repo follow-up: article pipeline ◄── #321
-    └── #323 Repo follow-up: long-video pipeline ◄── #321
-Critical path: #318 → {#319, #321}; #319 → #320; #321 → {#322, #323}
+#318 Shared job-creation core (root, unblocked) ✅-Done
+├── #319 POST /api/jobs endpoint ◄── #318 ✅-Done
+│   └── #320 Feed page submit UI ◄── #319 ✅-Done
+└── #321 Repo follow-up: short pipeline ◄── #318 ✅-Done
+    ├── #322 Repo follow-up: article pipeline ◄── #321 ✅-Done
+    └── #323 Repo follow-up: long-video pipeline ◄── #321 ✅-Done
+Critical path: #318 → {#319, #321}; #319 → #320; #321 → {#322, #323} (all ✅-Done via PR #324)
 
 Public landing page (grill 2026-07-06 — task #14 from docs/TASK.md)
 #329 Routing cutover — Feed→/feed, / public + auth-redirect (root, unblocked)
@@ -449,6 +449,11 @@ Critical path: #329 → #331 → #332; #330 parallel
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
+| [#328](https://github.com/Leon-87-7/vig/pull/328) | impeccable critiques and dialog placement | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
+| [#327](https://github.com/Leon-87-7/vig/pull/327) | Revert "feat: refactor components for improved readability and maintainability" | revert-326-ui/submit-url-dialog-desktop→main | — | ❌ Closed |
+| [#326](https://github.com/Leon-87-7/vig/pull/326) | feat: refactor components for improved readability and maintainability | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
+| [#325](https://github.com/Leon-87-7/vig/pull/325) | feat(web): collapse dashboard submit form behind a neutral trigger | feat/submit-collapse→main | — | ✅ Merged |
+| [#324](https://github.com/Leon-87-7/vig/pull/324) | feat: dashboard job submission + shared job service and repo follow-ups | codex/resolve-issues-318-to-323→main | #318, #319, #320, #321, #322, #323 | ✅ Merged |
 | [#316](https://github.com/Leon-87-7/vig/pull/316) | feat: job prev/next navigation, links mobile cards, Docs tab, sidebar footer (#305-#310) | codex/resolve-305-310→main | #305, #306, #307, #308, #309, #310 | ✅ Merged |
 | [#315](https://github.com/Leon-87-7/vig/pull/315) | feat(repo): more informational repo analysis — sub-READMEs, key_components, tighter prompt guidance + web JSON render fix | worktree-repo-informational-311-314→main | #311, #312, #313, #314 | ✅ Merged |
 | [#304](https://github.com/Leon-87-7/vig/pull/304) | Replace in-content spinners with skeletons; webhook callback & copy fixes | codex/resolve-issues-#300-to-#302→main | — | ✅ Merged |
