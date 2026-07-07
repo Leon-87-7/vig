@@ -48,24 +48,12 @@ export function AppHeader() {
           type="button"
           onClick={openCommand}
           aria-label="Open command launcher"
-          className="ml-auto hidden h-9 items-center gap-2 rounded-md border border-line bg-surface px-3 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
+          className="ml-auto hidden h-9 items-center gap-2 rounded-md border border-line border-b-2 border-b-signal bg-surface px-3 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
         >
-          <span>Actions</span>
-          <kbd className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted">⌘K</kbd>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          aria-keyshortcuts="N"
-          className="hidden h-9 items-center gap-2 rounded-md border border-line border-b-2 border-b-signal bg-surface px-3.5 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
-        >
-          <Plus
-            aria-hidden="true"
-            className="h-4 w-4 text-contrasignal-deep"
-          />
-          Submit URL
+          <span>Commands</span>
+          <kbd className="ml-2 rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-contrasignal-deep hover:text-contrasignal-bright">
+            ⌘ K
+          </kbd>
         </button>
       </div>
     </header>

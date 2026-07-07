@@ -6,16 +6,26 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { SubmitUrlForm } from '@/components/submit-url-form';
-import { Brain, FileCode2, Link2, Plus } from 'lucide-react';
+import {
+  Brain,
+  FileCode2,
+  Link2,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DocUploadPanel } from './doc-upload-panel';
 
 /** The job the API accepted, timestamped so consumers can react to repeats. */
 export interface AcceptedJob {
@@ -27,12 +37,37 @@ export interface AcceptedJob {
   at: number;
 }
 
+const CLEAR_FAILED_CONFIRM =
+  'Clear failed jobs in this tab? This marks them cancelled; it does not delete them.';
+
+/** Recovery actions the Feed registers so the launcher can drive them with the
+ * live scope + availability the Feed's useRecovery already computes. */
+export interface FeedRecoveryCommands {
+  canRetryPending: boolean;
+  canRetryFailed: boolean;
+  canClearFailed: boolean;
+  retryPending: () => void;
+  retryFailed: () => void;
+  clearFailed: () => void;
+}
+
+/** Feed search focus, registered so the launcher can jump into the Feed's
+ * search input (or switch to Links first). */
+export interface FeedSearchCommands {
+  focusSearch: () => void;
+  focusLinkSearch: () => void;
+}
+
 interface SubmitJobContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
   openDocs: () => void;
   openCommand: () => void;
   lastAccepted: AcceptedJob | null;
+  feedRecovery: FeedRecoveryCommands | null;
+  registerFeedRecovery: (cmds: FeedRecoveryCommands | null) => void;
+  feedSearch: FeedSearchCommands | null;
+  registerFeedSearch: (cmds: FeedSearchCommands | null) => void;
 }
 
 const SubmitJobContext = createContext<SubmitJobContextValue | null>(
@@ -40,7 +75,9 @@ const SubmitJobContext = createContext<SubmitJobContextValue | null>(
 );
 
 function hasActiveDialog() {
-  return Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).some(
+  return Array.from(
+    document.querySelectorAll<HTMLElement>('[role="dialog"]'),
+  ).some(
     (dialog) =>
       dialog.getAttribute('aria-hidden') !== 'true' &&
       dialog.dataset.state !== 'closed',
@@ -67,11 +104,15 @@ function inferContentTypeFromUrl(rawUrl: string): string {
     const path = parsed.pathname.toLowerCase();
 
     if (host === 'github.com') return 'repo';
-    if (host.endsWith('youtube.com') && path === '/watch') return 'long';
+    if (host.endsWith('youtube.com') && path === '/watch')
+      return 'long';
     if (host === 'youtu.be') return 'long';
-    if (host.endsWith('youtube.com') && path.startsWith('/shorts/')) return 'short';
-    if (host.endsWith('instagram.com') && path.startsWith('/reel/')) return 'short';
-    if (host.endsWith('tiktok.com') && path.includes('/video/')) return 'short';
+    if (host.endsWith('youtube.com') && path.startsWith('/shorts/'))
+      return 'short';
+    if (host.endsWith('instagram.com') && path.startsWith('/reel/'))
+      return 'short';
+    if (host.endsWith('tiktok.com') && path.includes('/video/'))
+      return 'short';
   } catch {
     return 'article';
   }
@@ -88,29 +129,72 @@ export function useSubmitJob(): SubmitJobContextValue {
   return ctx;
 }
 
+/** Non-throwing variant for components that may render outside the provider
+ * (e.g. RecoveryPanel's standalone unit test): returns null instead. */
+export function useSubmitJobOptional(): SubmitJobContextValue | null {
+  return useContext(SubmitJobContext);
+}
+
+// Space-separated keys render as individual right-aligned kbd chips, so "R P"
+// and "L /" read as chords.
+function CommandShortcut({ keys }: { keys: string }) {
+  return (
+    <span className="ml-auto flex items-center gap-1">
+      {keys.split(' ').map((key, i) => (
+        <kbd
+          key={i}
+          className="rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted"
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
+function CommandGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs uppercase tracking-widest text-muted">
+        {label}
+      </p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
 
 function CommandAction({
   icon: Icon,
   label,
   shortcut,
   onSelect,
+  disabled = false,
 }: {
   icon: typeof Plus;
   label: string;
   shortcut: string;
   onSelect: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-ink transition-ui hover:bg-raised focus:outline-none focus:ring-1 focus:ring-signal"
+      disabled={disabled}
+      className="flex w-full items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-ink transition-ui hover:bg-raised focus:outline-none focus:ring-1 focus:ring-signal disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-surface"
     >
-      <Icon className="h-4 w-4 text-muted" aria-hidden="true" />
+      <Icon
+        className="h-4 w-4 text-muted"
+        aria-hidden="true"
+      />
       <span>{label}</span>
-      <kbd className="ml-auto rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-muted">
-        {shortcut}
-      </kbd>
+      <CommandShortcut keys={shortcut} />
     </button>
   );
 }
@@ -136,6 +220,22 @@ export function SubmitJobProvider({
   const [submitting, setSubmitting] = useState(false);
   const [lastAccepted, setLastAccepted] =
     useState<AcceptedJob | null>(null);
+  const [feedRecovery, setFeedRecovery] =
+    useState<FeedRecoveryCommands | null>(null);
+  const [feedSearch, setFeedSearch] =
+    useState<FeedSearchCommands | null>(null);
+  const registerFeedRecovery = useCallback(
+    (cmds: FeedRecoveryCommands | null) => setFeedRecovery(cmds),
+    [],
+  );
+  const registerFeedSearch = useCallback(
+    (cmds: FeedSearchCommands | null) => setFeedSearch(cmds),
+    [],
+  );
+  // Read the latest recovery commands from the (deps-free) global keydown
+  // handler without re-binding the listener on every summary change.
+  const feedRecoveryRef = useRef(feedRecovery);
+  feedRecoveryRef.current = feedRecovery;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -160,6 +260,31 @@ export function SubmitJobProvider({
       ) {
         event.preventDefault();
         setDocsOpen(true);
+        return;
+      }
+      if (
+        key === 'l' &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !shouldIgnoreGlobalShortcut(event.target)
+      ) {
+        event.preventDefault();
+        window.location.assign('/?view=links');
+        return;
+      }
+      if (
+        key === 'c' &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !shouldIgnoreGlobalShortcut(event.target)
+      ) {
+        const recovery = feedRecoveryRef.current;
+        if (recovery?.canClearFailed) {
+          event.preventDefault();
+          if (window.confirm(CLEAR_FAILED_CONFIRM)) recovery.clearFailed();
+        }
         return;
       }
       if (
@@ -205,8 +330,7 @@ export function SubmitJobProvider({
         if (!res.ok)
           throw new Error(data.detail || 'Could not submit job');
         setLastAccepted({
-          id:
-            typeof data.id === 'string' && data.id ? data.id : null,
+          id: typeof data.id === 'string' && data.id ? data.id : null,
           url: trimmed,
           title: typeof data.title === 'string' ? data.title : null,
           content_type:
@@ -240,8 +364,27 @@ export function SubmitJobProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ open, setOpen, openDocs, openCommand, lastAccepted }),
-    [open, openDocs, openCommand, lastAccepted],
+    () => ({
+      open,
+      setOpen,
+      openDocs,
+      openCommand,
+      lastAccepted,
+      feedRecovery,
+      registerFeedRecovery,
+      feedSearch,
+      registerFeedSearch,
+    }),
+    [
+      open,
+      openDocs,
+      openCommand,
+      lastAccepted,
+      feedRecovery,
+      registerFeedRecovery,
+      feedSearch,
+      registerFeedSearch,
+    ],
   );
 
   return (
@@ -272,22 +415,14 @@ export function SubmitJobProvider({
         open={docsOpen}
         onOpenChange={setDocsOpen}
       >
-        <DialogContent>
+        <DialogContent className="shadow-none">
           <DialogTitle>Ingest Docs</DialogTitle>
-          <div className="mt-4 space-y-4">
-            <p className="text-sm text-body">
-              Start a document parse from the dedicated Doc Parser workflow.
-              Feed owns discovery; Doc Parser remains the processing and detail surface.
-            </p>
-            <button
-              type="button"
-              onClick={() => go('/doc-parser')}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep"
-            >
-              <FileCode2 className="h-4 w-4" aria-hidden="true" />
-              Open Doc Parser
-            </button>
-          </div>
+          <DocUploadPanel
+            flat
+            onUploaded={(jobId) =>
+              go(jobId ? `/doc-parser/${jobId}` : '/doc-parser')
+            }
+          />
         </DialogContent>
       </Dialog>
       <Dialog
@@ -297,20 +432,99 @@ export function SubmitJobProvider({
         <DialogContent>
           <DialogTitle>Command launcher</DialogTitle>
           <div className="mt-4 space-y-4">
-            <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-muted">Intake</p>
-              <div className="space-y-1">
-                <CommandAction icon={Plus} label="Submit URL" shortcut="N" onSelect={() => { setCommandOpen(false); setOpen(true); }} />
-                <CommandAction icon={FileCode2} label="Ingest Docs" shortcut="D" onSelect={() => { setCommandOpen(false); setDocsOpen(true); }} />
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs uppercase tracking-widest text-muted">Navigate</p>
-              <div className="space-y-1">
-                <CommandAction icon={Link2} label="Open Links" shortcut="Feed" onSelect={() => go('/?view=links')} />
-                <CommandAction icon={Brain} label="Open Brain" shortcut="Brain" onSelect={() => go('/brain')} />
-              </div>
-            </div>
+            <CommandGroup label="Intake">
+              <CommandAction
+                icon={Plus}
+                label="Submit URL"
+                shortcut="N"
+                onSelect={() => {
+                  setCommandOpen(false);
+                  setOpen(true);
+                }}
+              />
+              <CommandAction
+                icon={FileCode2}
+                label="Ingest Docs"
+                shortcut="D"
+                onSelect={() => {
+                  setCommandOpen(false);
+                  setDocsOpen(true);
+                }}
+              />
+            </CommandGroup>
+            <CommandGroup label="Navigate">
+              <CommandAction
+                icon={Link2}
+                label="Open Links"
+                shortcut="L"
+                onSelect={() => go('/?view=links')}
+              />
+              <CommandAction
+                icon={Brain}
+                label="Open Brain"
+                shortcut="Brain"
+                onSelect={() => go('/brain')}
+              />
+            </CommandGroup>
+            {feedRecovery && (
+              <CommandGroup label="Recovery">
+                <CommandAction
+                  icon={RotateCcw}
+                  label="Retry Pending"
+                  shortcut="R P"
+                  disabled={!feedRecovery.canRetryPending}
+                  onSelect={() => {
+                    setCommandOpen(false);
+                    feedRecovery.retryPending();
+                  }}
+                />
+                <CommandAction
+                  icon={RotateCcw}
+                  label="Retry Failed"
+                  shortcut="R F"
+                  disabled={!feedRecovery.canRetryFailed}
+                  onSelect={() => {
+                    setCommandOpen(false);
+                    feedRecovery.retryFailed();
+                  }}
+                />
+                <CommandAction
+                  icon={Trash2}
+                  label="Clear Failed"
+                  shortcut="C"
+                  disabled={!feedRecovery.canClearFailed}
+                  onSelect={() => {
+                    if (!window.confirm(CLEAR_FAILED_CONFIRM)) return;
+                    setCommandOpen(false);
+                    feedRecovery.clearFailed();
+                  }}
+                />
+              </CommandGroup>
+            )}
+            {feedSearch && (
+              <CommandGroup label="Search">
+                <CommandAction
+                  icon={Search}
+                  label="Search"
+                  shortcut="/"
+                  onSelect={() => {
+                    const search = feedSearch;
+                    setCommandOpen(false);
+                    requestAnimationFrame(() => search.focusSearch());
+                  }}
+                />
+                <CommandAction
+                  icon={Search}
+                  label="Search Links"
+                  shortcut="L /"
+                  onSelect={() => {
+                    const search = feedSearch;
+                    setCommandOpen(false);
+                    requestAnimationFrame(() => search.focusLinkSearch());
+                  }}
+                />
+              </CommandGroup>
+            )}
           </div>
         </DialogContent>
       </Dialog>

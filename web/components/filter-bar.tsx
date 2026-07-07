@@ -224,6 +224,7 @@ export function FilterBar({
   tabsLabel = 'Content type',
   query,
   setQuery,
+  searchInputId,
   searchPlaceholder = 'Search…',
   searchLabel = 'Search',
   statusFilters = DEFAULT_STATUS_FILTERS,
@@ -238,6 +239,8 @@ export function FilterBar({
   tabsLabel?: string;
   query: string;
   setQuery: (q: string) => void;
+  /** DOM id on the search input so the command launcher can focus it. */
+  searchInputId?: string;
   searchPlaceholder?: string;
   searchLabel?: string;
   statusFilters?: StatusOption[];
@@ -304,11 +307,16 @@ export function FilterBar({
         </div>
         <input
           ref={searchRef}
+          id={searchInputId}
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            // Escape exits the search (mirrors the `/` shortcut to enter it).
+            if (e.key === 'Escape') e.currentTarget.blur();
+          }}
           aria-label={searchLabel}
-          aria-keyshortcuts="/"
+          aria-keyshortcuts="/ Escape"
           placeholder={searchPlaceholder}
           className="h-9 w-full rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:min-w-0 sm:flex-1"
         />

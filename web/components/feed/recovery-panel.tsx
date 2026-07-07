@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type React from 'react';
 
 import { useRecovery } from '@/lib/hooks/useRecovery';
+import { useSubmitJobOptional } from '@/components/submit-job';
 
 const CLEAR_CONFIRM_COPY = 'Clear failed jobs in this tab? This marks them cancelled; it does not delete them from DB.';
 
@@ -31,9 +32,13 @@ function RecoveryButton({
 export function RecoveryPanel({
   contentType,
   onRecovered,
+  active = true,
 }: {
   contentType: string;
   onRecovered: () => Promise<void> | void;
+  /** false on the Links view — link inventory has no job status lifecycle, so
+   * the panel and its launcher commands are suppressed. */
+  active?: boolean;
 }) {
   const {
     summary,
@@ -45,6 +50,34 @@ export function RecoveryPanel({
     retryError,
     clearFailed,
   } = useRecovery(contentType, onRecovered);
+
+  // Mirror the recovery actions into the command launcher (when mounted inside
+  // SubmitJobProvider) so its scope + availability stay in sync with this panel.
+  const registerFeedRecovery =
+    useSubmitJobOptional()?.registerFeedRecovery;
+  useEffect(() => {
+    if (!registerFeedRecovery) return;
+    if (!active) {
+      registerFeedRecovery(null);
+      return;
+    }
+    registerFeedRecovery({
+      canRetryPending: summary.stale_pending > 0,
+      canRetryFailed: summary.error_jobs + summary.stale_in_flight > 0,
+      canClearFailed: summary.error_jobs > 0,
+      retryPending,
+      retryFailed: retryError,
+      clearFailed,
+    });
+    return () => registerFeedRecovery(null);
+  }, [
+    active,
+    summary,
+    retryPending,
+    retryError,
+    clearFailed,
+    registerFeedRecovery,
+  ]);
 
   const failedActionCount = summary.error_jobs + summary.stale_in_flight;
   const attentionCount =
@@ -60,6 +93,8 @@ export function RecoveryPanel({
     if (!confirm(CLEAR_CONFIRM_COPY)) return;
     void clearFailed();
   };
+
+  if (!active) return null;
 
   if (attentionCount === 0) {
     if (!error) return null;

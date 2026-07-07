@@ -80,7 +80,12 @@ function FeedPageContent() {
     error,
     reload,
   } = useFeedData(urlContentType);
-  const { setOpen: setSubmitOpen, openDocs, lastAccepted } = useSubmitJob();
+  const {
+    setOpen: setSubmitOpen,
+    openDocs,
+    lastAccepted,
+    registerFeedSearch,
+  } = useSubmitJob();
   const [feedView, setFeedView] = useState<'jobs' | 'links'>(
     searchParams.get('view') === 'links' ? 'links' : 'jobs',
   );
@@ -168,6 +173,30 @@ function FeedPageContent() {
     },
     [pathname, router, searchParams, setCtFilter],
   );
+
+  const switchToLinks = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('type');
+    params.set('view', 'links');
+    router.replace(`${pathname}?${params}`, { scroll: false });
+    setFeedView('links');
+  }, [pathname, router, searchParams]);
+
+  // Expose the Feed search focus to the command launcher. focusLinkSearch
+  // switches to Links first, then focuses once the shared input re-renders.
+  useEffect(() => {
+    registerFeedSearch({
+      focusSearch: () =>
+        document.getElementById('feed-search')?.focus(),
+      focusLinkSearch: () => {
+        switchToLinks();
+        requestAnimationFrame(() =>
+          document.getElementById('feed-search')?.focus(),
+        );
+      },
+    });
+    return () => registerFeedSearch(null);
+  }, [registerFeedSearch, switchToLinks]);
 
   const contentTypeCounts = useMemo(
     () => stats?.by_content_type ?? {},
@@ -294,11 +323,7 @@ function FeedPageContent() {
         tabValue={showingLinks ? 'links' : ctFilter}
         onTabChange={(value) => {
           if (value === 'links') {
-            const params = new URLSearchParams(searchParams.toString());
-            params.delete('type');
-            params.set('view', 'links');
-            router.replace(`${pathname}?${params}`, { scroll: false });
-            setFeedView('links');
+            switchToLinks();
             return;
           }
           setFeedView('jobs');
@@ -306,6 +331,7 @@ function FeedPageContent() {
         }}
         query={query}
         setQuery={setQuery}
+        searchInputId="feed-search"
         searchPlaceholder="Search by title or URL…"
         searchLabel="Search by title or URL"
         statusValue={stFilter}
@@ -314,6 +340,7 @@ function FeedPageContent() {
           <RecoveryPanel
             contentType={ctFilter}
             onRecovered={refreshFeed}
+            active={!showingLinks}
           />
         }
         actionSlot={
