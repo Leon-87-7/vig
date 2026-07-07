@@ -661,7 +661,7 @@ retry → other provider) instead of failing the job on first contact.
 - Is the free→paid **key** rung kept as-is inside each model rung (key × model
   matrix), or does the order become model-first/key-second?
 
-## 24. Feed inventory IA — Links view, Docs ingest action, command launcher
+## 24. Feed inventory IA — Links view, Docs ingest action, command launcher ✅ ISSUED #333-#336
 
 > **Grill:** `/grilling` — product/UX information architecture; no external
 > API hinge beyond matching the command-palette component pattern.
@@ -692,6 +692,13 @@ Brain loses the redundant Links table.
   `LinksTable` (`web/app/(dashboard)/brain/page.tsx`) into a shared component
   and rendering it from the Feed page. Remove the Brain page's `Links` tab so
   `/brain` is focused on semantic search + graph.
+- Rename the default `All` tab to `Feed`. Keep `Links` in the same top-level
+  tab row (`Feed` / `Short` / `Long` / `Article` / `Repo` / `Links`) and use a
+  thicker desktop divider before `Links` so it reads as adjacent inventory, not
+  another job content type.
+- Make Feed search context-sensitive: job tabs search job fields, while the
+  `Links` tab searches link inventory fields (`url`, `title`, `topic`). Hide
+  job status filters on `Links`.
 - Convert Docs from a Feed tab into an ingest action that mirrors `Submit URL`:
   mobile can show it as an action chip in the same wrap grid as Submit; desktop
   keeps actions outside `SegmentedTabs`.
@@ -702,24 +709,51 @@ Brain loses the redundant Links table.
   (`/doc-parser`, or a specific parser detail route if available). Do not delete
   the Doc Parser page as part of this IA change; treat it as the processing/detail
   surface until the new Feed entry point proves the full workflow can live there.
-- Add the long-term command launcher: a shadcn-style `CommandDialog` with grouped
-  actions and right-aligned shortcut hints (`Submit URL` `N`, `Ingest Docs` `D`,
-  `Open Links`, `Open Brain`). Desktop should use this as the scalable action
-  launcher instead of adding a row of sibling header buttons.
+- Add the command launcher in this slice: a shadcn-style `CommandDialog` with
+  grouped actions and right-aligned `CommandShortcut` hints, reusing the existing
+  dashboard dialog styling. On desktop, show one visible `Commands` launcher
+  button instead of separate sibling header buttons for Submit URL / Docs ingest;
+  `Submit URL` is an item inside the launcher. The launcher shows `Cmd/Ctrl+K`
+  as its shortcut hint. Preserve editable-target guards for all global shortcuts.
+  Commands:
+  - `Submit URL` — shortcut `N` ("new").
+  - `Ingest Docs` — shortcut `D` ("docs").
+  - `Open Links` — shortcut `L` ("links").
+  - Divider / separate recovery group.
+  - `Retry Pending` — shortcut hint `R P`; enabled only when stale pending jobs
+    exist in the active job scope.
+  - `Retry Failed` — shortcut hint `R F`; mirrors the recovery action for failed
+    and stale in-flight jobs.
+  - `Clear Failed` — shortcut `C` ("clear"); requires confirmation, marking
+    failed jobs cancelled rather than deleting them.
+  - `Search` — shortcut `/`; focuses the Feed search for the current job tab.
+  - `Search Links` — shortcut hint `L /`; switches to `Links` and focuses the
+    same Feed search input in link-search mode.
 - Follow `DESIGN.md`: action chips/buttons use the signal accent deliberately,
   real active tabs use the signal active state, machine counts stay mono, and all
   keyboard/motion behavior honors WCAG-AA focus and `prefers-reduced-motion`.
 
 **Open questions** (resolve in grill)
 
-- Feed view model: does the existing content-type segmented control become a
-  two-level control (`Jobs` / `Links`, then job type filters), or does Links join
-  the current row with a distinct view treatment?
-- Desktop first slice: ship the full command palette now, or use a temporary
-  visible Docs ingest button while the command launcher is built?
-- Docs modal scope: upload-only, URL-to-document ingest, or the full current Doc
-  Parser input surface?
-- After Docs submit, should success route to `/doc-parser` list, the new parser
-  detail page, or stay in Feed with an optimistic parser row?
-- API naming cleanup: if Links moves out of Brain UI, should `/api/brain/links`
-  remain as the backend route for now or be aliased/renamed later?
+- Resolved: the Feed is the parent surface; tabs are `Feed` / `Short` / `Long` /
+  `Article` / `Repo` / `Links`. `Links` joins the current row with a thicker
+  desktop divider and context-sensitive search/status behavior.
+- Resolved: ship the command palette now, not a temporary desktop Docs button.
+  The first command set is `Submit URL`, `Ingest Docs`, `Open Links`,
+  `Retry Pending`, `Retry Failed`, `Clear Failed`, `Search`, and `Search Links`,
+  with shadcn `CommandShortcut` hints. Keep `Retry Pending`, `Retry Failed`, and
+  `Clear Failed` visible in the existing recovery panel as contextual repair
+  buttons; the command palette is an additional keyboard-driven entry point, not
+  a replacement. Recovery commands operate on the current active job scope:
+  `Feed` means all job types, typed tabs scope to that content type, and `Links`
+  hides/disables recovery commands because link inventory does not share the job
+  status lifecycle.
+- Resolved: `Ingest Docs` modal exposes the full current Doc Parser input
+  surface, including PDF upload and document URL ingest.
+- Resolved: after successful Docs submit, route directly to the parser detail
+  page when the API returns a job id; fall back to `/doc-parser` otherwise. Do
+  not keep the user in Feed with an optimistic parser row in this slice.
+- Resolved: move the Links inventory API to `/api/feed/links`, but make this the
+  final implementation step so the UI move, shared Links component, command
+  launcher, and search behavior land before the route rename can disrupt
+  anything.

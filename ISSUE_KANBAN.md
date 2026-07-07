@@ -46,6 +46,10 @@ Ordered by unblocked-first, then dependency chain.
 | [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page                                       | Web / Privacy            | —                |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
 | [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link             | Web / Landing            | #329             |
+| [#333](https://github.com/Leon-87-7/vig/issues/333) | Feed tabs: rename Feed and move Links into Feed                                                  | Web / Feed               | —                |
+| [#334](https://github.com/Leon-87-7/vig/issues/334) | Docs ingest modal from Feed actions                                                              | Web / Feed               | —                |
+| [#335](https://github.com/Leon-87-7/vig/issues/335) | Desktop Commands launcher for Feed actions                                                       | Web / Feed               | #333, #334       |
+| [#336](https://github.com/Leon-87-7/vig/issues/336) | Move Links inventory API to Feed namespace last                                                  | API / Feed               | #333, #335       |
 
 ---
 
@@ -385,6 +389,13 @@ Public landing page (grill 2026-07-06 — task #14 from docs/TASK.md)
     └── #332 staged dashboard screenshots ◄── #331
 #330 Limited Use disclosure on /privacy (independent)
 Critical path: #329 → #331 → #332; #330 parallel
+
+Feed inventory IA — Links view, Docs ingest action, command launcher (task #24 from docs/TASK.md)
+#333 Feed tabs: rename Feed and move Links into Feed (root, unblocked)
+#334 Docs ingest modal from Feed actions (independent)
+├── #335 Desktop Commands launcher for Feed actions ◄── also #333
+│   └── #336 Move Links inventory API to Feed namespace last ◄── also #333
+Critical path: {#333, #334} → #335 → #336
 ```
 
 ---
