@@ -121,6 +121,30 @@ describe('SubmitJobProvider', () => {
     await waitFor(() => expect(screen.getByText('article')).toBeTruthy());
   });
 
+  it('blocks freestyle submission without prompt instructions', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SubmitJobProvider>
+        <OpenSubmitButton />
+      </SubmitJobProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open submit' }));
+    const input = screen.getByPlaceholderText('Paste a video, article, or repo URL…');
+    fireEvent.change(input, {
+      target: { value: 'https://example.com/video' },
+    });
+    fireEvent.change(screen.getByLabelText('Template'), {
+      target: { value: 'freestyle' },
+    });
+    fireEvent.submit(input.closest('form')!);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Freestyle prompt is required.')).toBeTruthy();
+  });
+
   it('infers an optimistic repo type for www.github.com when the accepted response omits content_type', async () => {
     vi.stubGlobal(
       'fetch',

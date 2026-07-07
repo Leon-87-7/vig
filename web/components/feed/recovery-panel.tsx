@@ -68,8 +68,9 @@ export function RecoveryPanel({
         <span>{error}. The feed is still usable.</span>
         <button
           type="button"
+          disabled={disabled}
           onClick={() => void reload()}
-          className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink"
+          className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-muted"
         >
           Retry
         </button>
@@ -88,13 +89,15 @@ export function RecoveryPanel({
       >
         {attentionCount} need attention
       </button>
-      {open && (
-        <div
-          id="recovery-actions"
-          role="group"
-          aria-label="Recovery"
-          className="flex flex-wrap items-center gap-2"
-        >
+      <div
+        id="recovery-actions"
+        role="group"
+        aria-label="Recovery"
+        hidden={!open}
+        className="flex flex-wrap items-center gap-2"
+      >
+        {open && (
+          <>
           {summary.stale_in_flight > 0 && (
             <span className="font-mono text-[11px] text-muted">
               {summary.stale_in_flight} stale in-flight
@@ -127,15 +130,17 @@ export function RecoveryPanel({
                 : `Clear failed (${summary.error_jobs})`}
             </RecoveryButton>
           )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
       {error && (
         <div className="flex w-full items-center justify-end gap-2 text-xs text-muted">
           <span>{error}. Retry recovery when ready.</span>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => void reload()}
-            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink"
+            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-canvas disabled:text-muted"
           >
             Retry
           </button>

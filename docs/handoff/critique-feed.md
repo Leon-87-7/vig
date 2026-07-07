@@ -1,6 +1,6 @@
 # Critique — feed page
 
-_Impeccable `/critique` run, 2026-07-07. Score 27/40 (Acceptable, top of band / near Good). Snapshot: `.impeccable/critique/2026-07-06T21-20-19Z__web-app-dashboard-page-tsx.md`._
+_Impeccable `/critique` run, 2026-07-06. Score 27/40 (Acceptable, top of band / near Good). Snapshot: `.impeccable/critique/2026-07-06T21-20-19Z__web-app-dashboard-page-tsx.md`._
 
 Target: `web/app/(dashboard)/page.tsx` (with `filter-bar.tsx`, `job-card.tsx`, `feed/stats-overview.tsx`, `feed/feed-states.tsx`, `feed/preview-card.tsx`, `feed/recovery-panel.tsx`, `app-header.tsx`, `badges.tsx`, `stat-card.tsx`, `sidebar.tsx`).
 

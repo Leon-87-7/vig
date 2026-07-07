@@ -127,7 +127,12 @@ export function SubmitJobProvider({
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmed = url.trim();
+      const trimmedPrompt = freestylePrompt.trim();
       if (!trimmed || submitting) return;
+      if (template === 'freestyle' && !trimmedPrompt) {
+        setError('Freestyle prompt is required.');
+        return;
+      }
       setError(null);
       setSubmitting(true);
       try {
@@ -136,7 +141,7 @@ export function SubmitJobProvider({
           template,
         };
         if (template === 'freestyle')
-          payload.freestyle_prompt = freestylePrompt.trim();
+          payload.freestyle_prompt = trimmedPrompt;
         const res = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

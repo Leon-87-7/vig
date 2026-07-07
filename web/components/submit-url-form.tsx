@@ -70,7 +70,11 @@ export function SubmitUrlForm({
           </label>
           <button
             type="submit"
-            disabled={submitting || !url.trim()}
+            disabled={
+              submitting ||
+              !url.trim() ||
+              (template === "freestyle" && !freestylePrompt.trim())
+            }
             className="h-10 shrink-0 rounded-md bg-signal px-4 text-sm font-semibold text-onsignal transition-ui hover:bg-signal-bright active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:active:scale-100"
           >
             {submitting ? "Submitting…" : "Submit"}

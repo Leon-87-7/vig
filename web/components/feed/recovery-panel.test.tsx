@@ -60,6 +60,7 @@ describe('RecoveryPanel', () => {
     });
     expect(chip).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('group', { name: 'Recovery' })).toBeNull();
+    expect(document.getElementById('recovery-actions')).toBeTruthy();
 
     fireEvent.click(chip);
 
@@ -84,5 +85,20 @@ describe('RecoveryPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
     expect(recoveryActions.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the quiet retry button while recovery is loading', () => {
+    mockRecovery({
+      error: 'Failed to load recovery summary',
+      loading: true,
+    });
+
+    render(<RecoveryPanel contentType="" onRecovered={vi.fn()} />);
+
+    const retry = screen.getByRole('button', { name: 'Retry' });
+    expect(retry).toBeDisabled();
+    fireEvent.click(retry);
+
+    expect(recoveryActions.reload).not.toHaveBeenCalled();
   });
 });
