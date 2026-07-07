@@ -79,6 +79,10 @@
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
 | [#275](https://github.com/Leon-87-7/vig/issues/275) | tests/test_sheets.py: 6 tests fail on main — mocks predate _append_sync chat_id signature change (#264) | Tests / Sheets | —  |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes | Telegram / Gemini | — |
+| [#329](https://github.com/Leon-87-7/vig/issues/329) | Routing cutover — Feed moves to /feed, / becomes the public landing route | Web / Routing | — |
+| [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page | Web / Privacy | — |
+| [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link | Web / Landing | #329 |
+| [#332](https://github.com/Leon-87-7/vig/issues/332) | Public landing — staged dashboard screenshots from a seeded demo account | Web / Landing | #331 |
 
 ---
 
@@ -425,6 +429,13 @@ Dashboard job submission + repo follow-up (grill 2026-07-04 — tasks #4/#9 from
     ├── #322 Repo follow-up: article pipeline ◄── #321
     └── #323 Repo follow-up: long-video pipeline ◄── #321
 Critical path: #318 → {#319, #321}; #319 → #320; #321 → {#322, #323}
+
+Public landing page (grill 2026-07-06 — task #14 from docs/TASK.md)
+#329 Routing cutover — Feed→/feed, / public + auth-redirect (root, unblocked)
+└── #331 BrandBackground extraction + full marketing landing + /login back-link ◄── #329
+    └── #332 staged dashboard screenshots ◄── #331
+#330 Limited Use disclosure on /privacy (independent)
+Critical path: #329 → #331 → #332; #330 parallel
 ```
 
 ---
