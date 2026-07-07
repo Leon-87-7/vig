@@ -39,7 +39,7 @@ slug: web-app-login-logout
 ## Priority Issues (all minor)
 
 - **[P2] First-timer gets no "why Telegram?" context.** Someone without the existing bot relationship sees a Telegram button and no explanation of why a video console authenticates through Telegram. Fix: one context line or a "New here?" link. Judgment call — single-operator today. → /impeccable onboard
-- **[P3] `logout-card-enter` keyframe now fires on login too** via AuthShell — name is a misnomer and login animates on load. Animation itself is fine (480ms fade-up, motion-reduce fallback). Rename keyframe to `auth-card-enter` in globals.css. → /impeccable polish
+- **[P3] ~~`logout-card-enter` keyframe now fires on login too~~** — RESOLVED: keyframe renamed to `auth-card-enter` in globals.css (line 143) and referenced correctly in AuthShell (line 15). Animation works for both login/logout as intended.
 - **[P3] Telegram widget can't inherit console button vocabulary** — renders in Telegram's own blue/font inside the framed card. Inherent to third-party widget; accept. → no action.
 
 ## Persona Red Flags

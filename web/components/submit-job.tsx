@@ -129,6 +129,12 @@ export function SubmitJobProvider({
       const trimmed = url.trim();
       if (!trimmed || submitting) return;
       setError(null);
+
+      if (template === 'freestyle' && !freestylePrompt.trim()) {
+        setError('Freestyle prompt cannot be empty');
+        return;
+      }
+
       setSubmitting(true);
       try {
         const payload: Record<string, string> = {

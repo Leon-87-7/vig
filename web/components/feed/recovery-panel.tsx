@@ -68,8 +68,9 @@ export function RecoveryPanel({
         <span>{error}. The feed is still usable.</span>
         <button
           type="button"
+          disabled={disabled}
           onClick={() => void reload()}
-          className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink"
+          className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
         >
           Retry
         </button>
@@ -88,54 +89,53 @@ export function RecoveryPanel({
       >
         {attentionCount} need attention
       </button>
-      {open && (
-        <div
-          id="recovery-actions"
-          role="group"
-          aria-label="Recovery"
-          className="flex flex-wrap items-center gap-2"
-        >
-          {summary.stale_in_flight > 0 && (
-            <span className="font-mono text-[11px] text-muted">
-              {summary.stale_in_flight} stale in-flight
-            </span>
-          )}
-          {summary.stale_pending > 0 && (
-            <RecoveryButton
-              disabled={disabled}
-              onClick={() => void retryPending()}
-            >
-              {acting === 'pending'
-                ? 'Retrying...'
-                : `Retry pending (${summary.stale_pending})`}
-            </RecoveryButton>
-          )}
-          {failedActionCount > 0 && (
-            <RecoveryButton
-              disabled={disabled}
-              onClick={() => void retryError()}
-            >
-              {acting === 'error'
-                ? 'Retrying...'
-                : `Retry failed (${failedActionCount})`}
-            </RecoveryButton>
-          )}
-          {summary.error_jobs > 0 && (
-            <RecoveryButton disabled={disabled} onClick={onClear}>
-              {acting === 'clear'
-                ? 'Clearing...'
-                : `Clear failed (${summary.error_jobs})`}
-            </RecoveryButton>
-          )}
-        </div>
-      )}
+      <div
+        id="recovery-actions"
+        role="group"
+        aria-label="Recovery"
+        className={`flex flex-wrap items-center gap-2 ${open ? '' : 'hidden'}`}
+      >
+        {summary.stale_in_flight > 0 && (
+          <span className="font-mono text-[11px] text-muted">
+            {summary.stale_in_flight} stale in-flight
+          </span>
+        )}
+        {summary.stale_pending > 0 && (
+          <RecoveryButton
+            disabled={disabled}
+            onClick={() => void retryPending()}
+          >
+            {acting === 'pending'
+              ? 'Retrying...'
+              : `Retry pending (${summary.stale_pending})`}
+          </RecoveryButton>
+        )}
+        {failedActionCount > 0 && (
+          <RecoveryButton
+            disabled={disabled}
+            onClick={() => void retryError()}
+          >
+            {acting === 'error'
+              ? 'Retrying...'
+              : `Retry failed (${failedActionCount})`}
+          </RecoveryButton>
+        )}
+        {summary.error_jobs > 0 && (
+          <RecoveryButton disabled={disabled} onClick={onClear}>
+            {acting === 'clear'
+              ? 'Clearing...'
+              : `Clear failed (${summary.error_jobs})`}
+          </RecoveryButton>
+        )}
+      </div>
       {error && (
         <div className="flex w-full items-center justify-end gap-2 text-xs text-muted">
           <span>{error}. Retry recovery when ready.</span>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => void reload()}
-            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink"
+            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[12px] font-medium text-body transition-ui hover:border-line-strong hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             Retry
           </button>
