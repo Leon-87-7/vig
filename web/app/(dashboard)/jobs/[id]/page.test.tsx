@@ -64,6 +64,7 @@ const JOB = {
   summary: null,
   transcript: null,
   key_phrases: null,
+  links: null,
 };
 
 function setupMocks(

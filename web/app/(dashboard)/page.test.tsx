@@ -257,6 +257,54 @@ describe('FeedPage', () => {
     expect(screen.getByRole('button', { name: /repo 0/i })).toBeTruthy();
   });
 
+
+  it('renders extracted links as a first-class Feed view', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/brain/links/view' && init?.method === 'PUT') {
+        return Promise.resolve(new Response(JSON.stringify({ sort: 'last_seen', order: 'desc', size: 25 }), { status: 200 }));
+      }
+      if (url === '/api/brain/links/view') {
+        return Promise.resolve(new Response(JSON.stringify({ sort: 'last_seen', order: 'desc', size: 25 }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        items: [
+          {
+            url: 'https://example.com/canonical',
+            title: 'Canonical',
+            topic: 'Docs',
+            seen_count: 4,
+            first_seen: '2026-06-28T12:00:00+00:00',
+          },
+        ],
+        limit: 25,
+        offset: 0,
+        total: 1,
+      }), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FeedTree />);
+    fireEvent.click(screen.getByRole('button', { name: /links/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('https://example.com/canonical').length).toBeGreaterThan(0);
+    });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/?view=links', { scroll: false });
+    expect(screen.queryByText('Jobs')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith('/api/brain/links?limit=25&offset=0&sort=last_seen&order=desc');
+  });
+
+  it('opens the docs ingest dialog with the D shortcut', async () => {
+    render(<FeedTree />);
+    fireEvent.keyDown(window, { key: 'd' });
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(screen.getByText('Ingest Docs')).toBeTruthy();
+    // The dialog now hosts the full DocUploadPanel (URL fetch + PDF drop),
+    // not the old "Open Doc Parser" redirect button.
+    expect(screen.getByRole('button', { name: /fetch/i })).toBeTruthy();
+  });
+
   it('updates the type query param when a content tab is clicked', () => {
     const setCtFilter = vi.fn();
     setupMocks({ setCtFilter });

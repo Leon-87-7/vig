@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
 
 import { useRecovery } from '@/lib/hooks/useRecovery';
+import { useSubmitJobOptional } from '@/components/submit-job';
 
 const CLEAR_CONFIRM_COPY = 'Clear failed jobs in this tab? This marks them cancelled; it does not delete them from DB.';
 
@@ -31,9 +32,13 @@ function RecoveryButton({
 export function RecoveryPanel({
   contentType,
   onRecovered,
+  active = true,
 }: {
   contentType: string;
   onRecovered: () => Promise<void> | void;
+  /** false on the Links view — link inventory has no job status lifecycle, so
+   * the panel and its launcher commands are suppressed. */
+  active?: boolean;
 }) {
   const {
     summary,
@@ -47,6 +52,31 @@ export function RecoveryPanel({
   } = useRecovery(contentType, onRecovered);
 
   const failedActionCount = summary.error_jobs + summary.stale_in_flight;
+  const canClearFailed = summary.error_jobs > 0;
+
+  // Mirror Clear Failed into the command launcher (when mounted inside
+  // SubmitJobProvider) so its scope + availability stay in sync with this panel.
+  // useRecovery hands back a fresh clearFailed closure every render, so the
+  // launcher command calls through a ref and the effect re-runs only when
+  // availability flips — depending on the closure directly would loop (register
+  // → setState → re-render → new closure → register …).
+  const registerFeedRecovery =
+    useSubmitJobOptional()?.registerFeedRecovery;
+  const clearFailedRef = useRef(clearFailed);
+  clearFailedRef.current = clearFailed;
+  useEffect(() => {
+    if (!registerFeedRecovery) return;
+    if (!active) {
+      registerFeedRecovery(null);
+      return;
+    }
+    registerFeedRecovery({
+      canClearFailed,
+      clearFailed: () => clearFailedRef.current(),
+    });
+    return () => registerFeedRecovery(null);
+  }, [active, canClearFailed, registerFeedRecovery]);
+
   const attentionCount =
     summary.stale_pending + summary.error_jobs + summary.stale_in_flight;
   const disabled = loading || acting !== null;
@@ -60,6 +90,8 @@ export function RecoveryPanel({
     if (!confirm(CLEAR_CONFIRM_COPY)) return;
     void clearFailed();
   };
+
+  if (!active) return null;
 
   if (attentionCount === 0) {
     if (!error) return null;
@@ -89,45 +121,49 @@ export function RecoveryPanel({
       >
         {attentionCount} need attention
       </button>
-      <div
-        id="recovery-actions"
-        role="group"
-        aria-label="Recovery"
-        className={`flex flex-wrap items-center gap-2 ${open ? '' : 'hidden'}`}
-      >
-        {summary.stale_in_flight > 0 && (
-          <span className="font-mono text-[11px] text-muted">
-            {summary.stale_in_flight} stale in-flight
-          </span>
-        )}
-        {summary.stale_pending > 0 && (
-          <RecoveryButton
-            disabled={disabled}
-            onClick={() => void retryPending()}
-          >
-            {acting === 'pending'
-              ? 'Retrying...'
-              : `Retry pending (${summary.stale_pending})`}
-          </RecoveryButton>
-        )}
-        {failedActionCount > 0 && (
-          <RecoveryButton
-            disabled={disabled}
-            onClick={() => void retryError()}
-          >
-            {acting === 'error'
-              ? 'Retrying...'
-              : `Retry failed (${failedActionCount})`}
-          </RecoveryButton>
-        )}
-        {summary.error_jobs > 0 && (
-          <RecoveryButton disabled={disabled} onClick={onClear}>
-            {acting === 'clear'
-              ? 'Clearing...'
-              : `Clear failed (${summary.error_jobs})`}
-          </RecoveryButton>
-        )}
-      </div>
+      {/* Rendered only when expanded so assistive tech (and tests) don't see
+          collapsed actions — a CSS-only `hidden` class stays in the a11y tree. */}
+      {open && (
+        <div
+          id="recovery-actions"
+          role="group"
+          aria-label="Recovery"
+          className="flex flex-wrap items-center gap-2"
+        >
+          {summary.stale_in_flight > 0 && (
+            <span className="font-mono text-[11px] text-muted">
+              {summary.stale_in_flight} stale in-flight
+            </span>
+          )}
+          {summary.stale_pending > 0 && (
+            <RecoveryButton
+              disabled={disabled}
+              onClick={() => void retryPending()}
+            >
+              {acting === 'pending'
+                ? 'Retrying...'
+                : `Retry pending (${summary.stale_pending})`}
+            </RecoveryButton>
+          )}
+          {failedActionCount > 0 && (
+            <RecoveryButton
+              disabled={disabled}
+              onClick={() => void retryError()}
+            >
+              {acting === 'error'
+                ? 'Retrying...'
+                : `Retry failed (${failedActionCount})`}
+            </RecoveryButton>
+          )}
+          {summary.error_jobs > 0 && (
+            <RecoveryButton disabled={disabled} onClick={onClear}>
+              {acting === 'clear'
+                ? 'Clearing...'
+                : `Clear failed (${summary.error_jobs})`}
+            </RecoveryButton>
+          )}
+        </div>
+      )}
       {error && (
         <div className="flex w-full items-center justify-end gap-2 text-xs text-muted">
           <span>{error}. Retry recovery when ready.</span>

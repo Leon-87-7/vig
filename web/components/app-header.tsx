@@ -10,7 +10,7 @@ import { useSubmitJob } from '@/components/submit-job';
  * sm+ keeps the Feed header's original left-aligned layout.
  */
 export function AppHeader() {
-  const { setOpen } = useSubmitJob();
+  const { setOpen, openCommand } = useSubmitJob();
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur-md sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-5 gap-y-3 sm:justify-start">
@@ -46,16 +46,16 @@ export function AppHeader() {
 
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openCommand}
+          aria-label="Open command launcher"
           aria-haspopup="dialog"
-          aria-keyshortcuts="N"
-          className="ml-auto hidden h-9 items-center gap-2 rounded-md border border-line border-b-2 border-b-signal bg-surface px-3.5 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
+          aria-keyshortcuts="Meta+K Control+K"
+          className="ml-auto hidden h-9 items-center gap-2 rounded-md border border-line border-b-2 border-b-signal bg-surface px-3 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
         >
-          <Plus
-            aria-hidden="true"
-            className="h-4 w-4 text-contrasignal-deep"
-          />
-          Submit URL
+          <span>Commands</span>
+          <kbd className="ml-2 rounded border border-line bg-canvas px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-contrasignal-deep hover:text-contrasignal-bright">
+            ⌘ K
+          </kbd>
         </button>
       </div>
     </header>
