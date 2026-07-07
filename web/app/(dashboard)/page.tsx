@@ -30,8 +30,9 @@ import { RecoveryPanel } from '@/components/feed/recovery-panel';
 import { PageShell } from '@/components/page-shell';
 import { useGoogleStatus } from '@/components/google-status';
 import { useSubmitJob } from '@/components/submit-job';
-import { FileCode2, Plus } from 'lucide-react';
+import { FileCode2, Link2, Plus } from 'lucide-react';
 import type { JobSummary } from '@/components/job-card';
+import { LinksTable } from '@/components/links-table';
 
 const CONTENT_TYPES = new Set(['short', 'long', 'article', 'repo']);
 
@@ -41,13 +42,6 @@ const CONTENT_TYPE_FILTERS = [
   { label: 'Long', value: 'long' },
   { label: 'Article', value: 'article' },
   { label: 'Repo', value: 'repo' },
-  {
-    label: 'Docs',
-    value: 'docs',
-    href: '/doc-parser',
-    dividerBefore: true,
-    icon: FileCode2,
-  },
 ];
 
 function jobCountLabel(
@@ -86,7 +80,10 @@ function FeedPageContent() {
     error,
     reload,
   } = useFeedData(urlContentType);
-  const { setOpen: setSubmitOpen, lastAccepted } = useSubmitJob();
+  const { setOpen: setSubmitOpen, openDocs, lastAccepted } = useSubmitJob();
+  const [feedView, setFeedView] = useState<'jobs' | 'links'>(
+    searchParams.get('view') === 'links' ? 'links' : 'jobs',
+  );
   const [optimisticJobs, setOptimisticJobs] = useState<JobSummary[]>(
     [],
   );
@@ -150,9 +147,14 @@ function FeedPageContent() {
     setCtFilter(urlContentType);
   }, [urlContentType, setCtFilter]);
 
+  useEffect(() => {
+    setFeedView(searchParams.get('view') === 'links' ? 'links' : 'jobs');
+  }, [searchParams]);
+
   const setContentType = useCallback(
     (value: string) => {
       const params = new URLSearchParams(searchParams.toString());
+      params.delete('view');
       if (value) {
         params.set('type', value);
       } else {
@@ -176,24 +178,19 @@ function FeedPageContent() {
     [contentTypeCounts],
   );
   const contentTypeTabs = useMemo(
-    () =>
-      CONTENT_TYPE_FILTERS.map(
-        ({ label, value, href, dividerBefore, icon }, i) => ({
-          label,
-          value,
-          href,
-          icon,
-          count: href
-            ? undefined
-            : value
-              ? (contentTypeCounts[value] ?? 0)
-              : totalCount,
-          dividerBefore: dividerBefore ?? i > 0,
-        }),
-      ),
+    () => [
+      ...CONTENT_TYPE_FILTERS.map(({ label, value }, i) => ({
+        label,
+        value,
+        count: value ? (contentTypeCounts[value] ?? 0) : totalCount,
+        dividerBefore: i > 0,
+      })),
+      { label: 'Links', value: 'links', dividerBefore: true, icon: Link2 },
+    ],
     [contentTypeCounts, totalCount],
   );
   const firstLoad = loading && jobs.length === 0 && !error;
+  const showingLinks = feedView === 'links';
   const showPreviewGrid = Boolean(ctFilter);
   const hasFilters = Boolean(ctFilter || stFilter || query.trim());
   const empty = !loading && !error && displayedJobs.length === 0;
@@ -235,6 +232,7 @@ function FeedPageContent() {
   }, [lastAccepted, reload]);
 
   const clearAll = () => {
+    setFeedView('jobs');
     setContentType('');
     setStFilter('');
     setQuery('');
@@ -293,8 +291,19 @@ function FeedPageContent() {
 
       <FilterBar
         tabs={contentTypeTabs}
-        tabValue={ctFilter}
-        onTabChange={setContentType}
+        tabValue={showingLinks ? 'links' : ctFilter}
+        onTabChange={(value) => {
+          if (value === 'links') {
+            const params = new URLSearchParams(searchParams.toString());
+            params.delete('type');
+            params.set('view', 'links');
+            router.replace(`${pathname}?${params}`, { scroll: false });
+            setFeedView('links');
+            return;
+          }
+          setFeedView('jobs');
+          setContentType(value);
+        }}
         query={query}
         setQuery={setQuery}
         searchPlaceholder="Search by title or URL…"
@@ -308,74 +317,94 @@ function FeedPageContent() {
           />
         }
         actionSlot={
-          /* Mobile-only (<sm): the submit trigger lives in the first slot of the
+          <>
+            {/* Mobile-only (<sm): the submit trigger lives in the first slot of the
              chip wrap grid so it flows with the filters instead of floating alone.
              Signal underline + signal text mark it as the row's one action without
              matching the active chip's full signal fill (The Signal Rule). Opens
-             the same dialog as the sm+ header trigger. */
-          <button
-            type="button"
-            onClick={() => setSubmitOpen(true)}
-            aria-label="Submit URL"
-            aria-haspopup="dialog"
-            aria-keyshortcuts="N"
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-line border-b-2 border-b-signal bg-surface px-1.5 text-[13px] font-medium text-signal transition-ui hover:bg-raised active:scale-[0.96] motion-reduce:active:scale-100 sm:hidden"
-          >
-            <Plus
-              aria-hidden="true"
-              className="h-4 w-4"
-            />
-            Submit
-          </button>
+             the same dialog as the sm+ header trigger. */}
+            <button
+              type="button"
+              onClick={() => setSubmitOpen(true)}
+              aria-label="Submit URL"
+              aria-haspopup="dialog"
+              aria-keyshortcuts="N"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-line border-b-2 border-b-signal bg-surface px-1.5 text-[13px] font-medium text-signal transition-ui hover:bg-raised active:scale-[0.96] motion-reduce:active:scale-100 sm:hidden"
+            >
+              <Plus
+                aria-hidden="true"
+                className="h-4 w-4"
+              />
+              Submit
+            </button>
+            <button
+              type="button"
+              onClick={openDocs}
+              aria-label="Ingest docs"
+              aria-haspopup="dialog"
+              aria-keyshortcuts="D"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-line border-b-2 border-b-signal bg-surface px-1.5 text-[13px] font-medium text-signal transition-ui hover:bg-raised active:scale-[0.96] motion-reduce:active:scale-100 sm:hidden"
+            >
+              <FileCode2
+                aria-hidden="true"
+                className="h-4 w-4"
+              />
+              Docs
+            </button>
+          </>
         }
       />
 
-      <section>
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="text-base font-semibold text-ink">Jobs</h2>
-          <span
-            className="inline-flex items-center rounded border border-line px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider text-muted"
-            aria-live="polite"
-          >
-            {countLabel}
-          </span>
-        </div>
+      {showingLinks ? (
+        <LinksTable />
+      ) : (
+        <section>
+          <div className="mb-3 flex items-center gap-3">
+            <h2 className="text-base font-semibold text-ink">Jobs</h2>
+            <span
+              className="inline-flex items-center rounded border border-line px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider text-muted"
+              aria-live="polite"
+            >
+              {countLabel}
+            </span>
+          </div>
 
-        {error && (
-          <ErrorBanner
-            message={error}
-            onRetry={() => reload()}
-          />
-        )}
-        {firstLoad &&
-          (showPreviewGrid ? <SkeletonGrid /> : <SkeletonList />)}
-        {empty && (
-          <EmptyState
-            hasFilters={hasFilters}
-            onClear={clearAll}
-          />
-        )}
-
-        {!firstLoad &&
-          (showPreviewGrid ? (
-            <PreviewGrid
-              jobs={displayedJobs}
-              contentType={ctFilter}
-              status={stFilter}
+          {error && (
+            <ErrorBanner
+              message={error}
+              onRetry={() => reload()}
             />
-          ) : (
-            <div className="space-y-2">
-              {displayedJobs.map((job) => (
-                <JobCard
-                  key={job.id}
-                  job={job}
-                  contentType={ctFilter}
-                  status={stFilter}
-                />
-              ))}
-            </div>
-          ))}
-      </section>
+          )}
+          {firstLoad &&
+            (showPreviewGrid ? <SkeletonGrid /> : <SkeletonList />)}
+          {empty && (
+            <EmptyState
+              hasFilters={hasFilters}
+              onClear={clearAll}
+            />
+          )}
+
+          {!firstLoad &&
+            (showPreviewGrid ? (
+              <PreviewGrid
+                jobs={displayedJobs}
+                contentType={ctFilter}
+                status={stFilter}
+              />
+            ) : (
+              <div className="space-y-2">
+                {displayedJobs.map((job) => (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    contentType={ctFilter}
+                    status={stFilter}
+                  />
+                ))}
+              </div>
+            ))}
+        </section>
+      )}
     </PageShell>
   );
 }
