@@ -78,11 +78,6 @@
 |                                                   # | Title                                                                                       | Area             | Depends On |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
 | [#275](https://github.com/Leon-87-7/vig/issues/275) | tests/test_sheets.py: 6 tests fail on main — mocks predate _append_sync chat_id signature change (#264) | Tests / Sheets | —  |
-| [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes | Telegram / Gemini | — |
-| [#329](https://github.com/Leon-87-7/vig/issues/329) | Routing cutover — Feed moves to /feed, / becomes the public landing route | Web / Routing | — |
-| [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page | Web / Privacy | — |
-| [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link | Web / Landing | #329 |
-| [#332](https://github.com/Leon-87-7/vig/issues/332) | Public landing — staged dashboard screenshots from a seeded demo account | Web / Landing | #331 |
 
 ---
 
@@ -98,6 +93,10 @@ Ordered by unblocked-first, then dependency chain.
 | [#320](https://github.com/Leon-87-7/vig/issues/320) | Feed page submit control — URL + template picker                                                 | —                        | #319             |
 | [#322](https://github.com/Leon-87-7/vig/issues/322) | Repo follow-up after article enrichment                                                          | —                        | #321             |
 | [#323](https://github.com/Leon-87-7/vig/issues/323) | Repo follow-up after long-video enrichment                                                       | —                        | #321             |
+| [#329](https://github.com/Leon-87-7/vig/issues/329) | Routing cutover — Feed moves to /feed, / becomes the public landing route                        | Web / Routing            | —                |
+| [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page                                       | Web / Privacy            | —                |
+| [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
+| [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link             | Web / Landing            | #329             |
 
 ---
 
@@ -105,6 +104,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                     | Area               | Notes                                                  |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------ |
+| [#332](https://github.com/Leon-87-7/vig/issues/332) | Public landing — staged dashboard screenshots from a seeded demo account                   | Web / Landing      | Manual demo-account seeding + screen capture; blocked by #331 |
 
 ---
 
