@@ -48,6 +48,8 @@ export function AppHeader() {
           type="button"
           onClick={openCommand}
           aria-label="Open command launcher"
+          aria-haspopup="dialog"
+          aria-keyshortcuts="Meta+K Control+K"
           className="ml-auto hidden h-9 items-center gap-2 rounded-md border border-line border-b-2 border-b-signal bg-surface px-3 text-sm font-medium text-body transition-ui hover:text-ink active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:inline-flex motion-reduce:active:scale-100"
         >
           <span>Commands</span>

@@ -183,16 +183,26 @@ function FeedPageContent() {
   }, [pathname, router, searchParams]);
 
   // Expose the Feed search focus to the command launcher. focusLinkSearch
-  // switches to Links first, then focuses once the shared input re-renders.
+  // switches to Links first, then focuses LinksTable's own search input — not
+  // #feed-search, which drives the Jobs query and would leave a stale filter.
+  // LinksTable mounts only after the view switch, so retry across frames until
+  // its input exists.
   useEffect(() => {
     registerFeedSearch({
       focusSearch: () =>
         document.getElementById('feed-search')?.focus(),
       focusLinkSearch: () => {
         switchToLinks();
-        requestAnimationFrame(() =>
-          document.getElementById('feed-search')?.focus(),
-        );
+        let attempts = 0;
+        const focusLinks = () => {
+          const input = document.getElementById('links-search');
+          if (input) {
+            input.focus();
+          } else if (attempts++ < 10) {
+            requestAnimationFrame(focusLinks);
+          }
+        };
+        requestAnimationFrame(focusLinks);
       },
     });
     return () => registerFeedSearch(null);

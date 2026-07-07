@@ -120,14 +120,21 @@ export default function DocParserPage() {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
+    setLoadError('');
     try {
       const r = await fetch(
         `/api/jobs?content_type=document&limit=100${status ? `&status=${status}` : ''}`,
       );
+      if (!r.ok) throw new Error(`Documents request failed (${r.status})`);
       const d = await r.json();
       setJobs(d.items ?? []);
+    } catch {
+      // Surface the failure instead of falling through to EmptyState, which
+      // would misread a 5xx/network error as "no documents".
+      setLoadError('Failed to load documents. Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -197,7 +204,15 @@ export default function DocParserPage() {
 
         <section className="space-y-2">
           {loading && <SkeletonList />}
-          {!loading && filtered.length === 0 && (
+          {!loading && loadError && (
+            <p
+              role="alert"
+              className="rounded-md border border-line bg-status-error-tint px-4 py-3 text-sm text-status-error"
+            >
+              {loadError}
+            </p>
+          )}
+          {!loading && !loadError && filtered.length === 0 && (
             <EmptyState
               hasFilters={Boolean(q || status)}
               onClear={() => {
@@ -223,7 +238,7 @@ export default function DocParserPage() {
                   <StatusBadge label={j.status} />
                   <TelegramToggle
                     jobId={j.id}
-                    value={j.telegram_delivery || 'off'}
+                    value={j.telegram_delivery || 'on'}
                   />
                 </div>
                 <p className="mt-2 font-mono text-xs text-muted">

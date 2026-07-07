@@ -27,23 +27,36 @@ export function DocUploadPanel({
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [compact, setCompact] = useState(true);
+  const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function uploadFile(file: File) {
+    if (busy) return;
     setError('');
+    setBusy(true);
     const fd = new FormData();
     fd.append('file', file);
-    const r = await fetch('/api/parsed/upload', { method: 'POST', body: fd });
-    if (!r.ok) { setError(await errorMessage(r, 'Upload failed')); return; }
-    onUploaded((await r.json())?.job_id ?? null);
+    try {
+      const r = await fetch('/api/parsed/upload', { method: 'POST', body: fd });
+      if (!r.ok) { setError(await errorMessage(r, 'Upload failed')); return; }
+      onUploaded((await r.json())?.job_id ?? null);
+    } finally {
+      setBusy(false);
+    }
   }
   async function submitUrl(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setError('');
-    const r = await fetch('/api/parsed/url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
-    if (!r.ok) { setError(await errorMessage(r, 'URL upload failed')); return; }
-    setUrl('');
-    onUploaded((await r.json())?.job_id ?? null);
+    setBusy(true);
+    try {
+      const r = await fetch('/api/parsed/url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+      if (!r.ok) { setError(await errorMessage(r, 'URL upload failed')); return; }
+      setUrl('');
+      onUploaded((await r.json())?.job_id ?? null);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // flat: no card chrome and no mobile collapse — it lives inside a dialog.
@@ -53,14 +66,15 @@ export function DocUploadPanel({
       {!flat && <button onClick={() => setCompact(!compact)} className="mb-3 w-full text-left text-sm font-medium text-ink lg:hidden">Upload documents</button>}
       <form onSubmit={submitUrl} className="flex gap-2">
         <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/file.pdf" className="min-w-0 flex-1 rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink" />
-        <button className="rounded-md bg-signal px-4 text-sm text-onsignal">Fetch</button>
+        <button disabled={busy} className="rounded-md bg-signal px-4 text-sm text-onsignal disabled:opacity-50">Fetch</button>
       </form>
       <button
         type="button"
+        disabled={busy}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
         onClick={() => fileRef.current?.click()}
-        className="mt-4 flex min-h-48 w-full cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-line-strong bg-canvas text-body transition-ui hover:border-signal hover:text-ink"
+        className="mt-4 flex min-h-48 w-full cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-line-strong bg-canvas text-body transition-ui hover:border-signal hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Upload />
         <span>Drop a PDF here or click to choose</span>

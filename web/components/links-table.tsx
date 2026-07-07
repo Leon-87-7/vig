@@ -285,6 +285,7 @@ export function LinksTable() {
 
       <div className="grid gap-3 rounded-xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto] sm:items-center">
         <input
+          id="links-search"
           type="search"
           value={query}
           onChange={(e) => {

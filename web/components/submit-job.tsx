@@ -92,15 +92,19 @@ function inferContentTypeFromUrl(rawUrl: string): string {
     const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
     const path = parsed.pathname.toLowerCase();
 
+    // Match the exact apex or a dot-separated subdomain so lookalike hosts
+    // (fakeyoutube.com, eviltiktok.com) don't slip through endsWith().
+    const isHost = (domain: string) =>
+      host === domain || host.endsWith(`.${domain}`);
+
     if (host === 'github.com') return 'repo';
-    if (host.endsWith('youtube.com') && path === '/watch')
-      return 'long';
+    if (isHost('youtube.com') && path === '/watch') return 'long';
     if (host === 'youtu.be') return 'long';
-    if (host.endsWith('youtube.com') && path.startsWith('/shorts/'))
+    if (isHost('youtube.com') && path.startsWith('/shorts/'))
       return 'short';
-    if (host.endsWith('instagram.com') && path.startsWith('/reel/'))
+    if (isHost('instagram.com') && path.startsWith('/reel/'))
       return 'short';
-    if (host.endsWith('tiktok.com') && path.includes('/video/'))
+    if (isHost('tiktok.com') && path.includes('/video/'))
       return 'short';
   } catch {
     return 'article';
