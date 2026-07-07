@@ -32,7 +32,7 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 ## 2. Tag creation modal not responsive ✅ DONE
 
-## 3. Extracted-links table in the Brain page ✅ ISSUED TO GITHUB #238
+## 3. Extracted-links table in the Brain page ✅ ISSUED TO GITHUB #238 - ✅DONE
 
 ## 4. Dashboard URL submission — a second ingest surface
 
@@ -116,7 +116,7 @@ supports PWA share targets.
   or also plan a native iOS Share Extension / Shortcut path for iPhone parity?
 - Are web push notifications in scope, or explicitly out for now?
 
-## 7. Better navigation for the Brain "Links" table ✅ ISSUED TO GITHUB #306
+## 7. Better navigation for the Brain "Links" table ✅ ISSUED TO GITHUB #306 - ✅DONE
 
 ## 8. Controls UI on the Brain search graph
 
@@ -195,7 +195,7 @@ three trigger sites feeding the same offer + enqueue mechanism.
   already-analyzed repo isn't re-queued for free.
 - The spawned repo job inherits the same `chat_id` as the source job.
 
-## 10. Char-count truncation for the links-table description (ui/ux) ✅ ISSUED TO GITHUB #305
+## 10. Char-count truncation for the links-table description (ui/ux) ✅ ISSUED TO GITHUB #305 - ✅DONE
 
 ## 11. Tags should follow the URL, not the job (many-to-many)
 
@@ -350,7 +350,7 @@ satisfying Google's homepage requirements so branding verification passes.
   quiet "What is VIG?" back-link to `/`** so a direct `/login` visit is
   never a dead end. No copy duplication — the landing does the explaining.
 
-## 15. Sidebar links to Terms & Privacy (one row, between GitHub and Sign out) ✅ ISSUED TO GITHUB #307, #308
+## 15. Sidebar links to Terms & Privacy (one row, between GitHub and Sign out) ✅ ISSUED TO GITHUB #307, #308 - ✅DONE
 
 ## 16. Link pipeline — bare URLs get a native Telegram preview + a Brain Links row
 
@@ -404,7 +404,7 @@ enrichment job.
 
 ## 17. Persistent account/status affordance — Google connection state + Telegram identity ✅ DONE — issued #292–#295, merged PR #296
 
-## 18. Job details page — previous/next navigation buttons ✅ ISSUED TO GITHUB #309
+## 18. Job details page — previous/next navigation buttons ✅ ISSUED TO GITHUB #309 - ✅DONE
 
 ## 19. Delete button for jobs — DB + Telegram message, with confirm/"don't show again", swipe-to-delete on mobile
 
@@ -484,7 +484,7 @@ addition.
   card in a list (row disappears from an in-memory list) — does the Feed need an optimistic
   removal + undo, or is a hard confirm-then-gone sufficient?
 
-## 20. Feed — a Docs tab that redirects to the Doc Parser page ✅ ISSUED TO GITHUB #310
+## 20. Feed — a Docs tab that redirects to the Doc Parser page ✅ ISSUED TO GITHUB #310 - ✅DONE
 
 ## 21. Lightweight CRM for invite-gate contacts + two-way email under leondev.xyz
 
