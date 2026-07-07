@@ -660,3 +660,66 @@ retry → other provider) instead of failing the job on first contact.
   they excluded from the provider fallback?
 - Is the free→paid **key** rung kept as-is inside each model rung (key × model
   matrix), or does the order become model-first/key-second?
+
+## 24. Feed inventory IA — Links view, Docs ingest action, command launcher
+
+> **Grill:** `/grilling` — product/UX information architecture; no external
+> API hinge beyond matching the command-palette component pattern.
+
+The Feed control row currently mixes two concepts: a mobile-only `Submit` action
+chip (`web/app/(dashboard)/page.tsx:310-330`) and content-type filter tabs from
+`CONTENT_TYPE_FILTERS` (`page.tsx:38-51`) rendered by `SegmentedTabs`
+(`web/components/filter-bar.tsx:60-190`). The existing Docs entry is a link-tab
+to `/doc-parser`, but the discussion resolved that redirect tabs break the
+operator's flow because tabs visually promise an in-page view switch. The Brain
+page currently owns a `Links` internal tab (`BRAIN_TABS`,
+`web/app/(dashboard)/brain/page.tsx:44-47`) and renders `LinksTable` under it
+(`brain/page.tsx:552-655`), but Links is an inventory surface, while Brain should
+stay the semantic search/graph workbench. Long-term action discovery should use
+a shadcn-style command palette with shortcut hints (`CommandShortcut`) so desktop
+doesn't accumulate header buttons for every intake path.
+
+**Wanted:** make Feed the operator inventory and intake surface: Links becomes a
+first-class Feed view, Docs becomes an ingest action/modal rather than a tab, and
+Brain loses the redundant Links table.
+
+**UI**
+
+- Replace redirect-style Feed tabs with an IA rule: `SegmentedTabs` entries that
+  look like tabs should switch Feed content in place. Do not add new tabs that
+  navigate away or open modals.
+- Add a first-class `Links` Feed view by extracting/reusing the Brain page's
+  `LinksTable` (`web/app/(dashboard)/brain/page.tsx`) into a shared component
+  and rendering it from the Feed page. Remove the Brain page's `Links` tab so
+  `/brain` is focused on semantic search + graph.
+- Convert Docs from a Feed tab into an ingest action that mirrors `Submit URL`:
+  mobile can show it as an action chip in the same wrap grid as Submit; desktop
+  keeps actions outside `SegmentedTabs`.
+- Add a global `D` shortcut to open the Docs ingest modal, using the same
+  editable-target guard posture as the existing Feed search `/` shortcut
+  (`web/components/filter-bar.tsx:18-27`) and Submit URL shortcut behavior.
+- On successful Docs ingest, continue into the dedicated Doc Parser workflow
+  (`/doc-parser`, or a specific parser detail route if available). Do not delete
+  the Doc Parser page as part of this IA change; treat it as the processing/detail
+  surface until the new Feed entry point proves the full workflow can live there.
+- Add the long-term command launcher: a shadcn-style `CommandDialog` with grouped
+  actions and right-aligned shortcut hints (`Submit URL` `N`, `Ingest Docs` `D`,
+  `Open Links`, `Open Brain`). Desktop should use this as the scalable action
+  launcher instead of adding a row of sibling header buttons.
+- Follow `DESIGN.md`: action chips/buttons use the signal accent deliberately,
+  real active tabs use the signal active state, machine counts stay mono, and all
+  keyboard/motion behavior honors WCAG-AA focus and `prefers-reduced-motion`.
+
+**Open questions** (resolve in grill)
+
+- Feed view model: does the existing content-type segmented control become a
+  two-level control (`Jobs` / `Links`, then job type filters), or does Links join
+  the current row with a distinct view treatment?
+- Desktop first slice: ship the full command palette now, or use a temporary
+  visible Docs ingest button while the command launcher is built?
+- Docs modal scope: upload-only, URL-to-document ingest, or the full current Doc
+  Parser input surface?
+- After Docs submit, should success route to `/doc-parser` list, the new parser
+  detail page, or stay in Feed with an optimistic parser row?
+- API naming cleanup: if Links moves out of Brain UI, should `/api/brain/links`
+  remain as the backend route for now or be aliased/renamed later?
