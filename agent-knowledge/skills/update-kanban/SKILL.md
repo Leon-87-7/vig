@@ -44,12 +44,21 @@ Reconcile is bulk and runs precisely when you're unsure what drifted, so **previ
 - **🗑 wontfix removals** — list each `#N` that will be removed.
 - **🔺 Needs Triage additions** — list each `#N` landing in Needs Triage, marking which are **orphans** (`⚠ #82 — not found on GitHub, moved here`) vs genuinely untriaged.
 
-Then ask: **"Apply these N changes?"** Write only on confirmation.
+Then invoke `/sync-task-briefs` in preview mode using the same GitHub issue list
+from step 1. Include its `TASK.md sync:` items in this confirmation gate.
 
-**Empty delta:** if nothing about the issue rows drifted, **skip the confirm** — there's nothing destructive to preview — and just rebuild the PR section (PRs change more often than the board). Report `Board already in sync; PR section refreshed`.
+Then ask: **"Apply these N changes?"** Write only on confirmation. Count both
+board changes and `TASK.md` sync changes in `N`.
+
+**Empty board delta:** if nothing about the issue rows drifted but
+`/sync-task-briefs` found task changes, still ask for confirmation before
+writing those task/archive edits. If neither the board nor `TASK.md` drifted,
+skip the confirm — there's nothing destructive to preview — and just rebuild the
+PR section (PRs change more often than the board). Report
+`Board already in sync; TASK.md already in sync; PR section refreshed`.
 
 ## 4. Apply
 
-On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write); Done-row and Closed-PR-row writes pass through the §9 archive window as part of that. Then **refresh the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away and rebuild Open PRs; diff Closed PRs against `gh pr list` + the archive and append only new ones, then apply the §9 window. Finally print the §6 diff summary.
+On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write); Done-row and Closed-PR-row writes pass through the §9 archive window as part of that. Then invoke `/sync-task-briefs` apply mode for the confirmed task changes so closed-completed GitHub issues mark their linked `docs/TASK.md` briefs done and archive finished bodies through `/pre-grill --mark-a`. Then **refresh the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away and rebuild Open PRs; diff Closed PRs against `gh pr list` + the archive and append only new ones, then apply the §9 window. Finally print the §6 diff summary plus the task-sync summary.
 
 The board is git-tracked — `git diff` / `git checkout ISSUE_KANBAN.md` is the undo. The AI-disclaimer applies to GitHub comments only, never to this file.
