@@ -59,6 +59,19 @@ PR section (PRs change more often than the board). Report
 
 ## 4. Apply
 
-On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write); Done-row and Closed-PR-row writes pass through the §9 archive window as part of that. Then invoke `/sync-task-briefs` apply mode for the confirmed task changes so closed-completed GitHub issues mark their linked `docs/TASK.md` briefs done and archive finished bodies through `/pre-grill --mark-a`. Then **refresh the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away and rebuild Open PRs; diff Closed PRs against `gh pr list` + the archive and append only new ones, then apply the §9 window. Finally print the §6 diff summary plus the task-sync summary.
+On confirmation, apply each delta item through `kanban-sync.md` §2–§6 (column mapping, row fields, surgical safety, dep-map, write). Then invoke `/sync-task-briefs` apply mode for the confirmed task changes so closed-completed GitHub issues mark their linked `docs/TASK.md` briefs done and archive finished bodies through `/pre-grill --mark-a`. Then **refresh the PR section** via the helper's opt-in PR step (`kanban-sync.md` §8) — blow away and rebuild Open PRs; diff Closed PRs against `gh pr list` + the archive and append only new ones.
+
+**Enforcing the §9 windows — use the scripts, don't hand-roll it.** The Done-row and Closed-PR-row archival (`kanban-sync.md` §9) is deterministic file math; a bundled set of single-concern helpers in `scripts/` does it and is validated to reproduce a hand pass byte-for-byte. After the row writes above land, run the orchestrator from the repo root:
+
+```bash
+# preview first (writes nothing)
+python3 agent-knowledge/skills/update-kanban/scripts/run_window.py
+# then apply
+python3 agent-knowledge/skills/update-kanban/scripts/run_window.py --apply
+```
+
+It parses the Dependency Map into groups, keeps the last 3 done-groups + 4 highest Closed PRs live, ages out the rest to the archive (append-if-absent), and de-dupes any `#N` already present in the archive. It's idempotent — on an already-windowed board it writes nothing. See `scripts/README.md` for the per-concern breakdown and the one known simplification. Note that the GitHub-issue delta and TASK.md marking are **not** the scripts' job (they only move rows that already exist); those stay with the agent and `/sync-task-briefs`.
+
+Finally print the §6 diff summary plus the task-sync summary.
 
 The board is git-tracked — `git diff` / `git checkout ISSUE_KANBAN.md` is the undo. The AI-disclaimer applies to GitHub comments only, never to this file.
