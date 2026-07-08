@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Iterable
 
 from src import database, queue
 from src.config import settings
@@ -27,6 +28,9 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 _PROBE_TIMEOUT = 5.0
+# In-memory state for the single API process scheduler. It gates recovery
+# notifications so a component only announces recovery after a known degraded set.
+_last_degraded: set[str] = set()
 
 
 async def _probe_database() -> str:
@@ -54,6 +58,10 @@ async def _probe_redis() -> tuple[str, int | None]:
 
 
 async def _probe_worker() -> str:
+    # Current deployment expects exactly one worker. The shared Redis key
+    # worker:heartbeat is a single-process liveness marker, not a fleet view.
+    # Future multi-worker deployments should use per-worker keys and expected
+    # worker cardinality instead of letting one healthy worker mask another.
     try:
         beat = await asyncio.wait_for(queue.read_heartbeat(), _PROBE_TIMEOUT)
     except Exception as exc:  # noqa: BLE001 — Redis unreachable: can't judge the worker
@@ -88,7 +96,13 @@ async def check(*, alert: bool = False) -> dict:
         "status": "degraded" if degraded else "healthy",
         "components": components,
         "queue_depth": depth,
+        "ntfy": ntfy.diagnostics(),
+        "diagnostics": {
+            "worker_heartbeat": "single expected worker; process liveness, not per-worker fleet health"
+        },
     }
+    if alert:
+        await _alert_transitions(components, degraded)
     if alert and degraded:
         detail = "; ".join(f"{name}: {components[name]}" for name in degraded)
         await ntfy.notify_throttled(
@@ -100,6 +114,26 @@ async def check(*, alert: bool = False) -> dict:
             tags=["warning"],
         )
     return result
+
+
+async def _alert_transitions(components: dict[str, str], degraded: Iterable[str]) -> None:
+    global _last_degraded
+    current = set(degraded)
+    recovered = sorted(_last_degraded - current)
+    if recovered:
+        detail = "; ".join(f"{name}: {components[name]}" for name in recovered)
+        try:
+            await ntfy.notify_throttled(
+                f"health_recovered:{','.join(recovered)}",
+                f"Health check recovered — {detail}",
+                cooldown=300,
+                title="VIG — health recovered",
+                priority="default",
+                tags=["white_check_mark"],
+            )
+        except Exception:  # noqa: BLE001 — recovery alerts are best-effort only
+            log.warning("health_recovery_alert_failed")
+    _last_degraded = current
 
 
 async def queue_depth_watchdog(*, alert: bool = True) -> int | None:

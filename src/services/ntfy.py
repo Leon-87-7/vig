@@ -17,8 +17,11 @@ See docs/ops/ntfy.md for the server side.
 
 from __future__ import annotations
 
+import argparse
+import asyncio
+import sys
 import time
-from typing import Literal, Sequence
+from typing import Literal, Sequence, TypedDict
 
 import httpx
 
@@ -28,26 +31,44 @@ from src.utils.logger import get_logger
 log = get_logger(__name__)
 
 Priority = Literal["min", "low", "default", "high", "max"]
+NtfyStatus = Literal["configured", "disabled", "missing_url", "missing_token"]
 
-# ntfy priorities are 1..5; our named levels map onto them.
+class SmokeResult(TypedDict):
+    ok: bool
+    status: str
+    detail: str
+
 _PRIORITY: dict[str, int] = {"min": 1, "low": 2, "default": 3, "high": 4, "max": 5}
-
 _client: httpx.AsyncClient | None = None
-
-# Per-key send timestamps for notify_throttled — collapses a burst of the same
-# alert (e.g. a worker error loop firing every 2s) into one ping per window.
 _last_sent: dict[str, float] = {}
 
 
 def _now() -> float:
-    """Monotonic clock behind an indirection so tests can drive it without
-    patching the global ``time`` module (which other code also reads)."""
     return time.monotonic()
 
 
+def status() -> NtfyStatus:
+    has_url = bool(settings.NTFY_URL)
+    has_token = bool(settings.NTFY_TOKEN)
+    if has_url and has_token:
+        return "configured"
+    if has_url and not has_token:
+        return "missing_token"
+    if has_token and not has_url:
+        return "missing_url"
+    return "disabled"
+
+
+def diagnostics() -> dict[str, object]:
+    return {"status": status(), "topic": settings.NTFY_TOPIC, "token_configured": bool(settings.NTFY_TOKEN)}
+
+
+def log_status(component: str) -> None:
+    log.info("ntfy_status", component=component, **diagnostics())
+
+
 def enabled() -> bool:
-    """True when the publisher is configured. Callers may skip building payloads."""
-    return bool(settings.NTFY_URL and settings.NTFY_TOKEN)
+    return status() == "configured"
 
 
 def _http() -> httpx.AsyncClient:
@@ -70,15 +91,10 @@ async def notify(
     title: str | None = None,
     priority: Priority = "default",
     tags: Sequence[str] | None = None,
-) -> None:
-    """Publish an operator alert. Never raises — logs a warning on failure.
-
-    ``tags`` are ntfy tag shortcodes (e.g. ``"warning"`` → ⚠️, ``"skull"`` → 💀)
-    rendered next to the title, not free text. ``priority`` is a named level that
-    maps to ntfy's 1..5.
-    """
+) -> bool:
+    """Publish an operator alert. Never raises; returns True after HTTP success."""
     if not enabled():
-        return
+        return False
     payload: dict[str, object] = {
         "topic": settings.NTFY_TOPIC,
         "message": message,
@@ -96,8 +112,28 @@ async def notify(
         )
         resp.raise_for_status()
         log.info("ntfy_published", title=title, priority=priority)
+        return True
     except Exception as exc:  # noqa: BLE001 — best-effort channel, must not propagate
-        log.warning("ntfy_publish_failed", title=title, error=str(exc))
+        log.warning("ntfy_publish_failed", title=title, error=str(exc), status=status())
+        return False
+
+
+async def notify_with_retries(
+    message: str,
+    *,
+    attempts: int = 3,
+    delay_seconds: float = 2.0,
+    title: str | None = None,
+    priority: Priority = "default",
+    tags: Sequence[str] | None = None,
+) -> bool:
+    """Best-effort publish with short startup retries; never raises."""
+    for attempt in range(1, max(attempts, 1) + 1):
+        if await notify(message, title=title, priority=priority, tags=tags):
+            return True
+        if attempt < attempts:
+            await asyncio.sleep(delay_seconds)
+    return False
 
 
 async def notify_throttled(
@@ -108,19 +144,46 @@ async def notify_throttled(
     title: str | None = None,
     priority: Priority = "default",
     tags: Sequence[str] | None = None,
-) -> None:
-    """Like ``notify`` but sends at most once per ``cooldown`` seconds per ``key``.
-
-    Use for alerts that can fire in a tight loop (worker crash loop, a burst of
-    processor failures from one broken dependency) so the operator gets a single
-    ping, not a flood. The window is per-process and resets on restart — which is
-    the right behaviour, since a restart is itself worth re-alerting after.
-    """
+) -> bool:
     if not enabled():
-        return
+        return False
     now = _now()
     last = _last_sent.get(key)
     if last is not None and now - last < cooldown:
-        return
-    _last_sent[key] = now
-    await notify(message, title=title, priority=priority, tags=tags)
+        return False
+    published = await notify(message, title=title, priority=priority, tags=tags)
+    if published:
+        _last_sent[key] = now
+    return published
+
+
+async def smoke_test(message: str = "VIG ntfy smoke test") -> SmokeResult:
+    current = status()
+    if current != "configured":
+        return {"ok": False, "status": current, "detail": "ntfy alerting is not fully configured"}
+    published = await notify(message, title="VIG — ntfy smoke test", priority="high", tags=["test_tube"])
+    if published:
+        return {"ok": True, "status": "published", "detail": "publish accepted by ntfy"}
+    return {"ok": False, "status": "publish_failed", "detail": "auth, HTTP, or network publish failed; see logs"}
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Send a VIG ntfy smoke-test alert using app config.")
+    parser.add_argument("--message", default="VIG ntfy smoke test", help="non-secret notification body")
+    return parser
+
+
+async def _main_async(argv: list[str]) -> int:
+    args = _parser().parse_args(argv)
+    result = await smoke_test(args.message)
+    print(f"ntfy smoke test: {result['status']} - {result['detail']}")
+    await close()
+    return 0 if result["ok"] else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    return asyncio.run(_main_async(sys.argv[1:] if argv is None else argv))
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

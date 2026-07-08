@@ -145,3 +145,85 @@ async def test_notify_throttled_independent_keys(monkeypatch: pytest.MonkeyPatch
     await ntfy.notify_throttled("b", "two", cooldown=300)
 
     assert len(client.posted) == 2, "different keys must not throttle each other"
+
+
+def test_status_distinguishes_config_states(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "NTFY_URL", "")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "")
+    assert ntfy.status() == "disabled"
+
+    monkeypatch.setattr(settings, "NTFY_URL", "http://ntfy:80")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "")
+    assert ntfy.status() == "missing_token"
+
+    monkeypatch.setattr(settings, "NTFY_URL", "")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "tk_secret")
+    assert ntfy.status() == "missing_url"
+
+    monkeypatch.setattr(settings, "NTFY_URL", "http://ntfy:80")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "tk_secret")
+    assert ntfy.status() == "configured"
+    assert ntfy.diagnostics() == {"status": "configured", "topic": "vig-ops", "token_configured": True}
+
+
+@pytest.mark.asyncio
+async def test_notify_throttled_retries_after_http_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    _configure(monkeypatch)
+    failing = _FakeClient(response=_FakeResponse(500))
+    succeeding = _FakeClient()
+    clients = iter([failing, succeeding])
+    monkeypatch.setattr(ntfy, "_http", lambda: next(clients))
+    monkeypatch.setattr(ntfy, "_now", lambda: 1000.0)
+
+    await ntfy.notify_throttled("k", "first", cooldown=300)
+    await ntfy.notify_throttled("k", "second", cooldown=300)
+
+    assert failing.posted[0]["json"]["message"] == "first"
+    assert succeeding.posted[0]["json"]["message"] == "second"
+
+
+@pytest.mark.asyncio
+async def test_notify_throttled_retries_after_transport_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    _configure(monkeypatch)
+    failing = _FakeClient(raises=httpx.ConnectError("refused"))
+    succeeding = _FakeClient()
+    clients = iter([failing, succeeding])
+    monkeypatch.setattr(ntfy, "_http", lambda: next(clients))
+    monkeypatch.setattr(ntfy, "_now", lambda: 1000.0)
+
+    await ntfy.notify_throttled("k", "first", cooldown=300)
+    await ntfy.notify_throttled("k", "second", cooldown=300)
+
+    assert len(failing.posted) == 1
+    assert succeeding.posted[0]["json"]["message"] == "second"
+
+
+@pytest.mark.asyncio
+async def test_smoke_test_reports_disabled_and_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "NTFY_URL", "")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "")
+    assert await ntfy.smoke_test() == {
+        "ok": False,
+        "status": "disabled",
+        "detail": "ntfy alerting is not fully configured",
+    }
+
+    _configure(monkeypatch)
+    client = _FakeClient()
+    monkeypatch.setattr(ntfy, "_http", lambda: client)
+    result = await ntfy.smoke_test("hello")
+
+    assert result == {"ok": True, "status": "published", "detail": "publish accepted by ntfy"}
+    assert client.posted[0]["json"]["message"] == "hello"
+
+@pytest.mark.asyncio
+async def test_notify_with_retries_succeeds_when_ntfy_becomes_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    _configure(monkeypatch)
+    failing = _FakeClient(raises=httpx.ConnectError("refused"))
+    succeeding = _FakeClient()
+    clients = iter([failing, succeeding])
+    monkeypatch.setattr(ntfy, "_http", lambda: next(clients))
+
+    assert await ntfy.notify_with_retries("startup", attempts=2, delay_seconds=0) is True
+    assert len(failing.posted) == 1
+    assert succeeding.posted[0]["json"]["message"] == "startup"

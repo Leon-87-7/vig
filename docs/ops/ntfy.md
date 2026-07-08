@@ -13,13 +13,22 @@ existing Cloudflare Tunnel. No host port is opened.
 
 ```
 phone / desktop (ntfy app)
-        │  subscribe ntfy.leondev.xyz/vig-ops  (with token)
+        │  operator subscription URL: https://ntfy.leondev.xyz/vig-ops
         ▼
-ntfy.leondev.xyz (Cloudflare Tunnel) ──> ntfy container :80 (vig-network)
+public ntfy base URL: https://ntfy.leondev.xyz (Cloudflare Tunnel)
+        │
+        ▼
+ntfy container :80 (vig-network)
         ▲
-        │  POST /vig-ops  (Authorization: Bearer tk_...)
+        │  internal publisher URL: http://ntfy:80 (Authorization: Bearer tk_...)
    VIG api / worker  ── publishes alerts on failure
 ```
+
+URL roles:
+
+- **ntfy base URL** (`NTFY_BASE_URL`) is the public origin ntfy uses for links and the web UI.
+- **VIG internal publisher URL** (`NTFY_URL`) is what the API/worker post to from Docker; production should use `http://ntfy:80`, not Cloudflare.
+- **operator subscription URL** is `https://ntfy.leondev.xyz/vig-ops` for phone/desktop clients.
 
 The instance is **private**: `NTFY_AUTH_DEFAULT_ACCESS=deny-all` means neither
 publishing nor subscribing works without an access token. This is real auth, not
@@ -114,14 +123,22 @@ Settings → **"Delivered by the ntfy.sh server"** is enabled for the subscripti
 
 ## Publishing an alert (manual test)
 
+Use the VIG smoke test first; it exercises the configured `NTFY_URL`, `NTFY_TOPIC`, and token handling used by API/worker alerts:
+
+```bash
+docker compose exec api python -m src.services.ntfy --message "post-deploy ntfy smoke test"
+```
+
+Outcomes are explicit: `published` means ntfy accepted the publish; `disabled`, `missing_url`, or `missing_token` means app config is incomplete; `publish_failed` means auth, HTTP, or network failed without printing the token. Run this after token rotation, compose deploys, tunnel changes, or ntfy container/volume recreation.
+
+Manual public-path test (Cloudflare/subscription route, not the app publish path):
+
 ```bash
 curl -H "Authorization: Bearer $NTFY_TOKEN" \
      -H "Title: VIG" -H "Priority: high" -H "Tags: warning" \
-     -d "worker error loop — jobs not draining" \
+     -d "public path test" \
      https://ntfy.leondev.xyz/vig-ops
 ```
-
-The VIG app does the same over `httpx` from `src/services/ntfy.py`.
 
 ## What triggers an alert
 
@@ -156,9 +173,6 @@ like death); the key carries a TTL and is considered stale past
 
 | Var                         | Value                        | Why                                              |
 | --------------------------- | ---------------------------- | ------------------------------------------------ |
-
-| Var                         | Value                        | Why                                              |
-| --------------------------- | ---------------------------- | ------------------------------------------------ |
 | `NTFY_BASE_URL`             | `https://ntfy.leondev.xyz`   | Correct links + web app origin behind the proxy  |
 | `NTFY_BEHIND_PROXY`         | `true`                       | Trust `X-Forwarded-For` from Cloudflare          |
 | `NTFY_AUTH_FILE`            | `/var/lib/ntfy/user.db`      | User/token store (persisted in `ntfy_lib`)       |
@@ -173,7 +187,7 @@ means recreating every user and token.
 
 | Var                                  | Default          | Purpose                                                      |
 | ------------------------------------ | ---------------- | ------------------------------------------------------------ |
-| `NTFY_URL`                           | _(unset)_        | Publish target. Unset ⇒ all alerting no-ops (dev/test safe). |
+| `NTFY_URL`                           | _(unset)_        | VIG internal publisher URL; use `http://ntfy:80` in Docker. Unset ⇒ no-op. |
 | `NTFY_TOPIC`                         | `vig-ops`        | Topic alerts are published to.                               |
 | `NTFY_TOKEN`                         | _(unset)_        | `tk_...` bearer token. Unset ⇒ alerting no-ops.              |
 | `QUEUE_DEPTH_ALERT_THRESHOLD`        | `50`             | Backlog size that trips the queue watchdog.                  |
@@ -181,6 +195,29 @@ means recreating every user and token.
 | `WORKER_HEARTBEAT_INTERVAL_SECONDS`  | `15`             | How often the worker writes its heartbeat.                   |
 | `WORKER_HEARTBEAT_MAX_AGE_SECONDS`   | `90`             | Age past which the worker is judged down.                    |
 
-Both `NTFY_URL` and `NTFY_TOKEN` must be set for anything to publish — otherwise
-every hook point silently no-ops, which is exactly what you want in tests and on
-an unconfigured deploy.
+Both `NTFY_URL` and `NTFY_TOKEN` must be set for anything to publish — otherwise every hook point no-ops. `/health` reports the non-secret alerting status (`configured`, `disabled`, `missing_url`, or `missing_token`) so production misconfiguration is visible without making ntfy a product dependency.
+
+## Post-deploy verification checklist
+
+Run in order after token rotation, compose redeploys, ntfy volume recreation, or tunnel hostname changes:
+
+1. **Container health:** `docker compose ps ntfy` should show healthy; `docker compose exec ntfy wget -qO- http://localhost:80/v1/health` should contain `"healthy":true`.
+2. **Token/user exists:** `docker compose exec ntfy ntfy user list` and `docker compose exec ntfy ntfy token list operator` should show the expected account/token metadata, never the app secret in docs or logs. Auth failures here usually surface as 401/403.
+3. **App env:** `docker compose exec api python - <<'PY'
+from src.services import ntfy
+print(ntfy.diagnostics())
+PY` should report `configured`, topic `vig-ops`, and `token_configured: True`. `missing_url`/`missing_token` is app config, not ntfy downtime.
+4. **Internal publish:** run `docker compose exec api python -m src.services.ntfy --message "post-deploy ntfy smoke test"`. `published` proves VIG-to-ntfy over `http://ntfy:80`; `publish_failed` points to Docker DNS/network, ntfy auth, or ntfy service health.
+5. **Public subscription:** open `https://ntfy.leondev.xyz` or curl the public-path example above. Failure here with internal publish passing points to Cloudflare/tunnel/hostname, not app config.
+6. **Device receipt:** confirm the subscribed phone/desktop receives the smoke-test alert on `https://ntfy.leondev.xyz/vig-ops`. If public web works but device does not, inspect app login/subscription or mobile notification settings.
+
+## Startup alert readiness
+
+The API and worker log a non-secret `ntfy_status` at startup. Startup alerts use
+the same internal publisher URL (`http://ntfy:80` in Docker) and a short
+best-effort retry path for webhook-registration failures, so alerts have a chance
+to land if ntfy becomes ready shortly after the API. If ntfy is still unavailable,
+the API continues serving and the webhook failure remains visible in normal logs.
+Compose starts ntfy before the API/worker without making ntfy a hard product
+dependency; if ntfy is down, app behavior continues and alerting reports as
+`disabled`, `missing_url`, `missing_token`, or `publish_failed`.

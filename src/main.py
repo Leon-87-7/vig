@@ -35,7 +35,7 @@ async def _register_webhook() -> None:
     else:
         log.error("webhook_registration_failed", response=data)
         from src.services import ntfy
-        await ntfy.notify(
+        await ntfy.notify_with_retries(
             f"Telegram webhook registration failed — the bot is deaf to updates: {data}",
             title="VIG — webhook registration failed",
             priority="max",
@@ -48,6 +48,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     from src.config import settings
 
     log.info("api_starting")
+    from src.services import ntfy
+    ntfy.log_status("api")
     await database.init_db()
     from src import brain
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -71,7 +73,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     scheduler.shutdown(wait=False)
     await sender.close()
     await queue.close()
-    from src.services import ntfy
     await ntfy.close()
     from src.auth import session as session_store
     await session_store.close()

@@ -148,3 +148,49 @@ async def test_watchdog_redis_error_is_quiet(monkeypatch: pytest.MonkeyPatch, ca
 
     assert depth is None, "unreachable Redis → None, not an alert (health check owns that failure)"
     assert captured_alerts == []
+
+@pytest.fixture(autouse=True)
+def _reset_health_state() -> None:
+    health._last_degraded.clear()
+
+
+@pytest.mark.asyncio
+async def test_health_includes_ntfy_diagnostics(monkeypatch: pytest.MonkeyPatch, captured_alerts: list[dict]) -> None:
+    monkeypatch.setattr(settings, "NTFY_URL", "http://ntfy:80")
+    monkeypatch.setattr(settings, "NTFY_TOKEN", "")
+    _stub_redis_healthy(monkeypatch)
+
+    result = await health.check(alert=False)
+
+    assert result["ntfy"]["status"] == "missing_token"
+    assert result["ntfy"]["token_configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_single_worker_paths(monkeypatch: pytest.MonkeyPatch, captured_alerts: list[dict]) -> None:
+    _stub_redis_healthy(monkeypatch, beat_age=1)
+    assert (await health.check(alert=True))["components"]["worker"] == "healthy"
+
+    async def _no_beat() -> None:
+        return None
+    monkeypatch.setattr(queue, "read_heartbeat", _no_beat)
+    assert (await health.check(alert=True))["components"]["worker"] == "unhealthy: no heartbeat"
+
+    _stub_redis_healthy(monkeypatch, beat_age=settings.WORKER_HEARTBEAT_MAX_AGE_SECONDS + 1)
+    assert "stale heartbeat" in (await health.check(alert=True))["components"]["worker"]
+
+
+@pytest.mark.asyncio
+async def test_health_recovery_transitions(monkeypatch: pytest.MonkeyPatch, captured_alerts: list[dict]) -> None:
+    _stub_redis_healthy(monkeypatch, beat_age=settings.WORKER_HEARTBEAT_MAX_AGE_SECONDS + 30)
+    await health.check(alert=True)
+    await health.check(alert=True)
+    _stub_redis_healthy(monkeypatch, beat_age=1)
+    await health.check(alert=True)
+
+    assert [a["title"] for a in captured_alerts] == [
+        "VIG — health degraded",
+        "VIG — health degraded",
+        "VIG — health recovered",
+    ]
+    assert captured_alerts[-1]["key"] == "health_recovered:worker"

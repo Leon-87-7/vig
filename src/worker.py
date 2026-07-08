@@ -300,6 +300,8 @@ async def _heartbeat_loop() -> None:
 
 
 async def loop() -> None:
+    from src.services import ntfy
+    ntfy.log_status("worker")
     log.info("worker_started")
     await database.init_db()  # idempotent — safe if api container ran it first
 
