@@ -34,6 +34,13 @@ async def _register_webhook() -> None:
         log.info("webhook_registered", url=payload["url"])
     else:
         log.error("webhook_registration_failed", response=data)
+        from src.services import ntfy
+        await ntfy.notify(
+            f"Telegram webhook registration failed — the bot is deaf to updates: {data}",
+            title="VIG — webhook registration failed",
+            priority="max",
+            tags=["rotating_light"],
+        )
 
 
 @asynccontextmanager
@@ -58,6 +65,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     log.info("api_shutting_down")
     await sender.close()
     await queue.close()
+    from src.services import ntfy
+    await ntfy.close()
     from src.auth import session as session_store
     await session_store.close()
 
