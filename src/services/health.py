@@ -74,12 +74,6 @@ async def _probe_worker() -> str:
     return "healthy"
 
 
-def _is_healthy(component_status: str) -> bool:
-    # 'unknown: ...' (can't probe) is not counted as degraded — it usually rides
-    # along with a redis 'unhealthy' that already alerts, and shouldn't double-fire.
-    return component_status.startswith("healthy")
-
-
 async def check(*, alert: bool = False) -> dict:
     """Probe DB, Redis, and worker liveness. Returns a status dict; optionally
     fires a throttled ntfy alert when any component is degraded."""
@@ -120,6 +114,7 @@ async def _alert_transitions(components: dict[str, str], degraded: Iterable[str]
     global _last_degraded
     current = set(degraded)
     recovered = sorted(_last_degraded - current)
+    _last_degraded = current
     if recovered:
         detail = "; ".join(f"{name}: {components[name]}" for name in recovered)
         try:
@@ -133,7 +128,6 @@ async def _alert_transitions(components: dict[str, str], degraded: Iterable[str]
             )
         except Exception:  # noqa: BLE001 — recovery alerts are best-effort only
             log.warning("health_recovery_alert_failed")
-    _last_degraded = current
 
 
 async def queue_depth_watchdog(*, alert: bool = True) -> int | None:
@@ -146,6 +140,12 @@ async def queue_depth_watchdog(*, alert: bool = True) -> int | None:
     except Exception as exc:  # noqa: BLE001
         log.warning("queue_depth_probe_failed", error=str(exc))
         return None
+    await _alert_queue_depth(depth, alert=alert)
+    return depth
+
+
+async def _alert_queue_depth(depth: int, *, alert: bool = True) -> None:
+    """Emit the queue-depth warning/alert for an already-observed depth."""
     if depth >= settings.QUEUE_DEPTH_ALERT_THRESHOLD:
         log.warning("queue_depth_high", depth=depth, threshold=settings.QUEUE_DEPTH_ALERT_THRESHOLD)
         if alert:
@@ -158,7 +158,6 @@ async def queue_depth_watchdog(*, alert: bool = True) -> int | None:
                 priority="high",
                 tags=["warning"],
             )
-    return depth
 
 
 async def scheduled_check() -> None:
@@ -168,7 +167,9 @@ async def scheduled_check() -> None:
     external ping. Best-effort: never lets an exception escape into the scheduler.
     """
     try:
-        await check(alert=True)
-        await queue_depth_watchdog(alert=True)
+        result = await check(alert=True)
+        depth = result.get("queue_depth")
+        if isinstance(depth, int):
+            await _alert_queue_depth(depth, alert=True)
     except Exception:  # noqa: BLE001
         log.exception("scheduled_health_check_failed")

@@ -194,3 +194,30 @@ async def test_health_recovery_transitions(monkeypatch: pytest.MonkeyPatch, capt
         "VIG — health recovered",
     ]
     assert captured_alerts[-1]["key"] == "health_recovered:worker"
+
+
+@pytest.mark.asyncio
+async def test_scheduled_check_reuses_health_queue_depth(
+    monkeypatch: pytest.MonkeyPatch, captured_alerts: list[dict]
+) -> None:
+    calls = 0
+
+    async def _ping() -> bool:
+        return True
+
+    async def _queue_depth() -> int:
+        nonlocal calls
+        calls += 1
+        return settings.QUEUE_DEPTH_ALERT_THRESHOLD
+
+    async def _read_heartbeat() -> float:
+        return time.time()
+
+    monkeypatch.setattr(queue, "ping", _ping)
+    monkeypatch.setattr(queue, "queue_depth", _queue_depth)
+    monkeypatch.setattr(queue, "read_heartbeat", _read_heartbeat)
+
+    await health.scheduled_check()
+
+    assert calls == 1
+    assert captured_alerts[0]["key"] == "queue_depth"
