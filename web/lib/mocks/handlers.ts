@@ -67,7 +67,12 @@ function mockDocumentOutputBody(outputId: string): string {
 }
 
 export function makeHandlers(seed: Seed) {
-const jobs = seed.jobs;
+const jobs = seed.jobs.slice();
+MOCK_DOCUMENT_JOB_IDS.forEach((id) => {
+  if (!jobs.some((job) => job.id === id)) {
+    jobs.push(mockDocumentJob(id));
+  }
+});
 const tags = seed.tags.slice();
 const jobTags = new Set(seed.job_tags.map((jt) => `${jt.job_id}:${jt.tag_id}`));
 const templates: Template[] = [
@@ -81,7 +86,7 @@ const annotations = new Map<string, { notes: string; updated_at: string | null }
 );
 const findJob = (id: string) => jobs.find((j) => j.id === id);
 const canServeParsedDocument = (id: string) =>
-  findJob(id)?.content_type === 'document' || MOCK_DOCUMENT_JOB_IDS.has(id);
+  findJob(id)?.content_type === 'document';
 
 // Order matters: more specific paths first (`/api/jobs/:id` also matches `/api/jobs/stats`).
 return [
@@ -183,7 +188,6 @@ return [
     const id = params.id as string;
     const job = findJob(id);
     if (job) return HttpResponse.json(job);
-    if (MOCK_DOCUMENT_JOB_IDS.has(id)) return HttpResponse.json(mockDocumentJob(id));
     return new HttpResponse(null, { status: 404 });
   }),
   http.get('/api/jobs', ({ request }) => {
