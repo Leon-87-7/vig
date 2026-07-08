@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Copy, Download, ExternalLink, Sparkles } from 'lucide-react';
+import { DocumentSourceChip } from '@/components/document-source-chip';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
 import { downloadBlob } from '@/components/ExportModal';
 import { PageShell } from '@/components/page-shell';
@@ -34,6 +35,18 @@ async function fetchOutputContent(output: Output) {
   const res = await fetch(output.content_url, { headers: { Accept: accept } });
   if (!res.ok) throw new Error(`Output request failed (${res.status})`);
   return res.text();
+}
+
+async function fetchJsonOrThrow<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (res.ok) return res.json();
+
+  const detail = await res.json().catch(() => null);
+  const message =
+    typeof detail?.detail === 'string'
+      ? detail.detail
+      : detail?.detail?.message;
+  throw new Error(message || `Request failed (${res.status})`);
 }
 
 function OutputCard({ job, output }: { job: Job; output: Output }) {
@@ -130,20 +143,20 @@ export default function DocDetail() {
     async function load() {
       try {
         const [j, o] = await Promise.all([
-          fetch(`/api/jobs/${id}`).then((r) => {
-            if (!r.ok) throw new Error(`jobs fetch failed: ${r.status}`);
-            return r.json();
-          }),
-          fetch(`/api/parsed/${id}/outputs`).then((r) => {
-            if (!r.ok) throw new Error(`outputs fetch failed: ${r.status}`);
-            return r.json();
-          }),
+          fetchJsonOrThrow<Job>(`/api/jobs/${id}`),
+          fetchJsonOrThrow<Output[]>(`/api/parsed/${id}/outputs`),
         ]);
         if (cancelled) return;
         setJob(j);
         setOuts(o);
-      } catch {
-        if (!cancelled) setErr('Failed to load document. Please refresh.');
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof Error && error.message
+              ? error.message
+              : 'Failed to load document. Please refresh.';
+          setErr(`Failed to load document: ${message}`);
+        }
       }
     }
     load();
@@ -199,7 +212,7 @@ export default function DocDetail() {
         <button onClick={clean} disabled={busy} className="rounded-md bg-signal px-4 py-2 text-sm text-onsignal disabled:opacity-50">Clean</button>
         <button onClick={() => setOpen(true)} disabled={busy} className="rounded-md border border-line px-4 py-2 text-sm text-ink disabled:opacity-50">Freestyle</button>
         {rawParse && <a href={rawParse.content_url} target="_blank" rel="noopener noreferrer" className="rounded-md border border-line px-4 py-2 text-sm text-ink">Get Markdown</a>}
-        {job.url && <span className="rounded-md border border-line px-4 py-2 font-mono text-xs text-muted">{job.url}</span>}
+        {job.url && <DocumentSourceChip source={job.url} />}
       </div>
 
       <section className="grid gap-3 md:grid-cols-2">
