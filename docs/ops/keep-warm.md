@@ -80,13 +80,21 @@ free tier floors at a 5-min interval.
 
 ## The `/health` endpoint
 
-Confirmed unauthenticated in `src/main.py` (lines 83-85):
+Unauthenticated in `src/main.py` and **always returns HTTP 200** so this
+keep-warm monitor stays green while the API is serving. It now probes DB, Redis,
+and worker liveness and returns that detail in the body (see
+`src/services/health.py` and `ntfy.md`):
 
-```python
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+```jsonc
+{ "status": "healthy",            // or "degraded"
+  "components": { "database": "healthy", "redis": "healthy", "worker": "healthy" },
+  "queue_depth": 0 }
 ```
+
+Component degradation is surfaced via the ntfy operator channel (throttled), **not**
+via a non-200 status — so this monitor keeps treating 200 as "reachable" and won't
+flap when, say, only the worker heartbeat goes stale. A hard down (process not
+serving) still yields no response and trips the 3-failure alert below.
 
 No auth middleware applies — it is intentionally open per CONTEXT.md:
 > `/webhook` (Telegram secret-token auth) and `/health` stay open

@@ -50,19 +50,25 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     log.info("api_starting")
     await database.init_db()
     from src import brain
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    from src.services import health
 
+    scheduler = AsyncIOScheduler()
     if settings.GOOGLE_DRIVE_FOLDER_BRAIN:
         await brain.init_db()
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-        scheduler = AsyncIOScheduler()
         scheduler.add_job(brain.refresh_stale_links, "cron", hour=9, day_of_week="sun,wed")
-        scheduler.start()
         log.info("brain_scheduler_started")
+    # Backstop health probe + queue-depth watchdog — fires ntfy on degradation
+    # even when nothing is pinging /health.
+    scheduler.add_job(
+        health.scheduled_check, "interval", minutes=settings.HEALTH_CHECK_INTERVAL_MINUTES
+    )
+    scheduler.start()
     await _register_webhook()
     log.info("api_ready")
     yield
     log.info("api_shutting_down")
+    scheduler.shutdown(wait=False)
     await sender.close()
     await queue.close()
     from src.services import ntfy
@@ -94,5 +100,10 @@ app.include_router(templates_router)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict:
+    """Liveness + component readiness. Always HTTP 200 (the keep-warm monitor
+    treats 200 as 'API serving'); the body carries DB/Redis/worker status and a
+    degraded result fires a throttled ntfy alert. See src/services/health.py."""
+    from src.services import health as health_svc
+
+    return await health_svc.check(alert=True)

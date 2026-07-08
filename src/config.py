@@ -99,6 +99,16 @@ class Settings(BaseSettings):
     NTFY_TOPIC: str = "vig-ops"
     NTFY_TOKEN: str = ""
 
+    # Health check + watchdogs (ntfy operator alerts). The api runs a scheduled
+    # backstop check every HEALTH_CHECK_INTERVAL_MINUTES and GET /health probes
+    # on demand; both fire ntfy (throttled) on degradation. The worker writes a
+    # heartbeat every WORKER_HEARTBEAT_INTERVAL_SECONDS; the health check treats
+    # it as down once older than WORKER_HEARTBEAT_MAX_AGE_SECONDS.
+    QUEUE_DEPTH_ALERT_THRESHOLD: int = 50
+    HEALTH_CHECK_INTERVAL_MINUTES: int = 5
+    WORKER_HEARTBEAT_INTERVAL_SECONDS: int = 15
+    WORKER_HEARTBEAT_MAX_AGE_SECONDS: int = 90
+
     def _google_token_readable(self, encrypted_token: str) -> bool:
         try:
             payload = (

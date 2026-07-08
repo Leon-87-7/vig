@@ -19,6 +19,7 @@ import asyncio
 import time
 
 from src import database, queue
+from src.config import settings
 from src.utils import job_tag
 from src.utils.logger import configure_logging, get_logger
 
@@ -282,6 +283,22 @@ async def reap_stale_jobs() -> None:
             log.exception("jobs.reaper.notify_failed", job_id=job_id)
 
 
+async def _heartbeat_loop() -> None:
+    """Write the worker liveness beacon on its own cadence, independent of the
+    dequeue loop, so a long-running job doesn't make the worker look dead. The
+    key carries a TTL (3× interval) so a crashed worker's beacon self-expires and
+    the api's health check flips to degraded. Never raises — a transient Redis
+    blip must not kill the heartbeat task."""
+    interval = settings.WORKER_HEARTBEAT_INTERVAL_SECONDS
+    ttl = max(interval * 3, settings.WORKER_HEARTBEAT_MAX_AGE_SECONDS)
+    while True:
+        try:
+            await queue.write_heartbeat(ttl=ttl)
+        except Exception:
+            log.warning("worker_heartbeat_failed")
+        await asyncio.sleep(interval)
+
+
 async def loop() -> None:
     log.info("worker_started")
     await database.init_db()  # idempotent — safe if api container ran it first
@@ -291,37 +308,41 @@ async def loop() -> None:
     await _prd.reaper_intent()
     await reap_stale_jobs()
 
-    while True:
-        try:
-            task = await queue.dequeue()
-            if task is None:
-                continue
+    heartbeat = asyncio.create_task(_heartbeat_loop())
+    try:
+        while True:
+            try:
+                task = await queue.dequeue()
+                if task is None:
+                    continue
 
-            started = time.time()
-            log.info("task_started", task=task["task"], job_id=task["job_id"])
-            await _dispatch(task)
-            elapsed_ms = int((time.time() - started) * 1000)
-            log.info(
-                "task_complete",
-                task=task["task"],
-                job_id=task["job_id"],
-                duration_ms=elapsed_ms,
-            )
-        except asyncio.CancelledError:
-            log.info("worker_cancelled")
-            raise
-        except Exception:
-            log.exception("worker_error")
-            from src.services import ntfy
-            await ntfy.notify_throttled(
-                "worker_error",
-                "Worker dequeue loop is erroring — jobs may not be draining. Check logs.",
-                cooldown=300,
-                title="VIG — worker error loop",
-                priority="max",
-                tags=["rotating_light"],
-            )
-            await asyncio.sleep(2)
+                started = time.time()
+                log.info("task_started", task=task["task"], job_id=task["job_id"])
+                await _dispatch(task)
+                elapsed_ms = int((time.time() - started) * 1000)
+                log.info(
+                    "task_complete",
+                    task=task["task"],
+                    job_id=task["job_id"],
+                    duration_ms=elapsed_ms,
+                )
+            except asyncio.CancelledError:
+                log.info("worker_cancelled")
+                raise
+            except Exception:
+                log.exception("worker_error")
+                from src.services import ntfy
+                await ntfy.notify_throttled(
+                    "worker_error",
+                    "Worker dequeue loop is erroring — jobs may not be draining. Check logs.",
+                    cooldown=300,
+                    title="VIG — worker error loop",
+                    priority="max",
+                    tags=["rotating_light"],
+                )
+                await asyncio.sleep(2)
+    finally:
+        heartbeat.cancel()
 
 
 def main() -> None:
