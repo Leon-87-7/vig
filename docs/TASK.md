@@ -713,7 +713,7 @@ Brain loses the redundant Links table.
   grouped actions and right-aligned `CommandShortcut` hints, reusing the existing
   dashboard dialog styling. On desktop, show one visible `Commands` launcher
   button instead of separate sibling header buttons for Submit URL / Docs ingest;
-  `Submit URL` is an item inside the launcher. The launcher shows `Cmd/Ctrl+K`
+  `Submit URL` is an item inside the launcher. The launcher shows `Cmd/Ctrl+Shift+K`
   as its shortcut hint. Preserve editable-target guards for all global shortcuts.
   Commands:
   - `Submit URL` — shortcut `N` ("new").

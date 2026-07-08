@@ -91,6 +91,30 @@ describe('SubmitJobProvider', () => {
     expect(screen.getByText('submit closed')).toBeTruthy();
   });
 
+  it('does not open the command launcher with Ctrl+K', () => {
+    render(
+      <SubmitJobProvider>
+        <span />
+      </SubmitJobProvider>,
+    );
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: 'k' });
+
+    expect(screen.queryByText('Command launcher')).toBeNull();
+  });
+
+  it('opens the command launcher with Ctrl+Shift+K', () => {
+    render(
+      <SubmitJobProvider>
+        <span />
+      </SubmitJobProvider>,
+    );
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: 'K', shiftKey: true });
+
+    expect(screen.getByText('Command launcher')).toBeTruthy();
+  });
+
   it('infers an optimistic article type when the accepted response omits content_type', async () => {
     vi.stubGlobal(
       'fetch',

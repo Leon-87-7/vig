@@ -314,6 +314,7 @@ export function SubmitJobProvider({
       if (
         key === 'k' &&
         (event.metaKey || event.ctrlKey) &&
+        event.shiftKey &&
         !event.altKey &&
         !shouldIgnoreGlobalShortcut(event.target)
       ) {
