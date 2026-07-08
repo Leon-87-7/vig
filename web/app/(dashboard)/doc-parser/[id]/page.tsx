@@ -37,16 +37,30 @@ async function fetchOutputContent(output: Output) {
   return res.text();
 }
 
+function responseDetail(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object' || !('detail' in payload)) {
+    return undefined;
+  }
+  return (payload as { detail?: unknown }).detail;
+}
+
+function extractErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string') return detail;
+  if (detail && typeof detail === 'object' && 'message' in detail) {
+    const message = (detail as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+  }
+  return fallback;
+}
+
 async function fetchJsonOrThrow<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (res.ok) return res.json();
 
-  const detail = await res.json().catch(() => null);
-  const message =
-    typeof detail?.detail === 'string'
-      ? detail.detail
-      : detail?.detail?.message;
-  throw new Error(message || `Request failed (${res.status})`);
+  const payload = await res.json().catch(() => null);
+  throw new Error(
+    extractErrorMessage(responseDetail(payload), `Request failed (${res.status})`),
+  );
 }
 
 function OutputCard({ job, output }: { job: Job; output: Output }) {
@@ -171,8 +185,13 @@ export default function DocDetail() {
     try {
       const r = await send();
       if (!r.ok) {
-        const detail = await r.json().catch(() => null);
-        setErr(detail?.detail?.message || 'Action failed. Please try again.');
+        const payload = await r.json().catch(() => null);
+        setErr(
+          extractErrorMessage(
+            responseDetail(payload),
+            'Action failed. Please try again.',
+          ),
+        );
         return;
       }
       setReloadKey((key) => key + 1);

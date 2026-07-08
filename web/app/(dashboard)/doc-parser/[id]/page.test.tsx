@@ -173,6 +173,24 @@ describe('DocDetail', () => {
     ).toBeTruthy();
   });
 
+  it('shows string backend detail for action failures', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/jobs/job-1') return Response.json(job);
+      if (url === '/api/parsed/job-1/outputs') return Response.json(outputs);
+      if (url === '/api/parsed/job-1/clean') {
+        return Response.json({ detail: 'Not authenticated' }, { status: 401 });
+      }
+      return new Response('not found', { status: 404 });
+    }));
+
+    render(<DocDetail />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Clean' }));
+
+    expect(await screen.findByText('Not authenticated')).toBeTruthy();
+  });
+
   it('does not apply a stale response after id changes', async () => {
     let resolveFirst: (value: unknown) => void;
     const firstJob = new Promise((resolve) => {
