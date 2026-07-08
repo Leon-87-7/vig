@@ -91,6 +91,33 @@ describe('DocDetail', () => {
     expect(await screen.findByText('Copied source SHA-256')).toBeTruthy();
   });
 
+  it('uses generic copy text for fallback source values', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/jobs/job-1') {
+        return Response.json({
+          ...job,
+          url: 'https://example.com/source.pdf',
+        });
+      }
+      if (url === '/api/parsed/job-1/outputs') return Response.json(outputs);
+      return new Response('not found', { status: 404 });
+    }));
+
+    render(<DocDetail />);
+
+    expect(await screen.findByText('PDF')).toBeTruthy();
+    expect(screen.getByText('source')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /^copy source$/i }));
+
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith('source'),
+    );
+    expect(await screen.findByText('Copied source')).toBeTruthy();
+    expect(screen.queryByText('Copied source SHA-256')).toBeNull();
+  });
+
   it('copies the full output instead of the truncated preview and shows copied feedback', async () => {
     render(<DocDetail />);
 

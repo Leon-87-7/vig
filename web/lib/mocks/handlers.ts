@@ -16,6 +16,10 @@ export interface Seed {
 
 const MOCK_DOCUMENT_SHA =
   '9a3aa177427fe1acc654db0235e999ead2d8c8f7e094e28e4ac6e13fdbe34ed5';
+const MOCK_DOCUMENT_JOB_IDS = new Set([
+  '20260619_214843_1A77D8D1',
+  '20260707_232015_218BFDA4',
+]);
 
 function mockDocumentJob(id: string): Job {
   return {
@@ -75,20 +79,32 @@ const templates: Template[] = [
 const annotations = new Map<string, { notes: string; updated_at: string | null }>(
   seed.annotations.map((a) => [a.job_id, { notes: a.notes, updated_at: a.updated_at }]),
 );
+const findJob = (id: string) => jobs.find((j) => j.id === id);
+const canServeParsedDocument = (id: string) =>
+  findJob(id)?.content_type === 'document' || MOCK_DOCUMENT_JOB_IDS.has(id);
 
 // Order matters: more specific paths first (`/api/jobs/:id` also matches `/api/jobs/stats`).
 return [
   http.get('/api/parsed/:id/outputs/:outputId', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
     return new HttpResponse(mockDocumentOutputBody(params.outputId as string), {
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
   }),
 
   http.get('/api/parsed/:id/outputs', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
     return HttpResponse.json(mockDocumentOutputs(params.id as string));
   }),
 
-  http.put('/api/parsed/:id/telegram-delivery', async ({ request }) => {
+  http.put('/api/parsed/:id/telegram-delivery', async ({ params, request }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
     const body = (await request.json()) as { state?: string };
     return HttpResponse.json({
       telegram_delivery: body.state === 'retroactive' ? 'on' : body.state ?? 'off',
@@ -97,6 +113,9 @@ return [
   }),
 
   http.post('/api/parsed/:id/clean', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
     return HttpResponse.json(
       {
         id: 'mock-clean',
@@ -111,6 +130,9 @@ return [
   }),
 
   http.post('/api/parsed/:id/freestyle', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
     return HttpResponse.json(
       {
         id: 'mock-freestyle',
@@ -158,8 +180,11 @@ return [
   }),
 
   http.get('/api/jobs/:id', ({ params }) => {
-    const job = jobs.find((j) => j.id === params.id);
-    return HttpResponse.json(job ?? mockDocumentJob(params.id as string));
+    const id = params.id as string;
+    const job = findJob(id);
+    if (job) return HttpResponse.json(job);
+    if (MOCK_DOCUMENT_JOB_IDS.has(id)) return HttpResponse.json(mockDocumentJob(id));
+    return new HttpResponse(null, { status: 404 });
   }),
   http.get('/api/jobs', ({ request }) => {
     const p = new URL(request.url).searchParams;

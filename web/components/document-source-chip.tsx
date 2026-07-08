@@ -16,6 +16,7 @@ export function getDocumentSourceMeta(source: string) {
       format: match[2].toUpperCase(),
       shortId: match[1].slice(0, 8),
       copyValue: match[1],
+      isSha: true,
     };
   }
 
@@ -42,6 +43,7 @@ export function getDocumentSourceMeta(source: string) {
     format: extension.toUpperCase(),
     shortId: stem.slice(0, 8),
     copyValue: stem,
+    isSha: false,
   };
 }
 
@@ -67,16 +69,18 @@ export function DocumentSourceChip({ source }: { source: string }) {
     }
   }
 
+  const sourceLabel = meta.isSha ? 'source SHA-256' : 'source';
+
   const copyLabel =
     copyState === 'copied'
-      ? 'Copied source SHA-256'
+      ? `Copied ${sourceLabel}`
       : copyState === 'copy_failed'
         ? 'Copy failed'
-        : 'Copy source SHA-256';
+        : `Copy ${sourceLabel}`;
 
   const liveMessage =
     copyState === 'copied'
-      ? 'Copied source SHA-256'
+      ? `Copied ${sourceLabel}`
       : copyState === 'copy_failed'
         ? 'Copy failed'
         : '';
@@ -99,7 +103,7 @@ export function DocumentSourceChip({ source }: { source: string }) {
         <button
           type="button"
           onClick={copySourceId}
-          aria-label="Copy source SHA-256"
+          aria-label={`Copy ${sourceLabel}`}
           className={`-my-1 -mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded text-muted transition-ui hover:text-ink active:scale-[0.96] ${
             copyState === 'copy_failed' ? 'text-status-error' : ''
           }`}
