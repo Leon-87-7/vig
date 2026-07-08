@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 interface Job { id: string; content_type: string; status: string; [k: string]: unknown }
 interface Tag { id: string; name: string; meaning: string; color: string }
 interface Template { id: string; name: string; description: string; extra_instructions: string; is_builtin: boolean; created_at?: string; updated_at?: string }
+interface DocumentOutput { id: string; kind: string; title: string; preview: string; content_url: string; created_at: string }
 export interface Seed {
   jobs: Job[];
   tags: Tag[];
@@ -13,8 +14,65 @@ export interface Seed {
   annotations: { job_id: string; notes: string; updated_at: string | null }[];
 }
 
+const MOCK_DOCUMENT_SHA =
+  '9a3aa177427fe1acc654db0235e999ead2d8c8f7e094e28e4ac6e13fdbe34ed5';
+const MOCK_DOCUMENT_JOB_IDS = new Set([
+  '20260619_214843_1A77D8D1',
+  '20260707_232015_218BFDA4',
+]);
+
+function mockDocumentJob(id: string): Job {
+  return {
+    id,
+    content_type: 'document',
+    status: 'done',
+    title:
+      'PRE-INSTALLATION GUIDE WASSENBURG PROCESS MANAGER IIPLUS',
+    url: `documents/${MOCK_DOCUMENT_SHA}.pdf`,
+    telegram_delivery: 'off',
+    created_at: '2026-07-07 23:20:15',
+    updated_at: '2026-07-07 23:22:10',
+    completed_at: '2026-07-07T23:22:10Z',
+  };
+}
+
+function mockDocumentOutputs(jobId: string): DocumentOutput[] {
+  return [
+    {
+      id: 'mock-summary',
+      kind: 'summary',
+      title: 'Structured summary',
+      preview:
+        "Here's a structured Markdown briefing based on the provided Pre-Installation Guide:\n\n# WASSENBURG Process Manager II/IIPLUS Pre-Installation Guide Briefing\n\n## TL;DR\n\nThis document is a pre-installation guide for the traceability and process monitoring software.",
+      content_url: `/api/parsed/${jobId}/outputs/mock-summary`,
+      created_at: '2026-07-07T23:22:10Z',
+    },
+    {
+      id: 'mock-raw',
+      kind: 'raw_txt',
+      title: 'Raw parse',
+      preview:
+        'PRE-INSTALLATION GUIDE\n\nWASSENBURG PROCESS MANAGER IIPLUS\nWASSENBURG PROCESS MANAGER II\nTRACEABILITY AND PROCESS MONITORING SOFTWARE\n\nREFERENCE : F070.099',
+      content_url: `/api/parsed/${jobId}/outputs/mock-raw`,
+      created_at: '2026-07-07T23:22:10Z',
+    },
+  ];
+}
+
+function mockDocumentOutputBody(outputId: string): string {
+  if (outputId === 'mock-raw') {
+    return 'PRE-INSTALLATION GUIDE\n\nWASSENBURG PROCESS MANAGER IIPLUS\nWASSENBURG PROCESS MANAGER II\nTRACEABILITY AND PROCESS MONITORING SOFTWARE\n\nREFERENCE : F070.099';
+  }
+  return "# WASSENBURG Process Manager II/IIPLUS Pre-Installation Guide Briefing\n\n## TL;DR\n\nThis document is a pre-installation guide for the traceability and process monitoring software.";
+}
+
 export function makeHandlers(seed: Seed) {
-const jobs = seed.jobs;
+const jobs = seed.jobs.slice();
+MOCK_DOCUMENT_JOB_IDS.forEach((id) => {
+  if (!jobs.some((job) => job.id === id)) {
+    jobs.push(mockDocumentJob(id));
+  }
+});
 const tags = seed.tags.slice();
 const jobTags = new Set(seed.job_tags.map((jt) => `${jt.job_id}:${jt.tag_id}`));
 const templates: Template[] = [
@@ -26,9 +84,73 @@ const templates: Template[] = [
 const annotations = new Map<string, { notes: string; updated_at: string | null }>(
   seed.annotations.map((a) => [a.job_id, { notes: a.notes, updated_at: a.updated_at }]),
 );
+const findJob = (id: string) => jobs.find((j) => j.id === id);
+const canServeParsedDocument = (id: string) =>
+  findJob(id)?.content_type === 'document';
 
 // Order matters: more specific paths first (`/api/jobs/:id` also matches `/api/jobs/stats`).
 return [
+  http.get('/api/parsed/:id/outputs/:outputId', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return new HttpResponse(mockDocumentOutputBody(params.outputId as string), {
+      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    });
+  }),
+
+  http.get('/api/parsed/:id/outputs', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return HttpResponse.json(mockDocumentOutputs(params.id as string));
+  }),
+
+  http.put('/api/parsed/:id/telegram-delivery', async ({ params, request }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    const body = (await request.json()) as { state?: string };
+    return HttpResponse.json({
+      telegram_delivery: body.state === 'retroactive' ? 'on' : body.state ?? 'off',
+      sent: body.state === 'retroactive' ? 2 : 0,
+    });
+  }),
+
+  http.post('/api/parsed/:id/clean', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return HttpResponse.json(
+      {
+        id: 'mock-clean',
+        kind: 'clean',
+        title: 'Clean version',
+        preview: 'Cleaned Markdown version of the mocked parsed document.',
+        content_url: `/api/parsed/${params.id}/outputs/mock-clean`,
+        created_at: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+
+  http.post('/api/parsed/:id/freestyle', ({ params }) => {
+    if (!canServeParsedDocument(params.id as string)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return HttpResponse.json(
+      {
+        id: 'mock-freestyle',
+        kind: 'freestyle',
+        title: 'Freestyle',
+        preview: 'Freestyle response for the mocked parsed document.',
+        content_url: `/api/parsed/${params.id}/outputs/mock-freestyle`,
+        created_at: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+
   http.get('/api/jobs/stats', ({ request }) => {
     const ct = new URL(request.url).searchParams.get('content_type') || '';
     const by_content_type: Record<string, number> = {};
@@ -63,8 +185,10 @@ return [
   }),
 
   http.get('/api/jobs/:id', ({ params }) => {
-    const job = jobs.find((j) => j.id === params.id);
-    return job ? HttpResponse.json(job) : new HttpResponse(null, { status: 404 });
+    const id = params.id as string;
+    const job = findJob(id);
+    if (job) return HttpResponse.json(job);
+    return new HttpResponse(null, { status: 404 });
   }),
   http.get('/api/jobs', ({ request }) => {
     const p = new URL(request.url).searchParams;
