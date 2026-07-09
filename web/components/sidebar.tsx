@@ -35,7 +35,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/', label: 'Feed', icon: Rss },
-  { href: '/doc-parser', label: 'Documents', icon: FileCode2 },
+  { href: '/doc-parser', label: 'Docs', icon: FileCode2 },
   { href: '/brain', label: 'Brain', icon: Brain },
   { href: '/spaces', label: 'Collections', icon: LayoutGrid },
   { href: '/prompts', label: 'Recipes', icon: MessageSquareText },

@@ -57,7 +57,7 @@ the new product terms:
 | Route | User-facing name | Reason |
 | --- | --- | --- |
 | `/` | Feed | The owned stream of saved and processed items. |
-| `/doc-parser` | Documents | Names the user artifact, not the parser implementation. |
+| `/doc-parser` | Docs | Short product label for saved document intake and outputs, not the parser implementation. |
 | `/brain` | Brain | The shared semantic layer. Avoid "Second Brain" in new copy. |
 | `/spaces` | Collections | A user-owned grouping of saved items. |
 | `/prompts` | Recipes | Reusable enrichment instructions, named as product behavior rather than raw prompts. |
@@ -90,7 +90,7 @@ present the product as an operator console or as a generic dashboard.
 
 - The web UI reads as Ownix while backend/service names can remain VIG until a
   separate technical rename is justified.
-- Future UI copy should prefer the terms Feed, Documents, Brain, Collections,
+- Future UI copy should prefer the terms Feed, Docs, Brain, Collections,
   Recipes, and Settings unless an ADR changes the product language.
 - Tests that assert visible page headings or nav labels should assert the Ownix
   terms, not the legacy implementation nouns.
