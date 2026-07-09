@@ -27,7 +27,7 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 - replace VIG as an internal repository/backend/service. migrate explicitly rename code, packages, deployment names, API paths, GitHub metadata and telegram bot.
 
--build new telegram bot to match Ownix brand name to increase alignment. 
+- build new telegram bot to match Ownix brand name to increase alignment. 
 
 - build a page in Ownix that mimic/mirror the telegram bot flow for seamless web workflow. 
 
