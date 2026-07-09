@@ -73,9 +73,10 @@ export default function TermsPage() {
 
           <LegalSection title="Google account connection">
             <p>
-              If you connect a Google account, Ownix creates files (a{' '}
-              <code>/vig</code> folder, spreadsheet, and uploads) in
-              your own Drive using the <code>drive.file</code> and{' '}
+              If you connect a Google account, Ownix creates files (a
+              folder currently named <code>/vig</code>, spreadsheet,
+              and uploads) in your own Drive using the{' '}
+              <code>drive.file</code> and{' '}
               <code>spreadsheets</code> scopes. Ownix only ever touches
               files it created. You can disconnect at any time by
               sending <code>/disconnect</code>.

@@ -49,10 +49,11 @@ export default function PrivacyPage() {
                 If you connect your Google account: an OAuth token
                 scoped to Google Drive (<code>drive.file</code>) and
                 Google Sheets (<code>spreadsheets</code>). This lets
-                Ownix create a <code>/vig</code> folder and spreadsheet
-                in your Drive and write your results there. Ownix can
-                only see or edit files it creates itself — it cannot
-                access any other file already in your Drive.
+                Ownix create a folder currently named <code>/vig</code>{' '}
+                and a spreadsheet in your Drive and write your results
+                there. Ownix can only see or edit files it creates
+                itself — it cannot access any other file already in
+                your Drive.
               </li>
             </LegalList>
           </LegalSection>

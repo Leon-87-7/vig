@@ -110,7 +110,7 @@ export default function BrainPage() {
       <PageHeader
         icon={Brain}
         title="Brain"
-        description="Semantic search across everything saved or shared to the Brain."
+        description="Semantic search across everything saved to the Brain."
       />
 
       <section className="flex gap-2">
