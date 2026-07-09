@@ -25,6 +25,7 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 <!-- - e.g. the feed should have a saved-filters dropdown -->
 - Migrate the canonical app URL from `app.leondev.xyz` to `ownix.leondev.xyz` across DNS, hosting, OAuth callbacks, env vars, and docs.
 
+- replace VIG as an internal repository/backend/service. migrate explicitly rename code, packages, deployment names, API paths, or GitHub metadata.
 ---
 
 ## Briefs
