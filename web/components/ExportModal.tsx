@@ -109,7 +109,8 @@ export default function ExportModal({ spaceId, spaceName, onClose }: ExportModal
         </div>
 
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-3" role="status" aria-label="Composing export">
+            <span className="sr-only">Composing export</span>
             <SkeletonBlock className="h-14 w-full" />
             <SkeletonBlock className="h-14 w-full" />
             <SkeletonBlock className="h-14 w-full" />

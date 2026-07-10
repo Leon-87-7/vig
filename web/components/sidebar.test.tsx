@@ -5,7 +5,7 @@ import { Sidebar } from './sidebar';
 import type { InviteUser } from './invite-gate';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: () => '/feed',
 }));
 
 const sessionMock = vi.hoisted(() => ({

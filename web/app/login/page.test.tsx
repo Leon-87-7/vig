@@ -72,7 +72,7 @@ describe('LoginPage', () => {
       resolveFetch(new Response(JSON.stringify({ ok: true })));
     });
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/feed'));
   });
 
   it('shows an inline retry when Telegram auth is rejected', async () => {

@@ -34,7 +34,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: '/', label: 'Feed', icon: Rss },
+  { href: '/feed', label: 'Feed', icon: Rss },
   { href: '/doc-parser', label: 'Docs', icon: FileCode2 },
   { href: '/brain', label: 'Brain', icon: Brain },
   { href: '/spaces', label: 'Collections', icon: LayoutGrid },
@@ -248,8 +248,8 @@ function Avatar({
 }
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === '/')
-    return pathname === '/' || pathname.startsWith('/jobs');
+  if (href === '/feed')
+    return pathname === '/feed' || pathname.startsWith('/feed/') || pathname.startsWith('/jobs');
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -673,7 +673,7 @@ export function Sidebar() {
             </Link>
           </div>
           <form
-            action="/api/auth/logout"
+            action="/logout"
             method="POST"
           >
             <button

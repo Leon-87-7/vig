@@ -32,7 +32,7 @@ const navigationMock = vi.hoisted(() => {
 vi.mock('next/navigation', () => ({
   useParams: () => ({}),
   useRouter: () => navigationMock.router,
-  usePathname: () => '/',
+  usePathname: () => '/feed',
   useSearchParams: () => navigationMock.searchParams,
 }));
 
@@ -158,20 +158,20 @@ describe('FeedPage', () => {
     navigationMock.searchParams = new URLSearchParams('google=connected');
     render(<FeedTree />);
     expect(screen.getByText(/google connected/i)).toBeTruthy();
-    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed', { scroll: false });
   });
 
   it('shows a denied banner on ?google=denied and strips the param', () => {
     navigationMock.searchParams = new URLSearchParams('google=denied');
     render(<FeedTree />);
     expect(screen.getByText(/connection was denied/i)).toBeTruthy();
-    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed', { scroll: false });
   });
 
   it('preserves other query params when stripping ?google=', () => {
     navigationMock.searchParams = new URLSearchParams('type=short&google=connected');
     render(<FeedTree />);
-    expect(navigationMock.replace).toHaveBeenCalledWith('/?type=short', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed?type=short', { scroll: false });
   });
 
   it('strips ?google= and an unsupported ?type= in a single replace', () => {
@@ -179,7 +179,7 @@ describe('FeedPage', () => {
     render(<FeedTree />);
     expect(screen.getByText(/google connected/i)).toBeTruthy();
     expect(navigationMock.replace).toHaveBeenCalledTimes(1);
-    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed', { scroll: false });
   });
 
   it('still drops an unsupported ?type= without a google param', () => {
@@ -187,7 +187,7 @@ describe('FeedPage', () => {
     setupMocks({ setCtFilter });
     navigationMock.searchParams = new URLSearchParams('type=bogus');
     render(<FeedTree />);
-    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed', { scroll: false });
     expect(setCtFilter).toHaveBeenCalledWith('');
   });
 
@@ -290,7 +290,7 @@ describe('FeedPage', () => {
     await waitFor(() => {
       expect(screen.getAllByText('https://example.com/canonical').length).toBeGreaterThan(0);
     });
-    expect(navigationMock.replace).toHaveBeenCalledWith('/?view=links', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed?view=links', { scroll: false });
     expect(screen.queryByText('Jobs')).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith('/api/brain/links?limit=25&offset=0&sort=last_seen&order=desc');
   });
@@ -312,7 +312,7 @@ describe('FeedPage', () => {
     render(<FeedTree />);
     fireEvent.click(screen.getByRole('button', { name: /long 2/i }));
 
-    expect(navigationMock.replace).toHaveBeenCalledWith('/?type=long', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed?type=long', { scroll: false });
     expect(setCtFilter).toHaveBeenCalledWith('long');
   });
 
@@ -519,7 +519,7 @@ describe('FeedPage', () => {
     render(<FeedTree />);
     fireEvent.click(screen.getByRole('button', { name: /clear filters/i }));
 
-    expect(navigationMock.replace).toHaveBeenCalledWith('/', { scroll: false });
+    expect(navigationMock.replace).toHaveBeenCalledWith('/feed', { scroll: false });
     expect(setStFilter).toHaveBeenCalledWith('');
     expect(setQuery).toHaveBeenCalledWith('');
   });
