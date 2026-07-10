@@ -334,9 +334,7 @@ export function FilterBar({
       <div
         id="status-filter-bar"
         aria-hidden={collapsed || undefined}
-        {...(collapsed
-          ? ({ inert: '' } as Record<string, unknown>)
-          : {})}
+        inert={collapsed}
         className={`grid overflow-hidden transition-[grid-template-rows] duration-150 ease-out motion-reduce:transition-none ${
           collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
         }`}

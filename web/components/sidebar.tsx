@@ -127,7 +127,11 @@ function Avatar({
 
 function isActive(pathname: string, href: string): boolean {
   if (href === '/feed')
-    return pathname === '/feed' || pathname.startsWith('/feed/') || pathname.startsWith('/jobs');
+    return (
+      pathname === '/feed' ||
+      pathname.startsWith('/feed/') ||
+      pathname.startsWith('/jobs')
+    );
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -391,24 +395,26 @@ export function Sidebar() {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="mb-6 flex items-center justify-between px-1">
-          <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
-            <LogoMark className="h-8 w-8" />
-            Ownix
-          </span>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Collapse navigation"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
+        <div className="mb-6 flex items-center px-1">
+          <Link
+            href="/"
+            aria-label="Ownix home"
+            tabIndex={open ? undefined : -1}
+            className="group flex items-center gap-2 rounded-md text-lg font-semibold tracking-tight text-ink"
           >
-            <ChevronLeft
-              className="h-[18px] w-[18px]"
-              strokeWidth={2}
-              aria-hidden="true"
+            <LogoMark
+              className={`h-8 w-8 transition-transform duration-200 ease-out-quart group-hover:scale-110 group-hover:text-signal-bright ${
+                open ? 'sidebar-mark-in' : ''
+              }`}
             />
-          </button>
+            <span
+              className={`transition-opacity duration-150 ease-out-quart group-hover:opacity-80 sm:group-hover:text-contrasignal ${
+                open ? 'sidebar-word-in' : ''
+              }`}
+            >
+              Ownix
+            </span>
+          </Link>
         </div>
 
         <nav
@@ -550,22 +556,42 @@ export function Sidebar() {
               Privacy
             </Link>
           </div>
-          <form
-            action="/logout"
-            method="POST"
-          >
+          {/* Close (left) sits under the collapsed rail's expand button, so a
+              double-click on expand lands its second click here — closing the
+              drawer, not firing Sign Out (right). #329 */}
+          <div className="flex items-center gap-2">
             <button
-              type="submit"
+              ref={closeButtonRef}
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Collapse navigation"
               tabIndex={open ? undefined : -1}
-              className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted transition-ui hover:bg-raised hover:text-ink"
             >
-              <span>Sign Out</span>
-              <LogOut
-                className="h-[18px] w-[18px] text-status-error"
+              <ChevronLeft
+                className="h-[18px] w-[18px]"
+                strokeWidth={2}
                 aria-hidden="true"
               />
             </button>
-          </form>
+            <form
+              action="/logout"
+              method="POST"
+              className="flex-1"
+            >
+              <button
+                type="submit"
+                tabIndex={open ? undefined : -1}
+                className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-muted transition-ui hover:bg-raised hover:text-ink"
+              >
+                <span>Sign Out</span>
+                <LogOut
+                  className="h-[18px] w-[18px] text-status-error"
+                  aria-hidden="true"
+                />
+              </button>
+            </form>
+          </div>
         </div>
       </aside>
     </>

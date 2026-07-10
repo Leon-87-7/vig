@@ -10,8 +10,22 @@ const nextConfig = {
       },
     ];
   },
-  // SVGR: `import Logo from './x.svg'` → React component. `import url from './x.svg?url'`
-  // still yields the asset URL. Official recipe — reroutes Next's file-loader off .svg.
+  // SVGR under Turbopack (Next 16 default). Apply @svgr/webpack to `.svg`
+  // imports so `import Logo from './x.svg'` → React component; the `not`/query
+  // condition skips `?url` imports so `import url from './x.svg?url'` falls
+  // through to Turbopack's default asset handling (yields the URL).
+  turbopack: {
+    rules: {
+      "*.svg": {
+        condition: { not: { query: /[?&]url(?=&|$)/ } },
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
+  },
+  // SVGR under webpack (only used with `next --webpack`): `import Logo from
+  // './x.svg'` → React component; `import url from './x.svg?url'` → asset URL.
+  // Official recipe — reroutes Next's file-loader off .svg.
   webpack(config) {
     const fileLoaderRule = config.module.rules.find(
       (rule) => rule.test?.test?.(".svg"),

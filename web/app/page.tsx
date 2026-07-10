@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { HeroGradient } from '@/components/hero-gradient';
+import OwnixLogo from '@/app/ownix-logo.svg';
 
 const focusRing =
   'focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface';
@@ -32,9 +33,17 @@ export default function LandingPage() {
         <header className="flex items-center justify-between gap-4 rounded-lg border border-line bg-surface/90 px-4 py-3 backdrop-blur-sm">
           <Link
             href="/feed"
-            className={`rounded-md text-xl font-semibold tracking-tight text-ink ${focusRing}`}
+            aria-label="Ownix home"
+            className={`group flex items-center gap-2 rounded-md text-xl font-semibold tracking-tight text-ink ${focusRing}`}
           >
-            Ownix
+            <OwnixLogo
+              aria-hidden="true"
+              focusable="false"
+              className="h-7 w-7 transition-transform duration-200 ease-out-quart group-hover:scale-110 group-hover:text-signal-bright group-hover:rotate-[-6deg]"
+            />
+            <span className="group-hover:text-contrasignal">
+              Ownix
+            </span>
           </Link>
           <nav
             className="flex items-center gap-1"
@@ -54,7 +63,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className={`ml-1 inline-flex h-8 items-center rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui hover:bg-raised ${focusRing}`}
+              className={`ml-1 inline-flex h-8 items-center rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui duration-200 hover:bg-signal-deep hover:text-onsignal ${focusRing}`}
             >
               Sign in
             </Link>
@@ -148,7 +157,18 @@ export default function LandingPage() {
         </section>
 
         <footer className="flex flex-col gap-3 border-t border-line py-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Ownix — your internet, indexed.</p>
+          <div className="flex gap-2 items-center ">
+            <OwnixLogo
+              aria-hidden="true"
+              focusable="false"
+              className="h-7 w-7"
+            />
+            <p className="gap-2 flex items-center text-sm leading-6">
+              <span className="font-semibold">Ownix</span>
+              <span className="font-italic">your internet,</span>
+              <span className="font-mono">indexed.</span>
+            </p>
+          </div>
           <div className="flex gap-4">
             <Link
               href="/privacy"
