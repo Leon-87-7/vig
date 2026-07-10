@@ -37,7 +37,7 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 - in links table redesign the options drop down to radio btns in a line (on mobile)
 
-- fold in Instagram carousel '/p' to the short pipeline 
+- fold in Instagram carousel '/p' to the short pipeline and remove the prd creation from the long pipeline .
 ---
 
 ## Briefs
