@@ -80,13 +80,21 @@ free tier floors at a 5-min interval.
 
 ## The `/health` endpoint
 
-Confirmed unauthenticated in `src/main.py` (lines 83-85):
+Unauthenticated in `src/main.py` and **always returns HTTP 200** so this
+keep-warm monitor stays green while the API is serving. It now probes DB, Redis,
+and worker liveness and returns that detail in the body (see
+`src/services/health.py` and `ntfy.md`):
 
-```python
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+```jsonc
+{ "status": "healthy",            // or "degraded"
+  "components": { "database": "healthy", "redis": "healthy", "worker": "healthy" },
+  "queue_depth": 0 }
 ```
+
+Component degradation is surfaced via the ntfy operator channel (throttled), **not**
+via a non-200 status — so this monitor keeps treating 200 as "reachable" and won't
+flap when, say, only the worker heartbeat goes stale. A hard down (process not
+serving) still yields no response and trips the 3-failure alert below.
 
 No auth middleware applies — it is intentionally open per CONTEXT.md:
 > `/webhook` (Telegram secret-token auth) and `/health` stay open
@@ -119,3 +127,27 @@ Once the dashboard tab is open, the [Feed freshness model](../../CONTEXT.md)
 All of these hit the API, which keeps the tunnel active. The external
 keep-warm monitor matters only for the cold start on the _very first_ open
 after a long idle period (e.g. waking up in the morning to check new jobs).
+
+## Component-degradation monitoring
+
+The cron-job.org keep-warm job should keep checking only reachability: `GET
+/health`, expected HTTP 200, notify after several consecutive failures. That
+avoids false downtime alerts for transient reachability blips while preserving
+the warm-up behavior.
+
+Component degradation is in the JSON body and does **not** require ntfy delivery.
+Add a separate response-content monitor (or inspect saved cron-job.org responses)
+that treats `"status":"degraded"` as actionable while leaving HTTP status at
+200. A stale single-worker heartbeat looks like:
+
+```json
+{
+  "status": "degraded",
+  "components": { "worker": "unhealthy: stale heartbeat (120s)" },
+  "ntfy": { "status": "configured", "topic": "vig-ops", "token_configured": true }
+}
+```
+
+Worker health is the liveness of the one expected VIG worker using the shared
+`worker:heartbeat` key. It is not a per-worker fleet view; a future multi-worker
+deploy should move to per-worker heartbeat keys or expected-worker cardinality.

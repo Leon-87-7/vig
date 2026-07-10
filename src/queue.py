@@ -15,6 +15,7 @@ See PRD §2.2.4 for the protocol contract.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import redis.asyncio as redis
@@ -27,6 +28,7 @@ log = get_logger(__name__)
 
 _QUEUE_KEY = "video_jobs"
 _DEQUEUE_TIMEOUT_SECONDS = 30
+_HEARTBEAT_KEY = "worker:heartbeat"
 
 _redis: redis.Redis | None = None
 
@@ -43,6 +45,28 @@ async def close() -> None:
     if _redis is not None:
         await _redis.close()
         _redis = None
+
+
+async def ping() -> bool:
+    """Liveness probe for the Redis connection (used by the health check)."""
+    return bool(await _client().ping())
+
+
+async def queue_depth() -> int:
+    """Current number of queued task envelopes — the health/watchdog backlog signal."""
+    return int(await _client().llen(_QUEUE_KEY))
+
+
+async def write_heartbeat(*, ttl: int = 90) -> None:
+    """Worker liveness beacon: a unix timestamp with a TTL so a dead worker's key
+    self-expires. The api's health check reads it via ``read_heartbeat``."""
+    await _client().set(_HEARTBEAT_KEY, time.time(), ex=ttl)
+
+
+async def read_heartbeat() -> float | None:
+    """Last worker heartbeat as a unix timestamp, or None if absent/expired."""
+    raw = await _client().get(_HEARTBEAT_KEY)
+    return float(raw) if raw is not None else None
 
 
 async def enqueue(task: dict[str, Any]) -> None:

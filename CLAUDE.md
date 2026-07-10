@@ -29,6 +29,7 @@ Key dependency source code is cached globally at `C:\Users\leone\.opensrc\repos\
 | `apscheduler`                 | `github.com/agronholm/apscheduler/master`                 |
 | `pydantic-settings`           | `github.com/pydantic/pydantic-settings/2.14.1`            |
 | `structlog`                   | `github.com/hynek/structlog/25.5.0`                       |
+| `ntfy`                        | `github.com/binwiederhier/ntfy/main`                      |
 | `vitest`                      | `github.com/vitest-dev/vitest/4.1.8`                      |
 | `msw`                         | `github.com/mswjs/msw/2.14.6`                             |
 | `@testing-library/react`      | `github.com/testing-library/react-testing-library/16.3.2` |

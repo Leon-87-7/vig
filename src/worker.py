@@ -19,6 +19,7 @@ import asyncio
 import time
 
 from src import database, queue
+from src.config import settings
 from src.utils import job_tag
 from src.utils.logger import configure_logging, get_logger
 
@@ -42,6 +43,24 @@ async def _notify_failure(chat_id: int, job_id: str, text: str) -> None:
         pass
 
 
+async def _alert_operator(kind: str, job_id: str, exc: BaseException) -> None:
+    """Ping the operator's ntfy channel when a processor crashes unexpectedly.
+
+    Throttled per ``kind`` so a broken dependency failing every queued job yields
+    one alert per window, not one per job. Best-effort — ntfy.notify_throttled
+    swallows its own errors.
+    """
+    from src.services import ntfy
+    await ntfy.notify_throttled(
+        f"processor_error:{kind}",
+        f"{kind} processor crashed on {job_tag(job_id)}: {type(exc).__name__}: {exc}",
+        cooldown=600,
+        title="VIG — processor error",
+        priority="high",
+        tags=["warning"],
+    )
+
+
 async def _handle_enrichment(task: dict) -> None:
     job_id = task["job_id"]
     job = await _load_job_or_log(job_id)
@@ -50,8 +69,9 @@ async def _handle_enrichment(task: dict) -> None:
     try:
         from src.processors import enrichment
         await enrichment.run(job_id)
-    except Exception:
+    except Exception as exc:
         log.exception("enrichment_processor_error", job_id=job_id)
+        await _alert_operator("enrichment", job_id, exc)
         await _notify_failure(job["chat_id"], job_id, "❌ Enrichment failed. Please try again.")
 
 
@@ -83,8 +103,9 @@ async def _handle_video(task: dict) -> None:
             await _maybe_auto_enqueue_enrichment(job, job_id)
         else:
             log.error("unknown_content_type", job_id=job_id, content_type=job["content_type"])
-    except Exception:
+    except Exception as exc:
         log.exception("processor_error", job_id=job_id)
+        await _alert_operator(job.get("content_type") or "video", job_id, exc)
         await database.update_job_status(job_id, "error")
         await _notify_failure(job["chat_id"], job_id, "❌ Processing failed. Please try again.")
 
@@ -97,8 +118,9 @@ async def _handle_article(task: dict) -> None:
     try:
         from src.processors import article
         await article.run(job, skip_document=task.get("skip_document", False))
-    except Exception:
+    except Exception as exc:
         log.exception("article_processor_error", job_id=job_id)
+        await _alert_operator("article", job_id, exc)
         await database.update_job_status(job_id, "error")
         await _notify_failure(job["chat_id"], job_id, "❌ Article processing failed. Please try again.")
 
@@ -111,8 +133,9 @@ async def _handle_repo(task: dict) -> None:
     try:
         from src.processors import repo
         await repo.run(job)
-    except Exception:
+    except Exception as exc:
         log.exception("repo_processor_error", job_id=job_id)
+        await _alert_operator("repo", job_id, exc)
         await database.update_job_status(job_id, "error")
         await _notify_failure(job["chat_id"], job_id, "❌ Repo processing failed. Please try again.")
 
@@ -125,8 +148,9 @@ async def _handle_document(task: dict) -> None:
     try:
         from src.processors import document
         await document.run(job, skip_document=task.get("skip_document", False))
-    except Exception:
+    except Exception as exc:
         log.exception("document_processor_error", job_id=job_id)
+        await _alert_operator("document", job_id, exc)
         await database.update_job_status(job_id, "error")
         await _notify_failure(job["chat_id"], job_id, "❌ Document processing failed. Please try again.")
 
@@ -160,8 +184,9 @@ async def _handle_prd_auto(task: dict) -> None:
     try:
         from src.processors import prd as _prd
         await _prd.run_auto(job_id)
-    except Exception:
+    except Exception as exc:
         log.exception("prd_auto_error", job_id=job_id)
+        await _alert_operator("prd_auto", job_id, exc)
         await _reset_prd_slot_and_notify(
             job_id, "prd_auto_status",
             [[{"text": "🔄 Retry", "callback_data": f"prd_retry_auto:{job_id}"}]],
@@ -182,8 +207,9 @@ async def _handle_prd_intent(task: dict) -> None:
     try:
         from src.processors import prd as _prd
         await _prd.run_intent(job_id)
-    except Exception:
+    except Exception as exc:
         log.exception("prd_intent_error", job_id=job_id)
+        await _alert_operator("prd_intent", job_id, exc)
         await _reset_prd_slot_and_notify(
             job_id, "prd_intent_status",
             [[
@@ -224,6 +250,13 @@ async def reap_stale_jobs() -> None:
     if not rows:
         return
     log.info("jobs.reaper.released", count=len(rows))
+    from src.services import ntfy
+    await ntfy.notify(
+        f"Recovered {len(rows)} orphaned job(s) after an unclean restart.",
+        title="VIG — jobs reaped at boot",
+        priority="high",
+        tags=["warning"],
+    )
     from src.telegram.sender import send_inline_keyboard
 
     for row in rows:
@@ -250,7 +283,25 @@ async def reap_stale_jobs() -> None:
             log.exception("jobs.reaper.notify_failed", job_id=job_id)
 
 
+async def _heartbeat_loop() -> None:
+    """Write the worker liveness beacon on its own cadence, independent of the
+    dequeue loop, so a long-running job doesn't make the worker look dead. The
+    key carries a TTL (3× interval) so a crashed worker's beacon self-expires and
+    the api's health check flips to degraded. Never raises — a transient Redis
+    blip must not kill the heartbeat task."""
+    interval = settings.WORKER_HEARTBEAT_INTERVAL_SECONDS
+    ttl = max(interval * 3, settings.WORKER_HEARTBEAT_MAX_AGE_SECONDS)
+    while True:
+        try:
+            await queue.write_heartbeat(ttl=ttl)
+        except Exception:
+            log.warning("worker_heartbeat_failed")
+        await asyncio.sleep(interval)
+
+
 async def loop() -> None:
+    from src.services import ntfy
+    ntfy.log_status("worker")
     log.info("worker_started")
     await database.init_db()  # idempotent — safe if api container ran it first
 
@@ -259,28 +310,41 @@ async def loop() -> None:
     await _prd.reaper_intent()
     await reap_stale_jobs()
 
-    while True:
-        try:
-            task = await queue.dequeue()
-            if task is None:
-                continue
+    heartbeat = asyncio.create_task(_heartbeat_loop())
+    try:
+        while True:
+            try:
+                task = await queue.dequeue()
+                if task is None:
+                    continue
 
-            started = time.time()
-            log.info("task_started", task=task["task"], job_id=task["job_id"])
-            await _dispatch(task)
-            elapsed_ms = int((time.time() - started) * 1000)
-            log.info(
-                "task_complete",
-                task=task["task"],
-                job_id=task["job_id"],
-                duration_ms=elapsed_ms,
-            )
-        except asyncio.CancelledError:
-            log.info("worker_cancelled")
-            raise
-        except Exception:
-            log.exception("worker_error")
-            await asyncio.sleep(2)
+                started = time.time()
+                log.info("task_started", task=task["task"], job_id=task["job_id"])
+                await _dispatch(task)
+                elapsed_ms = int((time.time() - started) * 1000)
+                log.info(
+                    "task_complete",
+                    task=task["task"],
+                    job_id=task["job_id"],
+                    duration_ms=elapsed_ms,
+                )
+            except asyncio.CancelledError:
+                log.info("worker_cancelled")
+                raise
+            except Exception:
+                log.exception("worker_error")
+                from src.services import ntfy
+                await ntfy.notify_throttled(
+                    "worker_error",
+                    "Worker dequeue loop is erroring — jobs may not be draining. Check logs.",
+                    cooldown=300,
+                    title="VIG — worker error loop",
+                    priority="max",
+                    tags=["rotating_light"],
+                )
+                await asyncio.sleep(2)
+    finally:
+        heartbeat.cancel()
 
 
 def main() -> None:

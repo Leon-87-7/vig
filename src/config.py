@@ -92,6 +92,23 @@ class Settings(BaseSettings):
     # Falls back to generic phrasing when unset so a fresh deploy is not stuck with a specific name.
     ADMIN_CONTACT_NAME: str = ""
 
+    # ntfy operator alerts (self-hosted; see docs/ops/ntfy.md). Internal admin
+    # channel — NOT the user-facing Telegram bot. Publishing no-ops unless both
+    # NTFY_URL and NTFY_TOKEN are set, so unconfigured deploys pay nothing.
+    NTFY_URL: str = ""
+    NTFY_TOPIC: str = "vig-ops"
+    NTFY_TOKEN: str = ""
+
+    # Health check + watchdogs (ntfy operator alerts). The api runs a scheduled
+    # backstop check every HEALTH_CHECK_INTERVAL_MINUTES and GET /health probes
+    # on demand; both fire ntfy (throttled) on degradation. The worker writes a
+    # heartbeat every WORKER_HEARTBEAT_INTERVAL_SECONDS; the health check treats
+    # it as down once older than WORKER_HEARTBEAT_MAX_AGE_SECONDS.
+    QUEUE_DEPTH_ALERT_THRESHOLD: int = 50
+    HEALTH_CHECK_INTERVAL_MINUTES: int = 5
+    WORKER_HEARTBEAT_INTERVAL_SECONDS: int = 15
+    WORKER_HEARTBEAT_MAX_AGE_SECONDS: int = 90
+
     def _google_token_readable(self, encrypted_token: str) -> bool:
         try:
             payload = (

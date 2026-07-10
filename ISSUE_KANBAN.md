@@ -33,6 +33,16 @@
 |                                                   # | Title                                                                                       | Area             | Depends On |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
 | [#275](https://github.com/Leon-87-7/vig/issues/275) | tests/test_sheets.py: 6 tests fail on main — mocks predate _append_sync chat_id signature change (#264) | Tests / Sheets | —  |
+| [#339](https://github.com/Leon-87-7/vig/issues/339) | Use Docker-internal ntfy URL for app publishing                                             | Ops / Ntfy       | —          |
+| [#340](https://github.com/Leon-87-7/vig/issues/340) | Expose ntfy configuration status at startup and in health output                            | Ops / Observability | —       |
+| [#341](https://github.com/Leon-87-7/vig/issues/341) | Only throttle ntfy alerts after a confirmed publish                                         | Ops / Ntfy       | —          |
+| [#342](https://github.com/Leon-87-7/vig/issues/342) | Make worker heartbeat semantics explicit for single-worker topology                         | Worker / Health  | —          |
+| [#343](https://github.com/Leon-87-7/vig/issues/343) | Fix ntfy docs table duplication and URL terminology drift                                   | Docs / Ops       | —          |
+| [#344](https://github.com/Leon-87-7/vig/issues/344) | Make health degradation visible outside ntfy                                                | Ops / Health     | #340       |
+| [#345](https://github.com/Leon-87-7/vig/issues/345) | Add a manual ntfy smoke-test command or endpoint                                            | Ops / Runbook    | #339, #340 |
+| [#346](https://github.com/Leon-87-7/vig/issues/346) | Send recovery notifications after degraded health returns to healthy                        | Ops / Health     | #344       |
+| [#347](https://github.com/Leon-87-7/vig/issues/347) | Harden startup alert ordering around ntfy readiness                                         | Ops / Compose    | #339       |
+| [#348](https://github.com/Leon-87-7/vig/issues/348) | Add deployment-level ntfy verification docs                                                 | Docs / Ops       | #339, #345 |
 
 ---
 
@@ -396,6 +406,19 @@ Feed inventory IA — Links view, Docs ingest action, command launcher (task #24
 ├── #335 Desktop Commands launcher for Feed actions ◄── also #333
 │   └── #336 Move Links inventory API to Feed namespace last ◄── also #333
 Critical path: {#333, #334} → #335 → #336
+
+Ntfy operator-alert hardening (branch review: claude/ntfy-vig-integration-7y8dw6)
+#339 Docker-internal ntfy publisher URL (root, unblocked)
+├── #345 manual ntfy smoke test ◄── also #340
+│   └── #348 deployment-level ntfy verification docs ◄── also #339
+└── #347 startup alert ordering
+#340 ntfy configuration status in startup/health (root, unblocked)
+└── #344 health degradation visible outside ntfy
+    └── #346 recovery notifications
+#341 throttle only after confirmed publish (independent)
+#342 single-worker heartbeat semantics (independent)
+#343 ntfy docs cleanup (independent)
+Critical path: #340 → #344 → #346; #339 → #345 → #348; #347 parallel after #339; #341/#342/#343 parallel
 ```
 
 ---

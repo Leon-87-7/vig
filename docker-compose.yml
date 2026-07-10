@@ -86,6 +86,41 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+      - ntfy
+    networks:
+      - vig-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ntfy — self-hosted push notifications for operator/admin alerts (NOT the
+  # user-facing Telegram bot). Private instance: NTFY_AUTH_DEFAULT_ACCESS=deny-all
+  # means nothing can publish or subscribe without an access token — create one
+  # per docs/ops/ntfy.md. Reached from inside the network at http://ntfy:80 and
+  # exposed publicly as ntfy.leondev.xyz via the existing Cloudflare Tunnel: add
+  # a Public Hostname (Zero Trust → Networks → Tunnels → vig-api) mapping
+  # ntfy.leondev.xyz → http://ntfy:80. No host port is opened.
+  # ──────────────────────────────────────────────────────────────────────────
+  ntfy:
+    image: binwiederhier/ntfy:v2.11.0
+    container_name: vig-ntfy
+    command: serve
+    environment:
+      - NTFY_BASE_URL=${NTFY_BASE_URL:-https://ntfy.leondev.xyz}
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_LISTEN_HTTP=:80
+      - NTFY_CACHE_FILE=/var/cache/ntfy/cache.db
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/cache/ntfy/attachments
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_lib:/var/lib/ntfy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:80/v1/health | grep -qE ''"healthy"[[:space:]]*:[[:space:]]*true'' || exit 1']
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - vig-network
 
@@ -103,6 +138,8 @@ services:
 
 volumes:
   redis_data:
+  ntfy_cache:
+  ntfy_lib:
 
 networks:
   vig-network:
