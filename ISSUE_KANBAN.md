@@ -25,6 +25,10 @@
 | [#321](https://github.com/Leon-87-7/vig/issues/321) | Repo follow-up after short-video enrichment                                                                 | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
 | [#322](https://github.com/Leon-87-7/vig/issues/322) | Repo follow-up after article enrichment                                                                     | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
 | [#323](https://github.com/Leon-87-7/vig/issues/323) | Repo follow-up after long-video enrichment                                                                  | Telegram / Repo          | Merged; PR #324; closed on GH                                                              |
+| [#333](https://github.com/Leon-87-7/vig/issues/333) | Feed tabs: rename Feed and move Links into Feed                                                             | Web / Feed               | Merged; PR #337; closed on GH                                                              |
+| [#334](https://github.com/Leon-87-7/vig/issues/334) | Docs ingest modal from Feed actions                                                                        | Web / Feed               | Merged; PR #337; closed on GH                                                              |
+| [#335](https://github.com/Leon-87-7/vig/issues/335) | Desktop Commands launcher for Feed actions                                                                 | Web / Feed               | Merged; PR #337; closed on GH                                                              |
+| [#336](https://github.com/Leon-87-7/vig/issues/336) | Move Links inventory API to Feed namespace last                                                            | API / Feed               | Merged; PR #337; closed on GH                                                              |
 
 ---
 
@@ -33,6 +37,16 @@
 |                                                   # | Title                                                                                       | Area             | Depends On |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
 | [#275](https://github.com/Leon-87-7/vig/issues/275) | tests/test_sheets.py: 6 tests fail on main — mocks predate _append_sync chat_id signature change (#264) | Tests / Sheets | —  |
+| [#339](https://github.com/Leon-87-7/vig/issues/339) | Use Docker-internal ntfy URL for app publishing                                             | Ops / ntfy       | —          |
+| [#340](https://github.com/Leon-87-7/vig/issues/340) | Expose ntfy configuration status at startup and in health output                            | Ops / ntfy       | —          |
+| [#341](https://github.com/Leon-87-7/vig/issues/341) | Only throttle ntfy alerts after a confirmed publish                                         | Ops / ntfy       | —          |
+| [#342](https://github.com/Leon-87-7/vig/issues/342) | Make worker heartbeat semantics explicit for single-worker topology                         | Ops / Worker     | —          |
+| [#343](https://github.com/Leon-87-7/vig/issues/343) | Fix ntfy docs table duplication and URL terminology drift                                    | Docs / ntfy      | —          |
+| [#344](https://github.com/Leon-87-7/vig/issues/344) | Make health degradation visible outside ntfy                                                | Ops / Health     | —          |
+| [#345](https://github.com/Leon-87-7/vig/issues/345) | Add a manual ntfy smoke-test command or endpoint                                            | Ops / ntfy       | —          |
+| [#346](https://github.com/Leon-87-7/vig/issues/346) | Send recovery notifications after degraded health returns to healthy                         | Ops / Health     | —          |
+| [#347](https://github.com/Leon-87-7/vig/issues/347) | Harden startup alert ordering around ntfy readiness                                          | Ops / ntfy       | —          |
+| [#348](https://github.com/Leon-87-7/vig/issues/348) | Add deployment-level ntfy verification docs                                                  | Docs / ntfy      | —          |
 
 ---
 
@@ -46,10 +60,6 @@ Ordered by unblocked-first, then dependency chain.
 | [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page                                       | Web / Privacy            | —                |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
 | [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link             | Web / Landing            | #329             |
-| [#333](https://github.com/Leon-87-7/vig/issues/333) | Feed tabs: rename Feed and move Links into Feed                                                  | Web / Feed               | —                |
-| [#334](https://github.com/Leon-87-7/vig/issues/334) | Docs ingest modal from Feed actions                                                              | Web / Feed               | —                |
-| [#335](https://github.com/Leon-87-7/vig/issues/335) | Desktop Commands launcher for Feed actions                                                       | Web / Feed               | #333, #334       |
-| [#336](https://github.com/Leon-87-7/vig/issues/336) | Move Links inventory API to Feed namespace last                                                  | API / Feed               | #333, #335       |
 
 ---
 
@@ -391,11 +401,11 @@ Public landing page (grill 2026-07-06 — task #14 from docs/TASK.md)
 Critical path: #329 → #331 → #332; #330 parallel
 
 Feed inventory IA — Links view, Docs ingest action, command launcher (task #24 from docs/TASK.md)
-#333 Feed tabs: rename Feed and move Links into Feed (root, unblocked)
-#334 Docs ingest modal from Feed actions (independent)
-├── #335 Desktop Commands launcher for Feed actions ◄── also #333
-│   └── #336 Move Links inventory API to Feed namespace last ◄── also #333
-Critical path: {#333, #334} → #335 → #336
+#333 Feed tabs: rename Feed and move Links into Feed (root, unblocked) ✅-Done (PR #337)
+#334 Docs ingest modal from Feed actions (independent) ✅-Done (PR #337)
+├── #335 Desktop Commands launcher for Feed actions ◄── also #333 ✅-Done (PR #337)
+│   └── #336 Move Links inventory API to Feed namespace last ◄── also #333 ✅-Done (PR #337)
+Critical path: {#333, #334} → #335 → #336 (all ✅-Done via PR #337)
 ```
 
 ---
@@ -404,11 +414,15 @@ Critical path: {#333, #334} → #335 → #336
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
+| [#349](https://github.com/Leon-87-7/vig/pull/349) | Add and harden ntfy operator alerts | claude/ntfy-vig-integration-7y8dw6→main | #339–#348 | 🔄 Open |
 
 ## Closed PRs
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
+| [#350](https://github.com/Leon-87-7/vig/pull/350) | feat(web): transition dashboard to Ownix design system | codex/ownix-design-system-shell→main | — | ✅ Merged |
+| [#338](https://github.com/Leon-87-7/vig/pull/338) | fix(doc-parser): shorten source document key | codex/doc-parser-source-chip→main | — | ✅ Merged |
+| [#337](https://github.com/Leon-87-7/vig/pull/337) | Feed inventory IA: Links and Commands | codex-IA-refactor→main | #333–#336 | ✅ Merged |
 | [#328](https://github.com/Leon-87-7/vig/pull/328) | impeccable critiques and dialog placement | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
 | [#327](https://github.com/Leon-87-7/vig/pull/327) | Revert "feat: refactor components for improved readability and maintainability" | revert-326-ui/submit-url-dialog-desktop→main | — | ❌ Closed |
 | [#326](https://github.com/Leon-87-7/vig/pull/326) | feat: refactor components for improved readability and maintainability | ui/submit-url-dialog-desktop→main | — | ✅ Merged |

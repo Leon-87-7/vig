@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ownix — The Personal Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ Ownix tokens (DESIGN.md) ============ */
+:root{
+  --canvas:#0d0e10;
+  --surface:#16181c;
+  --surface-raised:#202329;
+  --hairline:#30343d;
+  --hairline-strong:#343a44;
+  --ink:#f4f1eb;
+  --body:#c6c1b8;
+  --muted:#948e84;
+  --signal:#d99a45;
+  --signal-bright:#efb566;
+  --signal-deep:#a57534;
+  --on-signal:#1b1309;
+  --contrasignal:#94e6ee;
+  --status-done:#4ade80;        --status-done-tint:#122b1c;
+  --status-pending:#eab308;     --status-pending-tint:#2b240e;
+  --status-processing:#60a5fa;  --status-processing-tint:#14233b;
+  --status-enriching:#a78bfa;   --status-enriching-tint:#221a3d;
+  --type-short:#c084fc;
+  --type-long:#38bdf8;
+  --type-article:#2dd4bf;
+  --type-repo:#fb7185;
+  --grad-start:#7c3aed;
+  --grad-end:#22d3ee;
+  --r-sm:4px; --r-md:6px; --r-lg:8px; --r-xl:12px;
+  --sp-xxs:4px; --sp-xs:8px; --sp-sm:12px; --sp-md:16px; --sp-lg:24px; --sp-xl:32px; --sp-xxl:48px;
+  --font-ui:'Inter',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation:none!important;transition:none!important;}
+}
+
+body{
+  background:var(--canvas);
+  color:var(--body);
+  font-family:var(--font-ui);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+
+::selection{background:var(--signal);color:var(--on-signal);}
+
+a{color:inherit;text-decoration:none;}
+
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:var(--r-sm);}
+
+.wrap{max-width:1080px;margin:0 auto;padding:0 var(--sp-lg);}
+
+/* ============ Buttons ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-xs);
+  height:32px;padding:0 14px;border-radius:var(--r-md);
+  font-family:var(--font-ui);font-size:13px;font-weight:500;line-height:1;
+  border:none;cursor:pointer;transition:background-color 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out;
+  white-space:nowrap;
+}
+.btn-signal{background:var(--signal);color:var(--on-signal);}
+.btn-signal:hover{background:var(--signal-bright);}
+.btn-signal:active{background:var(--signal-deep);}
+.btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--hairline);}
+.btn-ghost:hover{background:var(--surface-raised);}
+
+/* ============ Badges ============ */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:0.4px;
+  line-height:1.4;padding:2px 6px;border-radius:var(--r-sm);text-transform:uppercase;
+}
+.badge-done{background:var(--status-done-tint);color:var(--status-done);}
+.badge-pending{background:var(--status-pending-tint);color:var(--status-pending);}
+.badge-processing{background:var(--status-processing-tint);color:var(--status-processing);}
+.badge-enriching{background:var(--status-enriching-tint);color:var(--status-enriching);}
+.badge-outline{background:transparent;border:1px solid var(--hairline);}
+.badge-long{color:var(--type-long);}
+.badge-article{color:var(--type-article);}
+.badge-repo{color:var(--type-repo);}
+.badge-short{color:var(--type-short);}
+.badge-neutral{background:transparent;border:1px solid var(--hairline);color:var(--body);}
+.badge-cool{background:transparent;border:1px solid var(--hairline);color:var(--contrasignal);}
+
+/* ============ Nav ============ */
+header{
+  position:sticky;top:0;z-index:20;
+  background:rgba(13,14,16,0.85);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--hairline);
+}
+.nav{display:flex;align-items:center;justify-content:space-between;height:60px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand svg{display:block;}
+.brand-name{font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-0.25px;}
+.nav-links{display:flex;align-items:center;gap:var(--sp-xxs);}
+.nav-links a{
+  font-size:14px;font-weight:500;color:var(--body);
+  padding:8px 12px;border-radius:var(--r-md);
+  transition:background-color 150ms ease-out,color 150ms ease-out;
+}
+.nav-links a:hover{background:var(--surface-raised);color:var(--ink);}
+.nav-cta{margin-left:var(--sp-sm);}
+@media (max-width:720px){.nav-links a{display:none;} .nav-links .nav-cta{display:inline-flex;margin-left:0;}}
+
+/* ============ Hero ============ */
+.hero{padding:var(--sp-xxl) 0;}
+.hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-xxl);align-items:center;}
+@media (max-width:880px){.hero-grid{grid-template-columns:1fr;gap:var(--sp-xl);}}
+
+.hero h1{
+  font-size:40px;font-weight:600;line-height:1.15;letter-spacing:-1px;
+  color:var(--ink);margin-bottom:var(--sp-md);
+}
+@media (max-width:600px){.hero h1{font-size:30px;letter-spacing:-0.5px;}}
+.hero p.lede{font-size:16px;line-height:1.6;max-width:46ch;margin-bottom:var(--sp-lg);}
+.hero-actions{display:flex;align-items:center;gap:var(--sp-sm);flex-wrap:wrap;}
+.hero-note{
+  margin-top:var(--sp-md);
+  font-family:var(--font-mono);font-size:12px;color:var(--muted);
+}
+
+/* ============ Product panel (hero mock) ============ */
+.panel{
+  background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);
+  overflow:hidden;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--sp-sm) var(--sp-md);border-bottom:1px solid var(--hairline);
+}
+.panel-title{font-size:16px;font-weight:600;color:var(--ink);}
+.panel-meta{font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.job-row{
+  display:flex;align-items:center;gap:var(--sp-sm);
+  padding:12px 16px;border-bottom:1px solid var(--hairline);
+  transition:background-color 150ms ease-out;
+}
+.job-row:last-child{border-bottom:none;}
+.job-row:hover{background:var(--surface-raised);}
+.job-main{flex:1;min-width:0;}
+.job-title{
+  font-size:14px;font-weight:500;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.job-meta{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:2px;}
+.job-badges{display:flex;gap:var(--sp-xs);flex-shrink:0;}
+@media (max-width:480px){.job-badges .badge-outline{display:none;}}
+
+/* ============ Sections ============ */
+section{padding:var(--sp-xxl) 0;}
+.section-head{margin-bottom:var(--sp-xl);max-width:60ch;}
+.section-head h2{
+  font-size:24px;font-weight:600;line-height:1.2;letter-spacing:-0.5px;
+  color:var(--ink);margin-bottom:var(--sp-xs);
+}
+.section-head p{font-size:14px;line-height:1.6;}
+
+/* Ownership ladder */
+.ladder{display:grid;grid-template-columns:1fr;gap:0;border:1px solid var(--hairline);border-radius:var(--r-lg);overflow:hidden;}
+.rung{
+  display:grid;grid-template-columns:200px 1fr auto;gap:var(--sp-lg);align-items:center;
+  padding:var(--sp-lg) var(--sp-lg);border-bottom:1px solid var(--hairline);
+}
+.rung:last-child{border-bottom:none;}
+.rung:nth-child(1){background:var(--canvas);}
+.rung:nth-child(2){background:var(--surface);}
+.rung:nth-child(3){background:var(--surface-raised);}
+.rung h3{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.rung .rung-label{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+.rung p{font-size:14px;max-width:52ch;}
+@media (max-width:760px){
+  .rung{grid-template-columns:1fr;gap:var(--sp-sm);}
+}
+
+/* ============ Brain section ============ */
+.brain{
+  position:relative;border-radius:var(--r-xl);overflow:hidden;
+  border:1px solid var(--hairline-strong);
+  background:linear-gradient(120deg,var(--grad-start) 0%,var(--grad-end) 100%);
+}
+.brain-inner{
+  position:relative;z-index:1;
+  background:linear-gradient(180deg,rgba(13,14,16,0.55) 0%,rgba(13,14,16,0.82) 100%);
+  padding:var(--sp-xxl) var(--sp-xl);
+}
+@media (max-width:600px){.brain-inner{padding:var(--sp-xl) var(--sp-lg);}}
+.brain h2{
+  font-size:24px;font-weight:600;letter-spacing:-0.5px;line-height:1.2;
+  color:var(--ink);margin-bottom:var(--sp-xs);
+}
+.brain p{max-width:56ch;color:var(--ink);opacity:0.85;margin-bottom:var(--sp-lg);}
+.brain-badges{display:flex;gap:var(--sp-xs);margin-bottom:var(--sp-lg);flex-wrap:wrap;}
+.brain .badge-neutral,.brain .badge-cool{border-color:rgba(244,241,235,0.3);}
+
+/* ============ Invite / CTA ============ */
+.invite-card{
+  background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-lg);
+  padding:var(--sp-xl);display:grid;grid-template-columns:1fr auto;gap:var(--sp-xl);align-items:center;
+}
+@media (max-width:760px){.invite-card{grid-template-columns:1fr;}}
+.invite-card h2{font-size:20px;font-weight:600;letter-spacing:-0.25px;color:var(--ink);margin-bottom:var(--sp-xxs);}
+.invite-form{display:flex;gap:var(--sp-xs);flex-wrap:wrap;}
+.text-input{
+  height:36px;padding:0 12px;border-radius:var(--r-md);
+  background:var(--canvas);border:1px solid var(--hairline);
+  color:var(--ink);font-family:var(--font-ui);font-size:14px;
+  min-width:240px;transition:border-color 150ms ease-out;
+}
+.text-input::placeholder{color:var(--muted);}
+.text-input:hover{border-color:var(--hairline-strong);}
+.text-input:focus{outline:none;border-color:var(--signal);}
+.invite-form .btn{height:36px;}
+
+/* ============ Footer ============ */
+footer{border-top:1px solid var(--hairline);padding:var(--sp-lg) 0;}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-md);flex-wrap:wrap;}
+.foot-meta{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+.foot-links{display:flex;gap:var(--sp-md);}
+.foot-links a{font-size:12px;color:var(--muted);transition:color 150ms ease-out;}
+.foot-links a:hover{color:var(--body);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a href="#" class="brand" aria-label="Ownix home">
+      <!-- Logo: rounded hexagon, keyhole knocked out of the center -->
+      <svg width="28" height="28" viewBox="0 0 48 48" role="img" aria-hidden="true">
+        <path d="M20.5 3.02a7 7 0 0 1 7 0l13.3 7.68a7 7 0 0 1 3.5 6.06v15.36a7 7 0 0 1-3.5 6.06L27.5 45.86a7 7 0 0 1-7 0L7.2 38.18a7 7 0 0 1-3.5-6.06V16.76a7 7 0 0 1 3.5-6.06L20.5 3.02Z"
+              fill="#f4f1eb"/>
+        <path d="M24 14.5a5.5 5.5 0 0 0-2.6 10.35L19.6 32a1.6 1.6 0 0 0 1.57 1.9h5.66A1.6 1.6 0 0 0 28.4 32l-1.8-7.15A5.5 5.5 0 0 0 24 14.5Z"
+              fill="#0d0e10"/>
+      </svg>
+      <span class="brand-name">Ownix</span>
+    </a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#index">Index</a>
+      <a href="#feed">Feed</a>
+      <a href="#brain">Brain</a>
+      <a class="btn btn-signal nav-cta" href="#invite">Request invite</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ Hero ============ -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>A quiet place for the internet you want to keep.</h1>
+        <p class="lede">
+          Ownix saves the videos, articles, repos, and ideas you care about into a
+          private Index, returns them through a Feed you own, and lets you choose
+          what contributes signal to the shared Brain. Nothing leaves unless you send it.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-signal" href="#invite">Request invite</a>
+          <a class="btn btn-ghost" href="#index">See how it works</a>
+        </div>
+        <p class="hero-note">invite-only · v0.9 · nothing is shared by default</p>
+      </div>
+
+      <!-- Product mock: the Index -->
+      <div class="panel" aria-label="Preview of the Ownix Index">
+        <div class="panel-head">
+          <span class="panel-title">Index</span>
+          <span class="panel-meta">1,284 items</span>
+        </div>
+        <div class="job-row">
+          <div class="job-main">
+            <div class="job-title">Deep dive: how vector databases actually work</div>
+            <div class="job-meta">yt_9f2k1 · 2026-07-09 14:32 · 41:07</div>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-outline badge-long">Long</span>
+            <span class="badge badge-done">Done</span>
+          </div>
+        </div>
+        <div class="job-row">
+          <div class="job-main">
+            <div class="job-title">The maintenance cost of everything you own</div>
+            <div class="job-meta">ar_c771d · 2026-07-09 11:05 · 2,900 words</div>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-outline badge-article">Article</span>
+            <span class="badge badge-enriching">Enriching</span>
+          </div>
+        </div>
+        <div class="job-row">
+          <div class="job-main">
+            <div class="job-title">tinygrad/tinygrad</div>
+            <div class="job-meta">gh_5aa02 · 2026-07-08 22:18 · 28,410 ★</div>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-outline badge-repo">Repo</span>
+            <span class="badge badge-processing">Processing</span>
+          </div>
+        </div>
+        <div class="job-row">
+          <div class="job-main">
+            <div class="job-title">60-second knife sharpening technique</div>
+            <div class="job-meta">sh_e04b9 · 2026-07-08 19:41 · 0:58</div>
+          </div>
+          <div class="job-badges">
+            <span class="badge badge-outline badge-short">Short</span>
+            <span class="badge badge-pending">Pending</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Ownership ladder ============ -->
+  <section id="index">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Three layers. You decide where things live.</h2>
+        <p>Every item in Ownix has a legible home. Ownership isn't a setting buried
+           in a menu — it's the structure of the product.</p>
+      </div>
+
+      <div class="ladder">
+        <div class="rung">
+          <div>
+            <h3>Index</h3>
+            <span class="rung-label">layer 1 / private</span>
+          </div>
+          <p>Everything you save lands here first. Videos are transcribed, articles
+             summarized, repos mapped — searchable, permanent, and visible to exactly
+             one person: you.</p>
+          <span class="badge badge-neutral">Private</span>
+        </div>
+        <div class="rung" id="feed">
+          <div>
+            <h3>Feed</h3>
+            <span class="rung-label">layer 2 / owned</span>
+          </div>
+          <p>A return path through your own Index. No algorithm deciding what you
+             see, no engagement loop — just the things you chose to keep, resurfaced
+             when they're useful again.</p>
+          <span class="badge badge-neutral">Indexed</span>
+        </div>
+        <div class="rung">
+          <div>
+            <h3>Brain</h3>
+            <span class="rung-label">layer 3 / opt-in</span>
+          </div>
+          <p>The shared layer. Contribute an item's signal to the collective map, or
+             don't. Contribution is always explicit, always per-item, and always
+             reversible.</p>
+          <span class="badge badge-cool">Shared to Brain</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Brain (the one gradient) ============ -->
+  <section id="brain">
+    <div class="wrap">
+      <div class="brain">
+        <div class="brain-inner">
+          <h2>The Brain is what we know together.</h2>
+          <p>When enough people contribute the same signal — a video worth the 40
+             minutes, a repo that actually holds up — the Brain surfaces it. It's a
+             map shaped only by deliberate contribution, never by watch time.</p>
+          <div class="brain-badges">
+            <span class="badge badge-neutral">Opt-in per item</span>
+            <span class="badge badge-neutral">No engagement metrics</span>
+            <span class="badge badge-neutral">Revocable anytime</span>
+          </div>
+          <a class="btn btn-signal" href="#invite">Contribute to the Brain</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Invite ============ -->
+  <section id="invite">
+    <div class="wrap">
+      <div class="invite-card">
+        <div>
+          <h2>Ownix is invite-only while it's young.</h2>
+          <p>We're shaping it with real users and honest feedback. Leave your email
+             and we'll send an invite as capacity opens up.</p>
+        </div>
+        <div class="invite-form">
+          <input class="text-input" type="email" placeholder="you@example.com" aria-label="Email address">
+          <button class="btn btn-signal" type="button">Request invite</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="brand" style="gap:8px;">
+      <svg width="20" height="20" viewBox="0 0 48 48" role="img" aria-hidden="true">
+        <path d="M20.5 3.02a7 7 0 0 1 7 0l13.3 7.68a7 7 0 0 1 3.5 6.06v15.36a7 7 0 0 1-3.5 6.06L27.5 45.86a7 7 0 0 1-7 0L7.2 38.18a7 7 0 0 1-3.5-6.06V16.76a7 7 0 0 1 3.5-6.06L20.5 3.02Z" fill="#f4f1eb"/>
+        <path d="M24 14.5a5.5 5.5 0 0 0-2.6 10.35L19.6 32a1.6 1.6 0 0 0 1.57 1.9h5.66A1.6 1.6 0 0 0 28.4 32l-1.8-7.15A5.5 5.5 0 0 0 24 14.5Z" fill="#0d0e10"/>
+      </svg>
+      <span class="foot-meta">ownix · © 2026 · built quietly</span>
+    </div>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Contact</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

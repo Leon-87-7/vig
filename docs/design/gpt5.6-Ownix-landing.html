@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ownix — The Personal Index</title>
+  <meta name="description" content="A polished Ownix landing page mockup based on the Ownix design system." />
+  <style>
+    :root {
+      --canvas: #0d0e10;
+      --surface: #16181c;
+      --surface-raised: #202329;
+      --hairline: #30343d;
+      --hairline-strong: #343a44;
+      --ink: #f4f1eb;
+      --body: #c6c1b8;
+      --muted: #948e84;
+      --signal: #d99a45;
+      --signal-bright: #efb566;
+      --signal-deep: #a57534;
+      --on-signal: #1b1309;
+      --contrasignal: #94e6ee;
+      --status-done: #4ade80;
+      --status-done-tint: #122b1c;
+      --status-processing: #60a5fa;
+      --status-processing-tint: #14233b;
+      --status-enriching: #a78bfa;
+      --status-enriching-tint: #221a3d;
+      --type-short: #c084fc;
+      --type-long: #38bdf8;
+      --type-article: #2dd4bf;
+      --type-repo: #fb7185;
+      --gradient-brain-start: #7c3aed;
+      --gradient-brain-end: #22d3ee;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 12px;
+      --max: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top right, rgba(148, 230, 238, 0.055), transparent 34rem),
+        radial-gradient(circle at 12% 0%, rgba(217, 154, 69, 0.045), transparent 28rem),
+        var(--canvas);
+      color: var(--body);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .page-shell {
+      min-height: 100vh;
+      border-inline: 1px solid rgba(48, 52, 61, 0.45);
+      max-width: 1440px;
+      margin: 0 auto;
+      background:
+        linear-gradient(90deg, rgba(48, 52, 61, 0.18) 1px, transparent 1px) 0 0 / 96px 96px,
+        transparent;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--hairline);
+      background: rgba(13, 14, 16, 0.88);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-inner,
+    .hero,
+    .section,
+    .footer-inner {
+      width: min(calc(100% - 32px), var(--max));
+      margin: 0 auto;
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 68px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-weight: 600;
+      letter-spacing: -0.25px;
+    }
+
+    .logo-mark {
+      width: 38px;
+      height: 38px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, var(--surface-raised), #111317);
+      border: 1px solid var(--hairline-strong);
+      clip-path: polygon(26% 3%, 74% 3%, 97% 28%, 97% 72%, 74% 97%, 26% 97%, 3% 72%, 3% 28%);
+    }
+
+    .logo-mark::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(217, 154, 69, 0.72);
+      clip-path: polygon(26% 3%, 74% 3%, 97% 28%, 97% 72%, 74% 97%, 26% 97%, 3% 72%, 3% 28%);
+    }
+
+    .logo-mark::after {
+      content: "";
+      width: 8px;
+      height: 16px;
+      background:
+        radial-gradient(circle at 50% 29%, var(--signal) 0 5px, transparent 5.2px),
+        linear-gradient(var(--signal), var(--signal)) 50% 60% / 4px 10px no-repeat;
+      filter: drop-shadow(0 0 10px rgba(217, 154, 69, 0.16));
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-links a {
+      color: var(--body);
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      transition: background 150ms ease-out, color 150ms ease-out;
+    }
+
+    .nav-links a:hover { background: var(--surface-raised); color: var(--ink); }
+    .nav-links a.active { background: var(--surface-raised); color: var(--signal); }
+
+    .actions { display: flex; align-items: center; gap: 8px; }
+
+    .button {
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1;
+      transition: background 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .button:focus-visible,
+    .field:focus-visible {
+      outline: 2px solid var(--signal);
+      outline-offset: 2px;
+    }
+
+    .button-primary { background: var(--signal); color: var(--on-signal); }
+    .button-primary:hover { background: var(--signal-bright); }
+    .button-primary:active { background: var(--signal-deep); }
+    .button-ghost { color: var(--ink); border-color: var(--hairline); background: transparent; }
+    .button-ghost:hover { background: var(--surface-raised); }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(440px, 1.1fr);
+      gap: 48px;
+      align-items: center;
+      padding: 88px 0 64px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--status-done); }
+
+    h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(42px, 7vw, 78px);
+      line-height: 0.98;
+      letter-spacing: -2.6px;
+      font-weight: 600;
+      max-width: 760px;
+    }
+
+    .hero p {
+      margin: 24px 0 0;
+      color: var(--body);
+      font-size: 16px;
+      line-height: 1.65;
+      max-width: 62ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 28px;
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+
+    .pill {
+      border: 1px solid var(--hairline);
+      background: rgba(22, 24, 28, 0.72);
+      border-radius: var(--radius-md);
+      padding: 6px 9px;
+    }
+
+    .product-frame {
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-xl);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .frame-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--hairline);
+      background: var(--surface-raised);
+    }
+
+    .window-dots { display: flex; gap: 6px; }
+    .window-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--hairline-strong); }
+
+    .mono {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: 184px 1fr;
+      min-height: 500px;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--hairline);
+      padding: 16px 12px;
+      background: var(--surface);
+    }
+
+    .side-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      color: var(--body);
+      font-weight: 500;
+    }
+
+    .side-item.active { background: var(--surface-raised); color: var(--signal); }
+    .side-item .count { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+
+    .main-panel { padding: 18px; }
+
+    .panel-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel-title { color: var(--ink); font-size: 20px; font-weight: 600; letter-spacing: -0.25px; margin: 0; }
+    .panel-sub { color: var(--muted); margin: 4px 0 0; }
+
+    .field {
+      height: 36px;
+      min-width: 230px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--hairline);
+      background: var(--canvas);
+      color: var(--ink);
+      padding: 0 12px;
+      font: inherit;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card,
+    .item-row,
+    .brain-card,
+    .feature-card,
+    .invite-card {
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+    }
+
+    .stat-card { padding: 12px 16px; }
+    .stat-label { color: var(--muted); font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.4px; }
+    .stat-value { color: var(--ink); font-size: 28px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; margin-top: 5px; }
+
+    .item-list { display: grid; gap: 8px; }
+    .item-row { padding: 12px 16px; transition: background 150ms ease-out; }
+    .item-row:hover { background: var(--surface-raised); }
+
+    .item-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .item-title { color: var(--ink); font-weight: 600; }
+    .item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: var(--radius-sm);
+      padding: 2px 6px;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.4px;
+      line-height: 1.4;
+    }
+
+    .status-done { color: var(--status-done); background: var(--status-done-tint); }
+    .status-processing { color: var(--status-processing); background: var(--status-processing-tint); }
+    .status-enriching { color: var(--status-enriching); background: var(--status-enriching-tint); }
+    .type-long { color: var(--type-long); border: 1px solid var(--hairline); background: transparent; }
+    .type-article { color: var(--type-article); border: 1px solid var(--hairline); background: transparent; }
+    .type-repo { color: var(--type-repo); border: 1px solid var(--hairline); background: transparent; }
+    .ownership { color: var(--contrasignal); border: 1px solid var(--hairline); background: transparent; }
+
+    .section { padding: 52px 0; }
+    .section-header { max-width: 720px; margin-bottom: 20px; }
+    .section-header h2 { color: var(--ink); font-size: 24px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; margin: 0 0 10px; }
+    .section-header p { color: var(--body); margin: 0; font-size: 15px; }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .feature-card { padding: 16px; }
+    .feature-card h3 { color: var(--ink); font-size: 16px; font-weight: 600; margin: 0 0 8px; }
+    .feature-card p { margin: 0; color: var(--body); }
+
+    .brain-card {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 24px;
+      overflow: hidden;
+      background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(34, 211, 238, 0.18)),
+        var(--surface);
+    }
+
+    .brain-card h2 { color: var(--ink); font-size: 24px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; margin: 0 0 10px; }
+    .brain-card p { max-width: 58ch; margin: 0; color: var(--ink); opacity: 0.84; }
+
+    .brain-map {
+      display: grid;
+      gap: 8px;
+      align-content: center;
+    }
+
+    .brain-node {
+      border: 1px solid rgba(244, 241, 235, 0.2);
+      border-radius: var(--radius-lg);
+      padding: 10px 12px;
+      background: rgba(13, 14, 16, 0.42);
+      color: var(--ink);
+    }
+
+    .invite-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 20px;
+      background: var(--surface);
+    }
+
+    .invite-card h2 { color: var(--ink); font-size: 24px; line-height: 1.2; letter-spacing: -0.5px; font-weight: 600; margin: 0 0 8px; }
+    .invite-card p { margin: 0; color: var(--body); max-width: 64ch; }
+
+    footer { border-top: 1px solid var(--hairline); margin-top: 36px; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 16px; padding: 24px 0; color: var(--muted); font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+    @media (max-width: 960px) {
+      .hero { grid-template-columns: 1fr; padding-top: 64px; }
+      .dashboard { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .feature-grid, .brain-card { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+    }
+
+    @media (max-width: 640px) {
+      .actions .button-ghost { display: none; }
+      .stats { grid-template-columns: 1fr; }
+      .panel-head, .invite-card, .footer-inner { flex-direction: column; align-items: flex-start; }
+      .field { min-width: 100%; }
+      h1 { letter-spacing: -1.6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="nav">
+      <div class="nav-inner">
+        <a class="brand" href="#" aria-label="Ownix home">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <span>Ownix</span>
+        </a>
+        <nav class="nav-links" aria-label="Primary navigation">
+          <a class="active" href="#index">Index</a>
+          <a href="#feed">Feed</a>
+          <a href="#brain">Brain</a>
+          <a href="#invite">Invite</a>
+        </nav>
+        <div class="actions">
+          <a class="button button-ghost" href="#preview">View preview</a>
+          <a class="button button-primary" href="#invite">Request invite</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="index">
+        <div>
+          <div class="eyebrow"><span class="dot" aria-hidden="true"></span><span>private_index.ready</span></div>
+          <h1>The internet you keep, finally owned by you.</h1>
+          <p>Ownix collects videos, links, articles, repos, documents, and ideas into a private Index. Return through an owned Feed, then choose what contributes signal to the public Brain.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#invite">Add yourself to the invite list</a>
+            <a class="button button-ghost" href="#preview">See the product surface</a>
+          </div>
+          <div class="hero-meta" aria-label="Product facts">
+            <span class="pill">INDEX_ID OX-2048</span>
+            <span class="pill">FEED_STATE owned</span>
+            <span class="pill">BRAIN_SIGNAL optional</span>
+          </div>
+        </div>
+
+        <div class="product-frame" id="preview" aria-label="Ownix product preview">
+          <div class="frame-top">
+            <div class="window-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="mono">app.ownix.local/index</span>
+          </div>
+          <div class="dashboard">
+            <aside class="sidebar">
+              <div class="side-item active"><span>Index</span><span class="count">248</span></div>
+              <div class="side-item"><span>Feed</span><span class="count">42</span></div>
+              <div class="side-item"><span>Brain</span><span class="count">18</span></div>
+              <div class="side-item"><span>Queue</span><span class="count">7</span></div>
+            </aside>
+            <section class="main-panel">
+              <div class="panel-head">
+                <div>
+                  <h2 class="panel-title">Personal Index</h2>
+                  <p class="panel-sub">Collected, processed, and ready to return to.</p>
+                </div>
+                <input class="field" value="youtube.com/watch?v=quiet-tools" aria-label="Save URL" />
+              </div>
+
+              <div class="stats" aria-label="Summary tiles">
+                <div class="stat-card"><div class="stat-label">INDEXED</div><div class="stat-value">248</div></div>
+                <div class="stat-card"><div class="stat-label">PROCESSING</div><div class="stat-value">07</div></div>
+                <div class="stat-card"><div class="stat-label">SHARED</div><div class="stat-value">18</div></div>
+              </div>
+
+              <div class="item-list">
+                <article class="item-row">
+                  <div class="item-top"><span class="item-title">Building calm software systems</span><span class="mono">saved 14:32</span></div>
+                  <div class="item-meta"><span class="badge status-done">INDEXED</span><span class="badge type-long">LONG</span><span class="badge ownership">PRIVATE</span></div>
+                </article>
+                <article class="item-row">
+                  <div class="item-top"><span class="item-title">Repo notes: durable queues</span><span class="mono">repo/github</span></div>
+                  <div class="item-meta"><span class="badge status-enriching">ENRICHING</span><span class="badge type-repo">REPO</span><span class="badge ownership">FEED</span></div>
+                </article>
+                <article class="item-row">
+                  <div class="item-top"><span class="item-title">Private knowledge over rented feeds</span><span class="mono">article/html</span></div>
+                  <div class="item-meta"><span class="badge status-processing">PROCESSING</span><span class="badge type-article">ARTICLE</span><span class="badge ownership">PRIVATE</span></div>
+                </article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="feed">
+        <div class="section-header">
+          <h2>A feed that belongs to the person reading it.</h2>
+          <p>Ownix separates collection, return, and contribution so every surface makes ownership legible without shouting for attention.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <h3>Private by default</h3>
+            <p>Saved items enter your Index first. Private, Indexed, Feed, and Shared states are labeled directly.</p>
+          </article>
+          <article class="feature-card">
+            <h3>Built for return</h3>
+            <p>The owned Feed is not another timeline. It is a focused way back into what you intentionally kept.</p>
+          </article>
+          <article class="feature-card">
+            <h3>System facts stay factual</h3>
+            <p>Counts, IDs, timestamps, URLs, and pipeline states use mono styling so the product language stays clear.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="brain">
+        <div class="brain-card">
+          <div>
+            <span class="badge ownership">SHARED TO BRAIN</span>
+            <h2 style="margin-top: 14px;">Contribution is optional, visible, and reversible.</h2>
+            <p>The Brain is the collective layer. It only receives signal when a person chooses to contribute, and that shared state is shown with clear labels rather than decoration.</p>
+          </div>
+          <div class="brain-map" aria-label="Brain signal map">
+            <div class="brain-node"><span class="mono">topic.cluster</span><br />Local-first tools and durable ownership</div>
+            <div class="brain-node"><span class="mono">source.mix</span><br />Videos · Repos · Articles · Docs</div>
+            <div class="brain-node"><span class="mono">signal.mode</span><br />Opt-in contribution layer</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="invite">
+        <div class="invite-card">
+          <div>
+            <h2>Request access to Ownix.</h2>
+            <p>Invite-only while the product is young. The ask is simple: use it with real workflows, then tell us where the Index breaks.</p>
+          </div>
+          <a class="button button-primary" href="mailto:hello@ownix.local?subject=Ownix%20invite%20request">Request invite</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <span>OWNIX / THE_PERSONAL_INDEX</span>
+        <span>private by default · brain by choice</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
