@@ -1,39 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import {
+  LINKS_PAGE_SIZES,
+  type LinkRow,
+  type LinksOrder,
+  type LinksView,
+  type UseLinksTableResult,
+} from '@/lib/hooks/useLinksTable';
 
-type LinkRow = {
-  url: string;
-  title?: string | null;
-  topic?: string | null;
-  seen_count: number;
-  first_seen: string;
-  last_seen?: string | null;
-};
-
-type LinksResponse = {
-  items: LinkRow[];
-  limit: number;
-  offset: number;
-  total: number;
-};
-
-type LinksSort = 'last_seen' | 'appearances';
-type LinksOrder = 'asc' | 'desc';
-
-type LinksView = {
-  sort: LinksSort;
-  order: LinksOrder;
-  size: 25 | 50 | 100;
-};
-
-const DEFAULT_LINKS_VIEW: LinksView = {
-  sort: 'last_seen',
-  order: 'desc',
-  size: 25,
-};
-const LINKS_PAGE_SIZES: LinksView['size'][] = [25, 50, 100];
 function LinksErrorBanner({ message }: { message: string }) {
   return (
     <p className="rounded-md border border-line bg-status-error-tint px-4 py-3 text-sm text-status-error">
@@ -142,6 +118,16 @@ function TableCard({ link }: { link: LinkRow }) {
   );
 }
 
+function linksCountLabel(
+  state: 'loading' | 'ready' | 'error',
+  query: string,
+  total: number,
+): string {
+  if (state === 'loading') return 'loading…';
+  if (query.trim()) return `${total} result${total === 1 ? '' : 's'}`;
+  return `${total} link${total === 1 ? '' : 's'}`;
+}
+
 function SortIcon({
   active,
   order,
@@ -159,204 +145,107 @@ function SortIcon({
   );
 }
 
-export function LinksTable() {
-  const [page, setPage] = useState(0);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [view, setView] = useState<LinksView>(DEFAULT_LINKS_VIEW);
-  const [viewLoaded, setViewLoaded] = useState(false);
-  const [data, setData] = useState<LinksResponse>({
-    items: [],
-    limit: DEFAULT_LINKS_VIEW.size,
-    offset: 0,
-    total: 0,
-  });
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>(
-    'loading',
+/** The Links tab's search input + page-size picker — rendered inside
+ * FilterBar's tab row (via `searchSlot`) instead of below the "Extracted
+ * links" heading, since the standard job search/filters are hidden there. */
+export function LinksSearchBar({
+  linksData,
+}: {
+  linksData: UseLinksTableResult;
+}) {
+  const { query, setQuery, view, viewLoaded, updateView } = linksData;
+  return (
+    <div className="grid w-full gap-2 sm:flex sm:items-center">
+      <input
+        id="links-search"
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          // Escape clears the filter if any, else blurs out of the field.
+          if (e.key === 'Escape') {
+            if (query) {
+              setQuery('');
+            } else {
+              e.currentTarget.blur();
+            }
+          }
+        }}
+        placeholder="Filter links by URL, title, or topic…"
+        aria-label="Filter extracted links"
+        className="h-9 w-full min-w-0 rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:flex-1"
+      />
+      <label className="flex items-center justify-between gap-2 text-xs font-medium text-muted sm:shrink-0 sm:justify-start">
+        Page size
+        <select
+          value={view.size}
+          disabled={!viewLoaded}
+          onChange={(e) =>
+            updateView({
+              size: Number(e.target.value) as LinksView['size'],
+            })
+          }
+          className="h-9 rounded-md border border-line bg-canvas pl-2 font-mono text-xs text-contrasignal transition-ui hover:border-line-strong focus:border-signal focus:outline-none disabled:opacity-50"
+        >
+          {LINKS_PAGE_SIZES.map((size) => (
+            <option
+              key={size}
+              value={size}
+            >
+              {size}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
-  const [message, setMessage] = useState('');
-  const [jumpPage, setJumpPage] = useState('1');
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadView = async () => {
-      try {
-        const res = await fetch('/api/brain/links/view');
-        if (!res.ok)
-          throw new Error(`View request failed (${res.status})`);
-        // GET returns server-normalized values only; no need to re-coerce here.
-        const payload = (await res.json()) as LinksView;
-        if (!cancelled) setView(payload);
-      } catch {
-        // Use defaults if the preference endpoint is temporarily unavailable.
-      } finally {
-        if (!cancelled) setViewLoaded(true);
-      }
-    };
-    void loadView();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Debounce only the search box; page navigation should load immediately.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
-    if (!viewLoaded) return;
-    let cancelled = false;
-    const load = async () => {
-      setState('loading');
-      setMessage('');
-      const params = new URLSearchParams({
-        limit: String(view.size),
-        offset: String(page * view.size),
-        sort: view.sort,
-        order: view.order,
-      });
-      if (debouncedQuery.trim())
-        params.set('q', debouncedQuery.trim());
-      try {
-        const res = await fetch(`/api/brain/links?${params}`);
-        if (!res.ok)
-          throw new Error(`Links request failed (${res.status})`);
-        const payload = (await res.json()) as LinksResponse;
-        if (!cancelled) {
-          setData(payload);
-          setState('ready');
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setState('error');
-          setMessage(
-            err instanceof Error
-              ? err.message
-              : 'Unable to load links.',
-          );
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [page, debouncedQuery, view, viewLoaded]);
-
-  // Skip the first run so loading the view from GET doesn't immediately PUT it back.
-  const skipFirstPut = useRef(true);
-  useEffect(() => {
-    if (!viewLoaded) return;
-    if (skipFirstPut.current) {
-      skipFirstPut.current = false;
-      return;
-    }
-    void fetch('/api/brain/links/view', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(view),
-    }).catch(() => {
-      // Preference persistence is best-effort.
-    });
-  }, [view, viewLoaded]);
-
-  const pageCount = Math.max(1, Math.ceil(data.total / view.size));
-  const currentPage = Math.min(page + 1, pageCount);
-  const start = data.total === 0 ? 0 : data.offset + 1;
-  const end = Math.min(data.offset + data.items.length, data.total);
-  const hasPrevious = data.offset > 0;
-  const hasNext = data.offset + data.limit < data.total;
-
-  useEffect(() => {
-    setJumpPage(String(currentPage));
-  }, [currentPage]);
-
-  const updateView = (patch: Partial<LinksView>) => {
-    setPage(0);
-    setView((value) => ({ ...value, ...patch }));
-  };
-
-  const toggleSort = (sort: LinksSort) => {
-    updateView({
-      sort,
-      order:
-        view.sort === sort && view.order === 'desc' ? 'asc' : 'desc',
-    });
-  };
-
-  const submitJump = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const requested = Number.parseInt(jumpPage, 10);
-    if (Number.isNaN(requested)) return;
-    setPage(Math.min(Math.max(requested, 1), pageCount) - 1);
-  };
+export function LinksTable({
+  linksData,
+}: {
+  linksData: UseLinksTableResult;
+}) {
+  const {
+    query,
+    view,
+    viewLoaded,
+    toggleSort,
+    data,
+    state,
+    message,
+    page,
+    setPage,
+    jumpPage,
+    setJumpPage,
+    submitJump,
+    pageCount,
+    currentPage,
+    start,
+    end,
+    hasPrevious,
+    hasNext,
+  } = linksData;
 
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-ink">
             Extracted links
           </h2>
-          <p className="mt-1 text-pretty text-sm text-body">
-            Deduplicated canonical URLs discovered by enrichment runs.
-          </p>
+          <span
+            className="inline-flex items-center rounded border border-line px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wider text-muted"
+            aria-live="polite"
+          >
+            {linksCountLabel(state, query, data.total)}
+          </span>
         </div>
         <p className="font-mono text-xs tabular-nums text-muted">
           {state === 'loading'
             ? 'Loading…'
             : `${start}-${end} of ${data.total}`}
         </p>
-      </div>
-
-      <div className="grid gap-3 rounded-xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <input
-          id="links-search"
-          type="search"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(0);
-          }}
-          onKeyDown={(e) => {
-            // Escape clears the filter if any, else blurs out of the field.
-            if (e.key === 'Escape') {
-              if (query) {
-                setQuery('');
-                setPage(0);
-              } else {
-                e.currentTarget.blur();
-              }
-            }
-          }}
-          placeholder="Filter links by URL, title, or topic…"
-          aria-label="Filter extracted links"
-          className="h-10 w-full rounded-lg border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none"
-        />
-        <label className="flex items-center gap-2 text-xs font-medium text-muted">
-          Page size
-          <select
-            value={view.size}
-            disabled={!viewLoaded}
-            onChange={(e) =>
-              updateView({
-                size: Number(e.target.value) as LinksView['size'],
-              })
-            }
-            className="h-10 rounded-lg border border-line bg-canvas pl-2 font-mono text-xs text-contrasignal transition-ui hover:border-line-strong focus:border-signal focus:outline-none disabled:opacity-50"
-          >
-            {LINKS_PAGE_SIZES.map((size) => (
-              <option
-                key={size}
-                value={size}
-              >
-                {size}
-              </option>
-            ))}
-          </select>
-        </label>
       </div>
 
       {state === 'error' && <LinksErrorBanner message={message} />}
@@ -495,7 +384,10 @@ export function LinksTable() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <form
-          onSubmit={submitJump}
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitJump(Number.parseInt(jumpPage, 10));
+          }}
           className="flex items-center gap-2 text-xs text-muted"
         >
           <span className="font-mono tabular-nums">

@@ -56,6 +56,20 @@ describe('/restricted entry route (ADR-0035 §1 session-aware CTA)', () => {
     expect(previewCookie(response)).toContain('ownix_preview=1');
   });
 
+  it('?exit clears the preview cookie without asking the backend', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const response = await GET(
+      new NextRequest('https://ownix.test/restricted?exit=1'),
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe('https://ownix.test/feed');
+    const cookie = previewCookie(response);
+    // A deletion (Max-Age=0 / empty value), never ownix_preview=1.
+    expect(cookie ?? '').not.toContain('ownix_preview=1');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('never calls the backend for anonymous visitors', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);

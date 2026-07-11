@@ -27,6 +27,13 @@ async function isApprovedSession(request: NextRequest): Promise<boolean> {
 export async function GET(request: NextRequest) {
   const url = new URL('/feed', request.url);
   const response = NextResponse.redirect(url, 303);
+  // ?exit leaves Restricted mode: drop the preview cookie and land on /feed
+  // (signed-out visitors get bounced to /login by the middleware; in mock/dev
+  // mode this is the switch back to the mock user).
+  if (request.nextUrl.searchParams.has('exit')) {
+    response.cookies.delete('ownix_preview');
+    return response;
+  }
   if (await isApprovedSession(request)) {
     // Self-heal a stale preview cookie (e.g. approved mid-session).
     response.cookies.delete('ownix_preview');

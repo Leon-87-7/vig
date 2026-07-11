@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -16,6 +17,7 @@ import { useFeedData } from '@/lib/hooks/useFeedData';
 import { useFuseSearch } from '@/lib/hooks/useFuseSearch';
 import { useInFlightPolling } from '@/lib/hooks/useInFlightPolling';
 import { useBackgroundFreshness } from '@/lib/hooks/useBackgroundFreshness';
+import { useLinksTable } from '@/lib/hooks/useLinksTable';
 import { JobCard } from '@/components/job-card';
 import { StatsOverview } from '@/components/feed/stats-overview';
 import { FilterBar } from '@/components/filter-bar';
@@ -31,8 +33,9 @@ import { PageShell } from '@/components/page-shell';
 import { useGoogleStatus } from '@/components/google-status';
 import { useSubmitJob } from '@/components/submit-job';
 import { FileCode2, Link2, Plus } from 'lucide-react';
+import { GoogleIcon } from '@/components/svg/google-icon';
 import type { JobSummary } from '@/components/job-card';
-import { LinksTable } from '@/components/links-table';
+import { LinksSearchBar, LinksTable } from '@/components/links-table';
 import { useRestrictedMode } from '@/lib/restricted/context';
 import {
   Dialog,
@@ -68,7 +71,6 @@ function normalizeContentType(value: string | null): string {
   return value && CONTENT_TYPES.has(value) ? value : '';
 }
 
-
 const INTRO_SEEN_COOKIE = 'ownix_preview_intro_seen';
 
 function RestrictedIntroModal() {
@@ -79,7 +81,10 @@ function RestrictedIntroModal() {
     if (!restricted) return;
     // Session cookie, not sessionStorage: "once per browser session" has to
     // hold across tabs, and sessionStorage is per-tab.
-    if (document.cookie.split('; ').includes(`${INTRO_SEEN_COOKIE}=1`)) return;
+    if (
+      document.cookie.split('; ').includes(`${INTRO_SEEN_COOKIE}=1`)
+    )
+      return;
     setShow(true);
   }, [restricted]);
   const dismiss = () => {
@@ -96,9 +101,9 @@ function RestrictedIntroModal() {
       <DialogContent className="max-w-lg">
         <DialogTitle>Restricted mode on</DialogTitle>
         <DialogDescription>
-          This preview uses a read-only sample from Leon&apos;s Index, balanced
-          across Feed tabs so you can see videos, articles, repos, and links.
-          Actions are locked until you get access.
+          This preview uses a read-only sample from Leon&apos;s Index,
+          balanced across Feed tabs so you can see videos, articles,
+          repos, and links. Actions are locked until you get access.
         </DialogDescription>
         <div className="mt-5 flex flex-wrap gap-3">
           <button
@@ -251,12 +256,30 @@ function FeedPageContent() {
   // Expose the Feed search focus to the command launcher. focusLinkSearch
   // switches to Links first, then focuses LinksTable's own search input — not
   // #feed-search, which drives the Jobs query and would leave a stale filter.
-  // LinksTable mounts only after the view switch, so retry across frames until
-  // its input exists.
+  // focusSearch does the reverse: #feed-search is unmounted while Links is
+  // active (FilterBar hides it there), so hitting `/` on that tab backs out
+  // to the All tab first, then retries the focus across frames until the
+  // input remounts. Both read showingLinksRef instead of `showingLinks`
+  // directly so this effect doesn't need to re-register on every tab switch.
   useEffect(() => {
     registerFeedSearch({
-      focusSearch: () =>
-        document.getElementById('feed-search')?.focus(),
+      focusSearch: () => {
+        if (!showingLinksRef.current) {
+          document.getElementById('feed-search')?.focus();
+          return;
+        }
+        setContentType('');
+        let attempts = 0;
+        const focusJobsSearch = () => {
+          const input = document.getElementById('feed-search');
+          if (input) {
+            input.focus();
+          } else if (attempts++ < 10) {
+            requestAnimationFrame(focusJobsSearch);
+          }
+        };
+        requestAnimationFrame(focusJobsSearch);
+      },
       focusLinkSearch: () => {
         switchToLinks();
         let attempts = 0;
@@ -272,7 +295,7 @@ function FeedPageContent() {
       },
     });
     return () => registerFeedSearch(null);
-  }, [registerFeedSearch, switchToLinks]);
+  }, [registerFeedSearch, switchToLinks, setContentType]);
 
   const contentTypeCounts = useMemo(
     () => stats?.by_content_type ?? {},
@@ -301,6 +324,14 @@ function FeedPageContent() {
   );
   const firstLoad = loading && jobs.length === 0 && !error;
   const showingLinks = feedView === 'links';
+  // Read inside the focusSearch closure below without re-registering it on
+  // every tab switch (registerFeedSearch only re-runs on identity changes).
+  const showingLinksRef = useRef(showingLinks);
+  showingLinksRef.current = showingLinks;
+  // Gated by `enabled` so Links data only fetches while its tab is actually
+  // active — mirrors how the Jobs feed already fetches regardless of tab,
+  // except Links has no reason to poll while parked on Jobs.
+  const linksData = useLinksTable({ enabled: showingLinks });
   const showPreviewGrid = Boolean(ctFilter);
   const hasFilters = Boolean(ctFilter || stFilter || query.trim());
   const empty = !loading && !error && displayedJobs.length === 0;
@@ -379,15 +410,15 @@ function FeedPageContent() {
                 Connect Google
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-body">
-                Authorize Drive + Sheets so saved items can export into
-                the app folder in your own Google Drive.
+                Authorize Drive + Sheets so saved items can export
+                into the app folder in your own Google Drive.
               </p>
             </div>
             <a
               href="/api/google/connect"
               className="inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep"
             >
-              Connect Google
+              Connect to <GoogleIcon className="ml-2 h-4 w-4" />
             </a>
           </div>
         </section>
@@ -418,6 +449,12 @@ function FeedPageContent() {
         searchLabel="Search by title or URL"
         statusValue={stFilter}
         onStatusChange={setStFilter}
+        hideSearchAndFilters={showingLinks}
+        searchSlot={
+          showingLinks ? (
+            <LinksSearchBar linksData={linksData} />
+          ) : undefined
+        }
         recoveryPanel={
           <RecoveryPanel
             contentType={ctFilter}
@@ -468,7 +505,7 @@ function FeedPageContent() {
       />
 
       {showingLinks ? (
-        <LinksTable />
+        <LinksTable linksData={linksData} />
       ) : (
         <section>
           <div className="mb-3 flex items-center gap-3">
