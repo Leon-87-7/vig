@@ -61,6 +61,18 @@ describe('Sidebar identity row', () => {
     render(<Sidebar />);
     expect(screen.queryByText('Leon')).toBeNull();
   });
+
+  it('posts sign out to the backend logout endpoint', () => {
+    render(<Sidebar />);
+    const signOut = screen.getByRole('button', {
+      name: 'Sign Out',
+      hidden: true,
+    });
+    expect(signOut.closest('form')?.getAttribute('action')).toBe(
+      '/api/auth/logout',
+    );
+    expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');
+  });
 });
 
 describe('Sidebar Google connection state', () => {

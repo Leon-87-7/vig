@@ -574,11 +574,7 @@ export function Sidebar() {
                 aria-hidden="true"
               />
             </button>
-            <form
-              action="/logout"
-              method="POST"
-              className="flex-1"
-            >
+            <form action="/api/auth/logout" method="POST" className="flex-1">
               <button
                 type="submit"
                 tabIndex={open ? undefined : -1}
