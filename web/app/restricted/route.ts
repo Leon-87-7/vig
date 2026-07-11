@@ -12,6 +12,7 @@ async function isApprovedSession(request: NextRequest): Promise<boolean> {
     const res = await fetch(`${API_URL}/api/auth/me`, {
       headers: { cookie: request.headers.get('cookie') ?? '' },
       cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return false;
     const me = (await res.json()) as { status?: string };

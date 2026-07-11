@@ -8,7 +8,7 @@ from src.api.jobs import resolve_thumbnail
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_long_youtube_watch() -> None:
+async def test_resolve_thumbnail_long_youtube_watch() -> None:
     assert await resolve_thumbnail({"id": "j1", "url": "https://www.youtube.com/watch?v=abc123", "content_type": "long"}) == (
         "https://img.youtube.com/vi/abc123/hqdefault.jpg",
         "landscape",
@@ -16,7 +16,7 @@ async def testresolve_thumbnail_long_youtube_watch() -> None:
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_long_youtu_be() -> None:
+async def test_resolve_thumbnail_long_youtu_be() -> None:
     assert await resolve_thumbnail({"id": "j1", "url": "https://youtu.be/abc123", "content_type": "long"}) == (
         "https://img.youtube.com/vi/abc123/hqdefault.jpg",
         "landscape",
@@ -24,7 +24,7 @@ async def testresolve_thumbnail_long_youtu_be() -> None:
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_repo() -> None:
+async def test_resolve_thumbnail_repo() -> None:
     assert await resolve_thumbnail({"id": "j1", "url": "https://github.com/owner/repo/issues/1", "content_type": "repo"}) == (
         "https://opengraph.githubassets.com/0/owner/repo",
         "landscape",
@@ -32,7 +32,7 @@ async def testresolve_thumbnail_repo() -> None:
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_youtube_short() -> None:
+async def test_resolve_thumbnail_youtube_short() -> None:
     assert await resolve_thumbnail({"id": "j1", "url": "https://youtube.com/shorts/short123", "content_type": "short"}) == (
         "https://img.youtube.com/vi/short123/hqdefault.jpg",
         "portrait",
@@ -40,7 +40,7 @@ async def testresolve_thumbnail_youtube_short() -> None:
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_ig_and_tiktok_short_placeholder(monkeypatch) -> None:
+async def test_resolve_thumbnail_ig_and_tiktok_short_placeholder(monkeypatch) -> None:
     async def _has_thumbnail(_job_id: str) -> bool:
         return False
 
@@ -53,7 +53,7 @@ async def testresolve_thumbnail_ig_and_tiktok_short_placeholder(monkeypatch) -> 
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_ig_short_uses_persisted_thumbnail(monkeypatch) -> None:
+async def test_resolve_thumbnail_ig_short_uses_persisted_thumbnail(monkeypatch) -> None:
     async def _has_thumbnail(_job_id: str) -> bool:
         return True
 
@@ -66,7 +66,7 @@ async def testresolve_thumbnail_ig_short_uses_persisted_thumbnail(monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_article_og_image() -> None:
+async def test_resolve_thumbnail_article_og_image() -> None:
     assert await resolve_thumbnail({
         "id": "j1",
         "url": "https://medium.com/example/post",
@@ -76,7 +76,7 @@ async def testresolve_thumbnail_article_og_image() -> None:
 
 
 @pytest.mark.asyncio
-async def testresolve_thumbnail_article_placeholder() -> None:
+async def test_resolve_thumbnail_article_placeholder() -> None:
     assert await resolve_thumbnail({"id": "j1", "url": "https://medium.com/example/post", "content_type": "article"}) == (None, None)
 
 

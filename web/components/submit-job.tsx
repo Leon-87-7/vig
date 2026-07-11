@@ -291,7 +291,7 @@ export function SubmitJobProvider({
         !shouldIgnoreGlobalShortcut(event.target)
       ) {
         const recovery = feedRecoveryRef.current;
-        if (recovery?.canClearFailed) {
+        if (!restricted && recovery?.canClearFailed) {
           event.preventDefault();
           if (window.confirm(CLEAR_FAILED_CONFIRM))
             recovery.clearFailed();
@@ -339,7 +339,7 @@ export function SubmitJobProvider({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [setCommandOpen]);
+  }, [restricted, setCommandOpen]);
 
   const submitJob = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -395,7 +395,7 @@ export function SubmitJobProvider({
     [freestylePrompt, submitting, template, url],
   );
 
-  const openDocs = useCallback(() => setDocsOpen(true), []);
+  const openDocs = useCallback(() => setDocsOpen(true), [setDocsOpen]);
   const openCommand = useCallback(() => setCommandOpen(true), [setCommandOpen]);
   const go = useCallback((href: string) => {
     setCommandOpenRaw(false);

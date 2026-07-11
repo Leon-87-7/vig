@@ -68,7 +68,7 @@ async def _load_corpus() -> tuple[list[str], list[dict]]:
         return [], []
     async with database.connection() as conn:
         cur = await conn.execute(
-            f"""
+            """
             WITH ranked AS (
                 SELECT id, content_type, created_at,
                        CASE WHEN created_at >= datetime('now', '-12 hours')
@@ -83,11 +83,11 @@ async def _load_corpus() -> tuple[list[str], list[dict]]:
                 WHERE chat_id = ? AND status != 'cancelled'
             )
             SELECT id FROM ranked
-            WHERE tab_rank <= {TAB_LIMIT}
+            WHERE tab_rank <= ?
             ORDER BY age_bucket ASC, created_at DESC, id DESC
-            LIMIT {PREVIEW_LIMIT}
+            LIMIT ?
             """,
-            (operator,),
+            (operator, TAB_LIMIT, PREVIEW_LIMIT),
         )
         ids = [row["id"] for row in await cur.fetchall()]
         if not ids:

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 interface RestrictedModeValue {
@@ -20,6 +20,11 @@ export function useRestrictedMode() {
 export function RestrictedModeProvider({ children, restricted }: { children: ReactNode; restricted: boolean }) {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
   const showRestrictedToast = useCallback((body = 'Sign in to unlock actions in your own Index.') => {
     setToast(body);
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
