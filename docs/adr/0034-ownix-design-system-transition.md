@@ -56,7 +56,8 @@ the new product terms:
 
 | Route | User-facing name | Reason |
 | --- | --- | --- |
-| `/` | Feed | The owned stream of saved and processed items. |
+| `/` | Landing | Public marketing page; authenticated visits 307 to `/feed` (amended 2026-07-10, issue #329). |
+| `/feed` | Feed | The owned stream of saved and processed items (moved from `/` by issue #329). |
 | `/doc-parser` | Docs | Short product label for saved document intake and outputs, not the parser implementation. |
 | `/brain` | Brain | The shared semantic layer. Avoid "Second Brain" in new copy. |
 | `/spaces` | Collections | A user-owned grouping of saved items. |
@@ -97,6 +98,9 @@ present the product as an operator console or as a generic dashboard.
 - Route renames are intentionally out of scope. Renaming `/doc-parser`,
   `/spaces`, `/prompts`, or `/controls` requires a separate compatibility plan
   for links, tests, and user bookmarks.
+- Amendment (2026-07-10): the Feed route cutover (issue #329) is the one
+  sanctioned exception — Feed moved to `/feed` and `/` became the public
+  landing route, with middleware forwarding authenticated visits to `/feed`.
 - Legacy logo assets under `web/images` and `web/public/images` may remain as
   historical/generated assets until an asset cleanup pass removes or replaces
   unused files.

@@ -1,11 +1,19 @@
-import Link from "next/link";
-import type { ReactNode } from "react";
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import OwnixLogo from '@/app/ownix-logo.svg';
 
-type PublicPage = "terms" | "privacy";
+type PublicPage = 'terms' | 'privacy';
 
-const navItems: Array<{ href: string; label: string; page: PublicPage }> = [
-  { href: "/terms", label: "Terms", page: "terms" },
-  { href: "/privacy", label: "Privacy", page: "privacy" },
+const focusRing =
+  'focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface';
+
+const navItems: Array<{
+  href: string;
+  label: string;
+  page: PublicPage;
+}> = [
+  { href: '/privacy', label: 'Privacy', page: 'privacy' },
+  { href: '/terms', label: 'Terms', page: 'terms' },
 ];
 
 export function PublicShell({
@@ -21,26 +29,34 @@ export function PublicShell({
         <div className="mx-auto flex min-h-16 max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link
             href="/"
-            className="flex items-center gap-3 rounded-md transition-ui hover:text-signal focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface"
+            aria-label="Ownix home"
+            className={`group flex items-center gap-2 rounded-md text-xl font-semibold tracking-tight text-ink ${focusRing}`}
           >
-            <span className="text-xl font-semibold tracking-tight text-ink">
+            <OwnixLogo
+              aria-hidden="true"
+              focusable="false"
+              className="h-7 w-7 transition-transform duration-200 ease-out-quart group-hover:scale-110 group-hover:text-signal-bright group-hover:rotate-[-6deg]"
+            />
+            <span className="group-hover:text-contrasignal">
               Ownix
             </span>
-            <span className="sr-only">Ownix home</span>
           </Link>
 
-          <nav className="flex items-center gap-1" aria-label="Public">
+          <nav
+            className="flex items-center gap-1"
+            aria-label="Public"
+          >
             {navItems.map((item) => {
               const current = active === item.page;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={current ? "page" : undefined}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${
+                  aria-current={current ? 'page' : undefined}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${focusRing} ${
                     current
-                      ? "bg-raised text-signal"
-                      : "text-body hover:bg-raised hover:text-ink"
+                      ? 'bg-raised text-signal'
+                      : 'text-body hover:bg-raised hover:text-ink'
                   }`}
                 >
                   {item.label}
@@ -49,7 +65,7 @@ export function PublicShell({
             })}
             <Link
               href="/login"
-              className="ml-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink transition-ui hover:border-line-strong hover:bg-raised"
+              className={`ml-1 inline-flex h-8 items-center rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui duration-200 hover:bg-signal-deep hover:text-onsignal ${focusRing}`}
             >
               Sign in
             </Link>
@@ -78,18 +94,21 @@ export function LegalLayout({
         <p className="font-mono text-[11px] font-medium text-muted">
           Legal document
         </p>
-        <nav className="mt-3 flex flex-col gap-1" aria-label="Legal documents">
+        <nav
+          className="mt-3 flex flex-col gap-1"
+          aria-label="Legal documents"
+        >
           {navItems.map((item) => {
             const current = active === item.page;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                aria-current={current ? "page" : undefined}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${
+                aria-current={current ? 'page' : undefined}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${focusRing} ${
                   current
-                    ? "bg-raised text-signal"
-                    : "text-body hover:bg-raised hover:text-ink"
+                    ? 'bg-raised text-signal'
+                    : 'text-body hover:bg-raised hover:text-ink'
                 }`}
               >
                 {item.label}
@@ -98,8 +117,8 @@ export function LegalLayout({
           })}
         </nav>
         <p className="mt-6 text-sm leading-6 text-muted">
-          Public terms for Ownix, your personal Index, the shared Brain, and
-          connected services.
+          Public terms for Ownix, your personal Index, the shared
+          Brain, and connected services.
         </p>
       </aside>
     </div>
@@ -143,10 +162,10 @@ export function LegalSection({
 }) {
   return (
     <section className="mt-7 border-t border-line pt-7 first:border-t-0 first:pt-0">
-      <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
-      <div className="mt-3 space-y-3">
-        {children}
-      </div>
+      <h2 className="text-lg font-semibold tracking-tight text-ink">
+        {title}
+      </h2>
+      <div className="mt-3 space-y-3">{children}</div>
     </section>
   );
 }
@@ -162,12 +181,12 @@ export function LegalLink({
   href: string;
   children: ReactNode;
 }) {
-  const external = href.startsWith("http");
+  const external = href.startsWith('http');
   return (
     <a
       href={href}
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
       className="font-medium text-signal transition-ui hover:text-signal-bright hover:underline"
     >
       {children}

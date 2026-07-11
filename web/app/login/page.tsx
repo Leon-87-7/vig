@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/components/auth-shell';
 
@@ -22,7 +23,8 @@ export default function LoginPage() {
   const lastAuthUser = useRef<TelegramUser | null>(null);
   const [authState, setAuthState] = useState<AuthState>('idle');
   const [authError, setAuthError] = useState<string | null>(null);
-  const [widgetState, setWidgetState] = useState<WidgetState>('loading');
+  const [widgetState, setWidgetState] =
+    useState<WidgetState>('loading');
 
   const authenticate = useCallback(
     async (user: TelegramUser) => {
@@ -38,7 +40,7 @@ export default function LoginPage() {
         });
 
         if (res.ok) {
-          router.replace('/');
+          router.replace('/feed');
           return;
         }
 
@@ -120,28 +122,54 @@ export default function LoginPage() {
               role="status"
               className="h-10 w-[238px] animate-pulse rounded-md border border-line bg-raised motion-reduce:animate-none"
             >
-              <span className="sr-only">Loading Telegram sign-in</span>
+              <span className="sr-only">
+                Loading Telegram sign-in
+              </span>
             </div>
           )}
           <div
             id="tg-login-container"
-            className={widgetState === 'error' ? 'hidden' : 'flex justify-center'}
+            className={
+              widgetState === 'error'
+                ? 'hidden'
+                : 'flex justify-center'
+            }
           />
           {widgetState === 'error' && (
-            <p role="alert" className="text-sm leading-6 text-status-error">
-              Telegram sign-in is unavailable right now. Refresh the page or check your connection.
+            <p
+              role="alert"
+              className="text-sm leading-6 text-status-error"
+            >
+              Telegram sign-in is unavailable right now. Refresh the
+              page or check your connection.
             </p>
           )}
         </div>
 
-        <div className="mt-5 min-h-6" aria-live="polite">
+        <Link
+          href="/"
+          className="mt-5 rounded-md px-3 py-2 text-sm font-medium text-body transition-ui hover:bg-raised hover:text-ink focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface"
+        >
+          <span>← Back to landing page</span>
+        </Link>
+
+        <div
+          className="mt-5 min-h-6"
+          aria-live="polite"
+        >
           {authState === 'pending' && (
-            <p role="status" className="text-sm text-body">
+            <p
+              role="status"
+              className="text-sm text-body"
+            >
               Signing you in...
             </p>
           )}
           {authError && (
-            <div role="alert" className="flex flex-col items-center gap-3">
+            <div
+              role="alert"
+              className="flex flex-col items-center gap-3"
+            >
               <p className="text-sm leading-6 text-status-error">
                 {authError}
               </p>

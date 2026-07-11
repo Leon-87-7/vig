@@ -16,13 +16,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const session = request.cookies.get("vig_session");
+
+  // Public landing: authed visitors forward to /feed, everyone else sees it.
+  if (pathname === "/") {
+    return session?.value
+      ? NextResponse.redirect(new URL("/feed", request.url), 307)
+      : NextResponse.next();
+  }
+
   if (
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
   ) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get("vig_session");
   if (!session?.value) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);

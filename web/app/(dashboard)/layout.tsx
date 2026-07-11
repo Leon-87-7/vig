@@ -1,11 +1,11 @@
-import { Sidebar } from "@/components/sidebar";
-import { AppHeader } from "@/components/app-header";
-import { PageBackground } from "@/components/page-background";
-import { ScrollToTop } from "@/components/scroll-to-top";
-import { InviteGate } from "@/components/invite-gate";
-import { GoogleStatusProvider } from "@/components/google-status";
-import { SubmitJobProvider } from "@/components/submit-job";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Sidebar } from '@/components/sidebar';
+import { AppHeader } from '@/components/app-header';
+import { PageBackground } from '@/components/page-background';
+import { ScrollToTop } from '@/components/scroll-to-top';
+import { InviteGate } from '@/components/invite-gate';
+import { GoogleStatusProvider } from '@/components/google-status';
+import { SubmitJobProvider } from '@/components/submit-job';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export default function DashboardLayout({
   children,

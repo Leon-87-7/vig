@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { config } from './middleware';
+import { NextRequest } from 'next/server';
+import { config, middleware } from './middleware';
 
 // The auth gate runs only on paths the matcher selects. Static public assets
 // (svg/png/manifest) must be EXCLUDED — otherwise requests for them while
 // logged out (on /login and /logout) 307 to /login and the SVGs never render.
 const matches = (pathname: string) =>
   new RegExp(`^${config.matcher[0]}$`).test(pathname);
+
+const requestFor = (pathname: string, cookie?: string) =>
+  new NextRequest(`https://ownix.test${pathname}`, {
+    headers: cookie ? { cookie } : undefined,
+  });
 
 describe('middleware matcher', () => {
   it('excludes public static assets from the auth gate', () => {
@@ -17,6 +23,26 @@ describe('middleware matcher', () => {
 
   it('still gates real app routes', () => {
     expect(matches('/')).toBe(true);
+    expect(matches('/feed')).toBe(true);
     expect(matches('/doc-parser')).toBe(true);
+  });
+});
+
+describe('middleware routing cutover', () => {
+  it('lets logged-out visitors reach the public landing route', () => {
+    const response = middleware(requestFor('/'));
+    expect(response.status).toBe(200);
+  });
+
+  it('redirects authenticated root visits to the Feed', () => {
+    const response = middleware(requestFor('/', 'vig_session=abc'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://ownix.test/feed');
+  });
+
+  it('keeps /feed behind the session gate', () => {
+    const response = middleware(requestFor('/feed'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://ownix.test/login');
   });
 });

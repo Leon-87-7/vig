@@ -387,7 +387,7 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
     <div>
       {/* #192: full-width 44px touch target on mobile, compact text link on desktop. */}
       <Link
-        href="/"
+        href="/feed"
         className="mb-4 flex h-11 w-full items-center gap-1.5 rounded-md border border-line bg-surface px-3 text-sm font-medium text-body transition-ui hover:bg-raised hover:text-ink sm:inline-flex sm:h-auto sm:w-auto sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:text-xs sm:font-normal sm:text-muted sm:hover:bg-transparent"
       >
         <span aria-hidden="true">&#8592;</span> Back to feed
@@ -498,7 +498,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     return (
       <div className="text-sm text-body">
         Job not found.{" "}
-        <Link href="/" className="text-signal hover:underline">
+        <Link href="/feed" className="text-signal hover:underline">
           Back to feed
         </Link>
       </div>
@@ -507,7 +507,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     return (
       <div className="text-sm text-body">
         Access denied.{" "}
-        <Link href="/" className="text-signal hover:underline">
+        <Link href="/feed" className="text-signal hover:underline">
           Back to feed
         </Link>
       </div>
@@ -516,7 +516,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
     return (
       <div className="text-sm text-body">
         Failed to load job.{" "}
-        <Link href="/" className="text-signal hover:underline">
+        <Link href="/feed" className="text-signal hover:underline">
           Back to feed
         </Link>
       </div>

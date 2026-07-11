@@ -192,3 +192,30 @@
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* Sidebar brand reveal — fires only when the nav drawer opens (a state change,
+   user-triggered, not page load). Base state is fully visible, so the header
+   still renders without JS; these play on top when `open` flips true. No forwards
+   fill: the animated transform is released on completion so the group-hover
+   scale/opacity transitions take over cleanly. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes sidebar-mark-in {
+    from { opacity: 0; transform: scale(0.82); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes sidebar-word-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .sidebar-mark-in {
+    animation: sidebar-mark-in 260ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* backwards fill holds opacity 0 through the 70ms stagger delay so the
+     wordmark never flashes in before it slides. */
+  .sidebar-word-in {
+    animation: sidebar-word-in 280ms cubic-bezier(0.25, 1, 0.5, 1) 70ms backwards;
+  }
+}

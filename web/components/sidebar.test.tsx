@@ -5,7 +5,7 @@ import { Sidebar } from './sidebar';
 import type { InviteUser } from './invite-gate';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/',
+  usePathname: () => '/feed',
 }));
 
 const sessionMock = vi.hoisted(() => ({
@@ -60,6 +60,18 @@ describe('Sidebar identity row', () => {
     sessionMock.user = null;
     render(<Sidebar />);
     expect(screen.queryByText('Leon')).toBeNull();
+  });
+
+  it('posts sign out to the backend logout endpoint', () => {
+    render(<Sidebar />);
+    const signOut = screen.getByRole('button', {
+      name: 'Sign Out',
+      hidden: true,
+    });
+    expect(signOut.closest('form')?.getAttribute('action')).toBe(
+      '/api/auth/logout',
+    );
+    expect(signOut.closest('form')?.getAttribute('method')).toBe('POST');
   });
 });
 
