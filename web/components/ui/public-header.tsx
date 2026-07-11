@@ -8,7 +8,7 @@ export default function PublicHeader() {
   return (
     <header className="flex items-center justify-between gap-4 rounded-lg border border-line bg-surface/90 px-4 py-3 backdrop-blur-sm">
       <Link
-        href="/feed"
+        href="/"
         aria-label="Ownix home"
         className={`group flex items-center gap-2 rounded-md text-xl font-semibold tracking-tight text-ink ${focusRing}`}
       >

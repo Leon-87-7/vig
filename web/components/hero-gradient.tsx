@@ -1,13 +1,18 @@
 'use client';
 
 import { GrainGradient } from '@paper-design/shaders-react';
+import { useEffect, useState } from 'react';
 
 export function HeroGradient() {
-  // ponytail: matchMedia read once at render, no listener — an OS-level
-  // motion-preference change applies on next navigation/reload.
-  const reduced =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduced(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   return (
     <GrainGradient

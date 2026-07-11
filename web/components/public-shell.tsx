@@ -105,7 +105,7 @@ export function LegalLayout({
                 key={item.href}
                 href={item.href}
                 aria-current={current ? 'page' : undefined}
-                className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-ui ${focusRing} ${
                   current
                     ? 'bg-raised text-signal'
                     : 'text-body hover:bg-raised hover:text-ink'
