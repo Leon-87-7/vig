@@ -60,6 +60,12 @@ Ordered by unblocked-first, then dependency chain.
 | [#330](https://github.com/Leon-87-7/vig/issues/330) | Add Google API Limited Use disclosure to the /privacy page                                       | Web / Privacy            | —                |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
 | [#331](https://github.com/Leon-87-7/vig/issues/331) | Public landing — BrandBackground extraction + full marketing page + /login back-link             | Web / Landing            | #329             |
+| [#353](https://github.com/Leon-87-7/vig/issues/353) | Restricted mode — preview data plane: read-only preview endpoints + diversified corpus           | API / Preview            | —                |
+| [#354](https://github.com/Leon-87-7/vig/issues/354) | Restricted mode — entry: session-aware landing + ownix_preview cookie + read-only Feed            | Web / Routing            | #353             |
+| [#355](https://github.com/Leon-87-7/vig/issues/355) | Restricted mode — chrome: shared state + AppHeader banner + global toast + blocked actions        | Web / Restricted         | #354             |
+| [#356](https://github.com/Leon-87-7/vig/issues/356) | Restricted mode — Feed intro modal (once per browser session)                                     | Web / Restricted         | #355             |
+| [#357](https://github.com/Leon-87-7/vig/issues/357) | Restricted mode — sidebar persistence + read-only page facades (Docs/Collections/Recipes/Settings) | Web / Restricted        | #355             |
+| [#358](https://github.com/Leon-87-7/vig/issues/358) | Restricted mode — login access sequence + locked Connect Google                                   | Web / Auth               | #354             |
 
 ---
 
@@ -406,6 +412,16 @@ Feed inventory IA — Links view, Docs ingest action, command launcher (task #24
 ├── #335 Desktop Commands launcher for Feed actions ◄── also #333 ✅-Done (PR #337)
 │   └── #336 Move Links inventory API to Feed namespace last ◄── also #333 ✅-Done (PR #337)
 Critical path: {#333, #334} → #335 → #336 (all ✅-Done via PR #337)
+
+Restricted mode preview (source: docs/handoff/restricted-mode-preview.md — ADR-0035; CONTEXT.md Restricted mode)
+#353 preview data plane — read-only preview endpoints + diversified corpus (root, backend)
+└── #354 entry — session-aware landing + ownix_preview cookie + read-only Feed ◄── also #329 (routing cutover, merged)
+    ├── #355 chrome — shared state + AppHeader banner + global toast + blocked actions
+    │   ├── #356 Feed intro modal (once per browser session)
+    │   └── #357 sidebar persistence + read-only page facades (Docs/Collections/Recipes/Settings)
+    └── #358 login access sequence + locked Connect Google
+Critical path: #353 → #354 → #355 → {#356, #357}; #358 follows #354 in parallel
+Follow-up (out of scope): #352 auto-approve new users — separate access-policy change, not part of this preview
 ```
 
 ---
