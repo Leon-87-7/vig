@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 /**
  * The one page container. Every dashboard page
@@ -11,17 +11,19 @@ import type { ReactNode } from "react";
  * the default max-w-5xl is the house width for list pages.
  */
 export function PageShell({
-  width = "default",
+  width = 'default',
   className,
   children,
 }: {
-  width?: "default" | "narrow";
+  width?: 'default' | 'narrow';
   className?: string;
   children: ReactNode;
 }) {
-  const max = width === "narrow" ? "max-w-3xl" : "max-w-5xl";
+  const max = width === 'narrow' ? 'max-w-3xl' : 'max-w-5xl';
   return (
-    <div className={`mx-auto ${max} space-y-6${className ? ` ${className}` : ""}`}>
+    <div
+      className={`mx-auto ${max} space-y-6${className ? ` ${className}` : ''}`}
+    >
       {children}
     </div>
   );
@@ -46,12 +48,19 @@ export function PageHeader({
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="flex flex-1 items-center gap-2 text-2xl font-semibold tracking-tight text-ink">
-          {Icon && <Icon className="text-signal" aria-hidden="true" />}
+          {Icon && (
+            <Icon
+              className="text-signal"
+              aria-hidden="true"
+            />
+          )}
           {title}
         </h1>
         {action && <div className="shrink-0">{action}</div>}
       </div>
-      {description && <p className="mt-1 text-sm text-body">{description}</p>}
+      {description && (
+        <p className="mt-1 text-sm text-body">{description}</p>
+      )}
     </div>
   );
 }

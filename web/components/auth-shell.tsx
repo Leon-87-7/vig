@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import Footer from '@/components/ui/footer';
+import Header from '@/components/ui/public-header';
 
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
@@ -16,12 +18,14 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <h1 className="text-5xl font-semibold tracking-tight text-ink">
             Ownix
           </h1>
-          <p className="mt-3 text-sm font-medium text-body">
-            Your internet, indexed.
+          <p className="mt-3 flex gap-1 text-sm font-medium text-body">
+            <span className="italic">your internet,</span>
+            <span className="font-mono">indexed.</span>
           </p>
           {children}
         </div>
       </section>
+      <Footer />
     </main>
   );
 }
