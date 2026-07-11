@@ -23,21 +23,7 @@ its body to `docs/archive/TASK-archive.md`, leaving the title behind here.
 _Raw one-line ideas go here. `/pre-grill` consumes them._
 
 <!-- - e.g. the feed should have a saved-filters dropdown -->
-- Migrate the canonical app URL from `app.leondev.xyz` to `ownix.leondev.xyz` across DNS, hosting, OAuth callbacks, env vars, and docs.
 
-- replace VIG as an internal repository/backend/service. migrate explicitly rename code, packages, deployment names, API paths, GitHub metadata and telegram bot.
-
-- build new telegram bot to match Ownix brand name to increase alignment. 
-
-- build a page in Ownix that mimic/mirror the telegram bot flow for seamless web workflow. 
-
-- test a new user approval workflow.
-
-- add tags to the individual link in the links table. on mobile tags are color badges (should redesign the colors for the tags).
-
-- in links table redesign the options drop down to radio btns in a line (on mobile)
-
-- fold in Instagram carousel '/p' to the short pipeline and remove the prd creation from the long pipeline .
 ---
 
 ## Briefs
@@ -54,6 +40,10 @@ _Raw one-line ideas go here. `/pre-grill` consumes them._
 > shared job-creation core: task 4 from the web surface, task 9 from the
 > post-enrichment repo follow-up. See ADR-0032 (dashboard supersedes
 > read-mostly) and ADR-0033 (shared core shape) in `docs/adr/`.
+
+> **Grill together with task 28.** Task 28 ("mirror the bot flow on the web")
+> is largely *this* task plus task 24's shipped command launcher — settle
+> what, if anything, task 28 adds beyond the two before spec'ing it.
 
 Today URLs only enter through the Telegram webhook
 (`src/telegram/webhook.py`). PRODUCT.md calls for the operator to drive the
@@ -213,39 +203,76 @@ three trigger sites feeding the same offer + enqueue mechanism.
 
 ## 11. Tags should follow the URL, not the job (many-to-many)
 
-> **Grill:** `/grill-with-docs` — domain-model/schema call (`link_tags` join +
-> URL canonicalization must match the repo's existing rules).
+> **Grilled (partially) 2026-07-11** — session closed early; resolved decisions
+> below, remaining opens listed. Scope grew: the grill surfaced that `links` has
+> no `chat_id` (global inventory) while `tags` are per-chat, and resolving that
+> expanded this task into **per-tenant Brain + an opt-in Community Brain tab**.
+> Consider splitting the Community Brain into its own task before issuing.
+
+> **Grill together with task 30.** Task 11 owns the data model (URL ↔ tag
+> join); task 30 owns the Links-table surface + the mobile color-badge
+> redesign that renders it. Same feature, two layers — decide the
+> attachment key once.
 
 Tags today attach to **jobs**: the `job_tags` join table
-(`src/database.py:205`, `job_id ↔ tag_id`, issue #88 / S5) keyed off a single job,
-with the `tags` vocabulary in the `tags` table (`src/database.py:171`, issue #87).
+(`src/database.py:227`, `job_id ↔ tag_id`, issue #88 / S5) keyed off a single job,
+with the `tags` vocabulary in the `tags` table (`src/database.py:193`, issue #87).
 The links table (`src/brain.py`, `ingest_links` / the `links` table at
-`src/database.py:151`) is already deduplicated by canonical `url` — one row per
-unique URL — and the same URL can surface across many jobs. So a tag pinned to a
+`src/database.py:173`) is deduplicated by canonical `url` via `normalize_url`
+(`src/brain.py:136` — strip query/fragment/trailing slash; soft dedup, no UNIQUE
+constraint) — and the same URL can surface across many jobs. So a tag pinned to a
 job can't express "this URL is ui/ux" once that URL recurs in other jobs.
 
 **Wanted:** model tags as following the canonical URL (many-to-many URL ↔ tag),
 independent of how many jobs a URL appears in.
 
-**Data**
+**Resolved 2026-07-11** (grill session 1)
 
-- A URL appears in many jobs and a job extracts many URLs (many-to-many);
-  `links.url` is the stable key. Tagging at the URL level needs a `link_tags`
-  (`url`/`link_id ↔ tag_id`) join rather than overloading `job_tags`.
-- **Reuse, don't fork:** the `tags` vocabulary table and `TagPicker`
-  (`web/components/TagPicker.tsx`) already exist — reuse the vocabulary; only the
-  _attachment_ target changes from job to URL.
+- ~~Replace or coexist?~~ → **Coexist.** `job_tags` stays as-is (workflow
+  surface, shipped UI); `link_tags` is a second attachment target (inventory
+  surface). Job tags and link tags may disagree — no reconciliation semantics.
+- ~~Join key: `links.id` or canonical `url`?~~ → **`links.id` FK.**
+  `link_tags(link_id REFERENCES links(id) ON DELETE CASCADE, tag_id REFERENCES
+  tags(id) ON DELETE CASCADE, PRIMARY KEY(link_id, tag_id))` — mirrors
+  `job_tags` exactly. Safe because `rebuild_graph` (`src/brain.py:637`) never
+  deletes rows. Canonicalization stays owned by `ingest_links`/`normalize_url`.
+- ~~Tag visibility across users~~ → **Per-tenant Brain.** `links` gains
+  `chat_id`; dedup key becomes `(chat_id, url)`; related-computation, search,
+  graph, and the links API filter by viewer. Backfill existing rows via
+  `source_job → jobs.chat_id`.
+- **Community Brain (new concept):** a new tab on the Brain page showing the
+  communal pool, viewable by everyone. **Sharer model, forward-only:** opting
+  in makes you a sharer; links you ingest *while opted in* are stamped shared
+  at ingest time (e.g. `shared_at` on the link row). Opt-in does **not** share
+  your back-catalog; opt-out does **not** withdraw already-shared links — they
+  stay put. Community tab = all shared rows across users, merged by canonical
+  URL. Tags stay private in all views (restated in-session, not contested —
+  re-confirm). Opt-in is a **timed action** (~8–12h sharing window), state in
+  the existing `get_user_setting`/`set_user_setting` store
+  (`src/database.py:1232`).
 
-**Open questions** (resolve in grill)
+**Open questions** (next grill session)
 
-- Does this **replace** job-level tagging (`job_tags`) or coexist with it? If both,
-  what's the relationship when a job's tag and its URL's tag disagree?
-- Key the join on `links.id` or on canonical `url`? (Dedup canonicalization rules
-  here echo task 3's open question — same canonical form must be used.)
-- Surface/edit URL tags where: the Brain Links table (new column / `TagPicker`
-  inline), the existing controls page, or both?
-- Migration: do existing `job_tags` rows get projected onto their URLs, or do URL
-  tags start empty?
+- **Timer semantics** (where the session stopped): fixed window with silent
+  expiry (recommended — one `sharer_until` timestamp, checked at ingest, no
+  background jobs), fixed window + Telegram expiry notice (needs a scheduled
+  check), or activity-extended sliding TTL? Is 8–12h fixed or user-chosen?
+- Confirm: tags never appear in the Community tab (private-only), correct?
+- Where does the opt-in/sharer toggle live in the UI (Brain page header,
+  Community tab itself, controls page)?
+- Migration mechanics: schema version bump for `links.chat_id` + backfill +
+  `link_tags` + UNIQUE index decision on `(chat_id, url)` (harden the soft
+  dedup while migrating?).
+- Do `search_links`, `get_graph`, and `/api/brain/*` endpoints all gain viewer
+  scoping in this task, or does the Community tab ship read-only from the
+  shared pool first?
+- Surface/edit URL tags where: the Brain Links table (task 30), the controls
+  page, or both?
+- Migration: do existing `job_tags` rows get projected onto their URLs, or do
+  URL tags start empty?
+- **ADR candidate** once the opens close: per-tenant Brain + forward-only
+  community sharing is hard to reverse, surprising without context, and a real
+  trade-off — write it up when the next session finishes.
 
 ## 12. Repalette: new signal orange + dark plate tokens
 
@@ -771,3 +798,277 @@ Brain loses the redundant Links table.
   final implementation step so the UI move, shared Links component, command
   launcher, and search behavior land before the route rename can disrupt
   anything.
+
+## 25. Migrate the canonical app URL `app.` → `ownix.leondev.xyz`
+
+> **Grill:** `/grill-with-search-docs` — hinges on external integration config
+> (Google OAuth consent verification, Vercel domain, Telegram Login Widget
+> domain check) rather than repo internals.
+
+> **Grill together with tasks 26 and 27** — the Ownix rebrand. Shared decisions:
+> the new brand string, the cutover ordering (URL vs. code-rename vs. new bot),
+> and whether old hosts keep redirecting.
+
+Today the browser only ever talks to `app.leondev.xyz` (Vercel: Next.js +
+middleware), which rewrites `/api/*` to `api.leondev.xyz` (Cloudflare Tunnel →
+FastAPI) — see `docs/ops/vercel-deploy.md:9-19`. The host is baked into: the
+Google OAuth client (JS origin + redirect URI
+`https://app.leondev.xyz/api/auth/google/callback`, `docs/ops/oauth-verification.md:25-28,54-55`),
+the Telegram Login Widget domain check (`vercel-deploy.md:56`), the `WEB-PRD.md`
+spec (`docs/seed/WEB-PRD.md:40,333`), `CONTEXT.md:98`, and `ADR-0016:10`.
+`api.leondev.xyz` is a **separate** decision — the memory note pins the prod
+webhook host to `api.leondev.xyz` and it is not obviously in scope here.
+
+**Wanted:** the dashboard is reachable at `ownix.leondev.xyz`, with OAuth and the
+Telegram login widget still working, and docs/env updated to match.
+
+**Ops / Config**
+- New Vercel domain `ownix.leondev.xyz` (CNAME); decide the fate of the old
+  `app.` host (permanent 308 redirect vs. retire).
+- Google OAuth: add the new JS origin + redirect URI to the "Web client 1"
+  credentials, and update the consent-screen homepage/privacy/terms URLs
+  (`oauth-verification.md:25-28`). This re-touches the branding verification
+  from task 14 — a homepage-URL change may re-trigger review.
+- Telegram Login Widget: re-point the widget's allowed domain to the new host
+  (`vercel-deploy.md:56`).
+- Doc/env sweep: `WEB-PRD.md`, `vercel-deploy.md`, `oauth-verification.md`,
+  `CONTEXT.md`, `ADR-0016`, and any `*_URL` env vars.
+
+**Open questions** (resolve in grill)
+- Does `api.leondev.xyz` also rebrand (e.g. `api.ownix…`), or does only the
+  public app host move while the API host stays?
+- Old `app.` host: 308-redirect forever, or hard cutover?
+- Does changing the OAuth homepage URL force a fresh Google verification cycle
+  (the task 14 pain), and can that be sequenced to avoid downtime?
+
+## 26. Rename VIG → Ownix across code, packages, deployment, and repo metadata
+
+> **Grill:** `/grill-with-docs` — repo-internal rename touching the domain
+> model's names, ADRs, and CONTEXT.md terminology.
+
+> **Grill together with tasks 25 and 27** — the Ownix rebrand. Ordering matters:
+> a code/service rename, the URL move (25), and a new bot handle (27) should
+> cut over in a deliberate sequence, not piecemeal.
+
+"vig" is stamped across build/deploy identifiers, not the API surface. Known
+occurrences: `web/package.json` name `vig-web`; `docker-compose.yml` image
+`vig-app`, containers `vig-api`/`vig-worker`/`vig-transcript`/`vig-cloudflared`/`vig-redis`,
+network `vig-network`; the session cookie `vig_session` (`src/api/auth.py`); the
+GitHub repo `Leon-87-7/vig`; the SVG lockup `vig_logo_lockup.svg`; and `CLAUDE.md`/docs
+prose. HTTP paths are already brand-neutral (`/api/*`), so routes likely need no
+change.
+
+**Wanted:** internal identifiers, package/deploy names, and repo metadata read
+"Ownix" instead of "vig", without breaking sessions or deployments.
+
+**Scope (confirm each in grill)**
+- **Package/deploy names:** `web/package.json`, docker-compose image/container/network
+  names — cosmetic but touch CI, GHCR image tags, and the VPS compose file.
+- **Session cookie `vig_session`:** renaming it logs everyone out on cutover
+  (the cookie name is the session key). Rename vs. keep-as-legacy-name is a real call.
+- **GitHub repo rename** `vig` → `ownix`: GitHub auto-redirects old remotes, but
+  issue/PR references, badges, and `docs/agents/*` `Leon-87-7/vig` literals need a sweep.
+- **Docs/terminology:** `CLAUDE.md`, `CONTEXT.md`, ADRs — the domain vocabulary.
+
+**Open questions** (resolve in grill)
+- Is "VIG" (the product) fully retired, or does it remain an internal
+  codename while "Ownix" is the public brand? (Determines how deep the rename goes.)
+- Rename the `vig_session` cookie (forces re-login) or leave it for continuity?
+- Rename the GitHub repo now, or defer to avoid churning every doc link mid-flight?
+- Do docker image tags / GHCR paths rename in lockstep with the VPS deploy, or
+  is there a compatibility window?
+
+## 27. New Telegram bot aligned to the Ownix brand
+
+> **Grill:** `/grill-with-search-docs` — hinges on BotFather setup and the
+> webhook re-registration flow (external Telegram API), not repo internals.
+
+> **Grill together with tasks 25 and 26** — the Ownix rebrand. A new bot handle
+> is the third cutover surface alongside the URL (25) and the code rename (26).
+
+The bot is a single webhook service (`src/telegram/webhook.py`), with
+user-facing brand strings in help/command copy (e.g. the intake help text at
+`webhook.py:1555`). The BotFather identity (bot username, display name, token)
+lives outside the repo; the token is an env var consumed by `sender.py`.
+
+**Wanted:** a Telegram bot whose handle/name/branding reads "Ownix", so the bot
+and dashboard present one brand.
+
+**Scope (confirm in grill)**
+- BotFather: new bot vs. rename the existing one (display name + @handle +
+  about/description + botpic). A brand-new bot means a new token and webhook
+  re-registration.
+- In-repo copy: brand strings in help/command/reply text (`webhook.py:1555` and
+  siblings) — a copy sweep, not logic.
+- Config: `TELEGRAM_BOT_TOKEN` (and any hardcoded bot username) if the token changes.
+
+**Open questions** (resolve in grill)
+- Rename the existing bot (keeps chat history + user base, zero migration) or
+  stand up a brand-new bot (clean handle, but every user must re-/start and the
+  webhook + token rotate)?
+- If new bot: how do existing users migrate, and does the invite-gate state
+  (`users` table, per-`tg_id`) carry over or reset?
+- Does the `OPERATOR_CHAT_ID` change with a new bot?
+
+## 28. Web page mirroring the Telegram bot flow — scope against tasks 4 + 24
+
+> **Grill together with task 4** (and shipped task 24). This is very likely
+> *task 4* (web URL submission producing the same job as the bot, incl. per-template
+> behavior) plus *task 24*'s already-shipped command launcher (`Submit URL`,
+> `Ingest Docs`, `Open Links` — issued #333–#336). Grill's first job is to find
+> what, if anything, remains once those two are counted.
+
+The bot flow is: send a URL → `detect_pipeline` classifies it
+(`src/utils/validators.py`) → a job is created + enqueued → templates
+(`/method`, `/review`, …) shape enrichment. Task 4 already briefs bringing that
+to the web via `POST /api/jobs` + a Feed submit control with a template
+selector. Task 24 already shipped the command launcher entry points.
+
+**Wanted:** (to be defined in grill) full web parity with the bot's *interaction*
+flow — beyond one-shot URL submit — e.g. the bot's follow-up inline prompts
+(repo-analysis offer / task 9, PRD "Build Spec" offer, template pickers) surfaced
+as web interactions.
+
+**Open questions** (resolve in grill)
+- What does this add over task 4 (web submit) + task 24 (launcher)? If nothing,
+  close it as a duplicate.
+- If there's a real delta, is it the bot's *post-job inline follow-ups* (repo
+  offer, Build Spec, template re-pick) rendered in the dashboard rather than only
+  in Telegram? That's the only bot behavior not covered by 4/24.
+- Real-time parity: does the web flow need live status push (the bot edits its
+  message as the job progresses), or is Feed's existing polling enough?
+
+## 29. Test a new user-approval workflow
+
+> **Grill:** `/grill-with-docs` — hinges on ADR-0031's invite-gate flow and the
+> `users.status` state machine.
+
+The current approval flow (ADR-0031): a `pending` user submits an email
+(`awaiting_email` chat state, `src/database.py:124`; or the dashboard modal
+`web/components/invite-gate.tsx` → `PUT /api/auth/email`, `src/api/auth.py:151`),
+which sets `users.email`/`users.status` (`src/database.py:141`). The Operator
+gets a one-shot push (`_notify_operator_invite`, `src/telegram/webhook.py:1384`)
+with ✅ Approve / 🚫 Block buttons handled by `_cb_invite_decision`
+(`webhook.py:448`). Task 22 already briefs an Operator `/pending` command to
+re-surface missed approvals.
+
+**Wanted:** unclear from the one-liner — either (a) trial/design a *different*
+approval workflow, or (b) add test coverage for the existing one. Resolve before
+scoping.
+
+**Open questions** (resolve in grill)
+- "Test a new workflow" = prototype a *changed* approval UX (e.g. self-serve,
+  auto-approve rules, a web approval surface), or write *tests* for today's flow?
+- If a new workflow: what's wrong with the current Telegram one-tap gate that a
+  new one fixes? (Task 22 already addresses the "missed push" gap.)
+- Does it stay Telegram-only, or move approval into the dashboard (which task 21
+  explicitly ruled out for contact data)?
+
+## 30. Link-level tags in the Links table + mobile color-badge redesign
+
+> **Grill:** `/grill-with-docs` — the tag-attachment target is task 11's schema
+> call; this brief owns the surface + color system.
+
+> **Grill together with task 11.** Task 11 decides the data model (URL ↔ tag
+> join, canonicalization); this brief renders it in the Links table and
+> redesigns the badge colors. Same feature, two layers.
+
+The Links table (`web/components/links-table.tsx`) renders URL / Last seen /
+Appearances only — **no tag column today**. A `TagPicker`
+(`web/components/TagPicker.tsx`) and job-tag badges (`web/components/job-card-tags.tsx`)
+already exist for *job* tags; the tag vocabulary lives in the `tags` table.
+Task 11 is the prerequisite: tags must follow the canonical URL, not the job,
+before a per-link tag UI makes sense.
+
+**Wanted:** each link row carries its own tags, editable inline; on mobile the
+tags render as color badges, with a re-designed tag color palette.
+
+**UI**
+- Add a tags affordance to `links-table.tsx` (desktop table row + the `sm:hidden`
+  `TableCard`), reusing `TagPicker` — do not fork the picker.
+- Mobile: tags as color badges (reuse/adapt `job-card-tags.tsx`'s badge render).
+- **New tag color palette** — DESIGN.md rations signal orange to "act here"
+  only, so tag category colors must be a *separate* accent set that doesn't
+  collide with signal orange or the status hues. This is the design call.
+
+**Resolved 2026-07-11** (via task 11's grill session 1)
+- ~~Keyed to `links.url`/`links.id`?~~ → **`links.id` FK** (`link_tags` mirrors
+  `job_tags`; see task 11's resolved list). Unblocked: the tag column can be
+  specced against `link_id`.
+- New constraint inherited from task 11: the Links table becomes
+  **viewer-scoped** (per-tenant Brain), and a **Community Brain tab** joins the
+  Brain page — this brief's tag UI applies to the personal view; the Community
+  tab shows no tags (pending re-confirmation in task 11's next session).
+
+**Open questions** (resolve in grill)
+- How many tag colors, and derived from what? Must pass WCAG-AA on the plate
+  ladder and stay clear of signal orange + pending-yellow (the task 12 collision
+  concern applies here too).
+- Do desktop and mobile share one badge component, or does desktop keep inline
+  `TagPicker` chips while mobile gets read-only color badges?
+
+## 31. Links table — options control as inline radios on mobile
+
+> **Grill:** `/grilling` — pure UI/UX; the affected control is already pinned in
+> the brief.
+
+On mobile the Links table (`web/components/links-table.tsx`) shows the `sm:hidden`
+card list, and its only view control is the **Page size `<select>`** dropdown
+(`links-table.tsx:340-358`). The sort controls (Last seen / Appearances) live in
+the `hidden sm:block` table header (`links-table.tsx:409-444`), so on mobile
+there is currently *no* visible sort control at all — only the page-size select.
+
+**Wanted:** replace the dropdown/`<select>` view control with an inline row of
+radio-style buttons (a segmented control) on mobile.
+
+**UI**
+- Convert the page-size `<select>` (`links-table.tsx:340-358`) to an inline
+  radio group / segmented control at the mobile breakpoint; keep the existing
+  `updateView`/persisted-view wiring (`/api/brain/links/view`) untouched.
+- Honor DESIGN.md tokens and WCAG-AA focus; segmented control active state uses
+  the established active treatment, not a second signal-orange source.
+
+**Open questions** (resolve in grill)
+- Which control does "the options dropdown" mean — the page-size `<select>`
+  only, or should sort (currently desktop-only) also become inline radios on
+  mobile so mobile finally gets a sort control?
+- Segmented control vs. literal `<input type=radio>` row — any accessibility or
+  space preference given up to 3 page-size options?
+- Does this generalize to other tables (jobs/feed) or stay Links-only?
+
+## 32. Fold Instagram `/p/` carousels into the short pipeline; drop PRD creation from the long pipeline
+
+> **Grill:** `/grill-with-docs` — two changes to the pipeline domain model (the
+> `Pipeline` classifier and a processor's post-job offer).
+
+Two independent pipeline edits bundled in one idea:
+1. **IG carousels are currently rejected.** `_match_short`
+   (`src/utils/validators.py:123-133`) matches `instagram.com/reel/` only;
+   `instagram.com/p/{id}` falls through to `"rejected"` (docstring `validators.py:90`),
+   and the bot help text advertises "Instagram Reels (not /p/ carousels)"
+   (`src/telegram/webhook.py:1555`).
+2. **The long pipeline offers PRD creation.** After a long video processes,
+   `src/processors/long_video.py:145` presents a "📐 Build Spec" inline button
+   (`prd_build_spec:{job_id}`) alongside "Run Gemini", wired to the PRD flow
+   (`src/processors/prd.py`).
+
+**Wanted:** `instagram.com/p/` carousels get accepted by the short pipeline, and
+the long pipeline stops offering PRD/spec creation.
+
+**Backend**
+- Extend `_match_short` (`validators.py:131`) to also match `instagram.com/p/`,
+  and update the `detect_pipeline` docstring + the help copy (`webhook.py:1555`).
+- Remove the "Build Spec" offer from `long_video.py:145` and trace the now-dead
+  `prd_build_spec` callback handler + whether `src/processors/prd.py` still has
+  any caller afterward (short/article PRD paths, if any, must not break).
+
+**Open questions** (resolve in grill)
+- Can the short *processor* (`processors/short_video.py`, Gemini Vision on a
+  single video) actually handle a multi-image `/p/` carousel, or does accepting
+  the URL just move the failure downstream? (This is the real risk — routing is
+  one line; processing a carousel may not be.)
+- "Remove PRD from the long pipeline" — remove only the *offer* on long videos,
+  or retire the PRD feature entirely (does anything else still create PRDs)?
+- Does dropping `prd_build_spec` leave orphaned code (`prd.py`, callback
+  registration, `PRD_*` config in `src/config.py`) to clean up, or stay for
+  other callers?
