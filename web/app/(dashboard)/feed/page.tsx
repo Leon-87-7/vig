@@ -20,7 +20,7 @@ import { useBackgroundFreshness } from '@/lib/hooks/useBackgroundFreshness';
 import { useLinksTable } from '@/lib/hooks/useLinksTable';
 import { JobCard } from '@/components/job-card';
 import { StatsOverview } from '@/components/feed/stats-overview';
-import { FilterBar } from '@/components/filter-bar';
+import { FilterBar, type FilterTab } from '@/components/filter-bar';
 import {
   SkeletonGrid,
   SkeletonList,
@@ -136,7 +136,7 @@ function FeedPageContent() {
   const urlContentType = normalizeContentType(
     searchParams.get('type'),
   );
-  const { restricted } = useRestrictedMode();
+  const { restricted, showRestrictedToast } = useRestrictedMode();
   const {
     ctFilter,
     setCtFilter,
@@ -156,7 +156,7 @@ function FeedPageContent() {
     registerFeedSearch,
   } = useSubmitJob();
   const [feedView, setFeedView] = useState<'jobs' | 'links'>(
-    searchParams.get('view') === 'links' ? 'links' : 'jobs',
+    !restricted && searchParams.get('view') === 'links' ? 'links' : 'jobs',
   );
   const [optimisticJobs, setOptimisticJobs] = useState<JobSummary[]>(
     [],
@@ -197,12 +197,14 @@ function FeedPageContent() {
   useEffect(() => {
     const google = searchParams.get('google');
     const rawType = searchParams.get('type');
+    const restrictedLinksView = restricted && searchParams.get('view') === 'links';
     const oauthReturn = google === 'connected' || google === 'denied';
     const badType = Boolean(rawType && !CONTENT_TYPES.has(rawType));
-    if (!oauthReturn && !badType) return;
+    if (!oauthReturn && !badType && !restrictedLinksView) return;
     if (oauthReturn) setOauthResult(google as 'connected' | 'denied');
     const params = new URLSearchParams(searchParams.toString());
     params.delete('google');
+    if (restrictedLinksView) params.delete('view');
     if (badType) {
       params.delete('type');
       setCtFilter('');
@@ -211,7 +213,7 @@ function FeedPageContent() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, {
       scroll: false,
     });
-  }, [searchParams, pathname, router, setCtFilter]);
+  }, [searchParams, pathname, router, setCtFilter, restricted]);
 
   const refreshFeed = useCallback(async () => {
     await reload();
@@ -223,9 +225,9 @@ function FeedPageContent() {
 
   useEffect(() => {
     setFeedView(
-      searchParams.get('view') === 'links' ? 'links' : 'jobs',
+      !restricted && searchParams.get('view') === 'links' ? 'links' : 'jobs',
     );
-  }, [searchParams]);
+  }, [searchParams, restricted]);
 
   const setContentType = useCallback(
     (value: string) => {
@@ -246,12 +248,17 @@ function FeedPageContent() {
   );
 
   const switchToLinks = useCallback(() => {
+    if (restricted) {
+      showRestrictedToast('Links are available after sign-in.');
+      setFeedView('jobs');
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.delete('type');
     params.set('view', 'links');
     router.replace(`${pathname}?${params}`, { scroll: false });
     setFeedView('links');
-  }, [pathname, router, searchParams]);
+  }, [pathname, router, searchParams, restricted, showRestrictedToast]);
 
   // Expose the Feed search focus to the command launcher. focusLinkSearch
   // switches to Links first, then focuses LinksTable's own search input — not
@@ -305,23 +312,23 @@ function FeedPageContent() {
     () => Object.values(contentTypeCounts).reduce((a, b) => a + b, 0),
     [contentTypeCounts],
   );
-  const contentTypeTabs = useMemo(
-    () => [
-      ...CONTENT_TYPE_FILTERS.map(({ label, value }, i) => ({
-        label,
-        value,
-        count: value ? (contentTypeCounts[value] ?? 0) : totalCount,
-        dividerBefore: i > 0,
-      })),
-      {
+  const contentTypeTabs = useMemo(() => {
+    const tabs: FilterTab[] = CONTENT_TYPE_FILTERS.map(({ label, value }, i) => ({
+      label,
+      value,
+      count: value ? (contentTypeCounts[value] ?? 0) : totalCount,
+      dividerBefore: i > 0,
+    }));
+    if (!restricted) {
+      tabs.push({
         label: 'Links',
         value: 'links',
         dividerBefore: true,
         icon: Link2,
-      },
-    ],
-    [contentTypeCounts, totalCount],
-  );
+      });
+    }
+    return tabs;
+  }, [contentTypeCounts, totalCount, restricted]);
   const firstLoad = loading && jobs.length === 0 && !error;
   const showingLinks = feedView === 'links';
   // Read inside the focusSearch closure below without re-registering it on
@@ -331,7 +338,7 @@ function FeedPageContent() {
   // Gated by `enabled` so Links data only fetches while its tab is actually
   // active — mirrors how the Jobs feed already fetches regardless of tab,
   // except Links has no reason to poll while parked on Jobs.
-  const linksData = useLinksTable({ enabled: showingLinks });
+  const linksData = useLinksTable({ enabled: showingLinks && !restricted });
   const showPreviewGrid = Boolean(ctFilter);
   const hasFilters = Boolean(ctFilter || stFilter || query.trim());
   const empty = !loading && !error && displayedJobs.length === 0;
