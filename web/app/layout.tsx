@@ -36,7 +36,7 @@ export default function RootLayout({
       <body className="bg-canvas font-sans text-ink antialiased">
         <MockProvider>{children}</MockProvider>
       {/* impeccable-live-start */}
-<script src="http://localhost:8400/live.js"></script>
+{process.env.NODE_ENV === 'development' && <script src="http://localhost:8400/live.js"></script>}
 {/* impeccable-live-end */}
 </body>
     </html>

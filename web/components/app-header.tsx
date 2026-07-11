@@ -45,7 +45,7 @@ export function AppHeader() {
               </span>
               <Link
                 href="/login?from=restricted"
-                className="rounded border border-line border-b-2 border-b-contrasignal-deep bg-raised px-2 py-1 text-xs font-medium text-ink hover:bg-raised hover:text-ink/80 hover:bg-surface"
+                className="rounded border border-line border-b-2 border-b-contrasignal-deep bg-raised px-2 py-1 text-xs font-medium text-ink hover:bg-surface hover:text-ink/80"
               >
                 Get access
               </Link>
