@@ -9,6 +9,7 @@ headers on every response.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
@@ -40,6 +41,10 @@ PRIVATE_DETAIL_FIELDS = frozenset(
 # a minute is irrelevant for a demo sample.
 _CACHE_TTL_SECONDS = 60.0
 _corpus_cache: dict = {"expires": 0.0, "ids": [], "rows": []}
+_corpus_lock = asyncio.Lock()
+_RATE_LIMIT_WINDOW_SECONDS = 60.0
+_RATE_LIMIT_MAX_REQUESTS = 120
+_preview_rate_limit: dict[str, list[float]] = {}
 
 preview_router = APIRouter(prefix="/api/preview", tags=["preview"])
 
@@ -49,6 +54,32 @@ def _require_preview(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Restricted preview required")
     if settings.OPERATOR_CHAT_ID is None:
         raise HTTPException(status_code=503, detail="Preview operator is not configured")
+
+
+def _preview_client_key(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip() or "unknown"
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _enforce_preview_rate_limit(request: Request) -> None:
+    now = time.monotonic()
+    cutoff = now - _RATE_LIMIT_WINDOW_SECONDS
+    key = _preview_client_key(request)
+    hits = _preview_rate_limit.setdefault(key, [])
+    while hits and hits[0] <= cutoff:
+        hits.pop(0)
+    if len(hits) >= _RATE_LIMIT_MAX_REQUESTS:
+        raise HTTPException(status_code=429, detail="Preview rate limit exceeded")
+    hits.append(now)
+
+
+def _require_preview_access(request: Request) -> None:
+    _require_preview(request)
+    _enforce_preview_rate_limit(request)
 
 
 def _preview_headers(response: Response) -> None:
@@ -128,9 +159,19 @@ async def _corpus() -> tuple[list[str], list[dict]]:
     now = time.monotonic()
     if now < _corpus_cache["expires"]:
         return _corpus_cache["ids"], _corpus_cache["rows"]
-    ids, rows = await _load_corpus()
-    _corpus_cache.update({"expires": now + _CACHE_TTL_SECONDS, "ids": ids, "rows": rows})
-    return ids, rows
+    async with _corpus_lock:
+        now = time.monotonic()
+        if now < _corpus_cache["expires"]:
+            return _corpus_cache["ids"], _corpus_cache["rows"]
+        ids, rows = await _load_corpus()
+        _corpus_cache.update(
+            {
+                "expires": time.monotonic() + _CACHE_TTL_SECONDS,
+                "ids": ids,
+                "rows": rows,
+            }
+        )
+        return ids, rows
 
 
 @preview_router.get("/jobs")
@@ -142,7 +183,7 @@ async def list_preview_jobs(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=1000),
 ) -> dict:
-    _require_preview(request)
+    _require_preview_access(request)
     _preview_headers(response)
     _, rows = await _corpus()
     if content_type is not None:
@@ -160,7 +201,7 @@ async def get_preview_stats(
     response: Response,
     content_type: str | None = Query(default=None),
 ) -> dict:
-    _require_preview(request)
+    _require_preview_access(request)
     _preview_headers(response)
     _, rows = await _corpus()
     by_content_type: dict[str, int] = {}
@@ -175,7 +216,7 @@ async def get_preview_stats(
 @preview_router.get("/jobs/{job_id}/thumbnail")
 async def get_preview_thumbnail(job_id: str, request: Request) -> Response:
     """Corpus-gated twin of /api/jobs/{id}/thumbnail for anonymous preview."""
-    _require_preview(request)
+    _require_preview_access(request)
     ids, _ = await _corpus()
     if job_id not in ids:
         raise HTTPException(status_code=404, detail="Preview job not found")
@@ -200,7 +241,7 @@ async def get_preview_thumbnail(job_id: str, request: Request) -> Response:
 
 @preview_router.get("/jobs/{job_id}")
 async def get_preview_job(job_id: str, request: Request, response: Response) -> dict:
-    _require_preview(request)
+    _require_preview_access(request)
     _preview_headers(response)
     ids, _ = await _corpus()
     if job_id not in ids:

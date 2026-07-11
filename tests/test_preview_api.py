@@ -86,6 +86,7 @@ def preview_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClien
 
     # Each test gets a fresh corpus snapshot.
     preview._corpus_cache.update({"expires": 0.0, "ids": [], "rows": []})
+    preview._preview_rate_limit.clear()
 
     test_app = FastAPI()
     test_app.add_middleware(SessionMiddleware)
@@ -233,6 +234,49 @@ class TestPreviewCorpus:
         preview._corpus_cache["expires"] = 0.0
         fresh = preview_client.get("/api/preview/jobs", cookies=PREVIEW_COOKIE)
         assert fresh.json()["total"] == 2
+
+    def test_concurrent_cache_misses_share_one_corpus_load(
+        self, preview_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api import preview
+
+        calls = 0
+
+        async def fake_load_corpus() -> tuple[list[str], list[dict]]:
+            nonlocal calls
+            calls += 1
+            await asyncio.sleep(0)
+            return ["s1"], [{"id": "s1"}]
+
+        monkeypatch.setattr(preview, "_load_corpus", fake_load_corpus)
+        preview._corpus_cache.update({"expires": 0.0, "ids": [], "rows": []})
+
+        async def run() -> list[tuple[list[str], list[dict]]]:
+            return await asyncio.gather(
+                preview._corpus(),
+                preview._corpus(),
+                preview._corpus(),
+            )
+
+        results = asyncio.run(run())
+        assert calls == 1
+        assert all(ids == ["s1"] for ids, _ in results)
+
+    def test_preview_requests_are_rate_limited_by_client(
+        self, preview_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from src.api import preview
+
+        monkeypatch.setattr(preview, "_RATE_LIMIT_MAX_REQUESTS", 2)
+        monkeypatch.setattr(preview, "_RATE_LIMIT_WINDOW_SECONDS", 60.0)
+
+        first = preview_client.get("/api/preview/jobs", cookies=PREVIEW_COOKIE)
+        second = preview_client.get("/api/preview/jobs/stats", cookies=PREVIEW_COOKIE)
+        limited = preview_client.get("/api/preview/jobs", cookies=PREVIEW_COOKIE)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert limited.status_code == 429
 
 
 # ---------------------------------------------------------------------------
