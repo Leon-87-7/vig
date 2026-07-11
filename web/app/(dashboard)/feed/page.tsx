@@ -34,6 +34,12 @@ import { FileCode2, Link2, Plus } from 'lucide-react';
 import type { JobSummary } from '@/components/job-card';
 import { LinksTable } from '@/components/links-table';
 import { useRestrictedMode } from '@/lib/restricted/context';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const CONTENT_TYPES = new Set(['short', 'long', 'article', 'repo']);
 
@@ -63,31 +69,58 @@ function normalizeContentType(value: string | null): string {
 }
 
 
+const INTRO_SEEN_COOKIE = 'ownix_preview_intro_seen';
+
 function RestrictedIntroModal() {
   const router = useRouter();
   const { restricted } = useRestrictedMode();
   const [show, setShow] = useState(false);
   useEffect(() => {
     if (!restricted) return;
-    if (window.sessionStorage.getItem('ownix_preview_intro_seen') === '1') return;
+    // Session cookie, not sessionStorage: "once per browser session" has to
+    // hold across tabs, and sessionStorage is per-tab.
+    if (document.cookie.split('; ').includes(`${INTRO_SEEN_COOKIE}=1`)) return;
     setShow(true);
   }, [restricted]);
-  if (!show) return null;
   const dismiss = () => {
-    window.sessionStorage.setItem('ownix_preview_intro_seen', '1');
+    document.cookie = `${INTRO_SEEN_COOKIE}=1; path=/; samesite=lax`;
     setShow(false);
   };
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-canvas/80 px-4">
-      <section role="dialog" aria-modal="true" aria-labelledby="restricted-intro-title" className="w-full max-w-lg rounded-lg border border-line bg-surface p-5 shadow-overlay">
-        <h2 id="restricted-intro-title" className="text-lg font-semibold text-ink">Restricted mode on</h2>
-        <p className="mt-3 text-sm leading-6 text-body">This preview uses a read-only sample from Leon&apos;s Index, balanced across Feed tabs so you can see videos, articles, repos, and links. Actions are locked until you get access.</p>
+    <Dialog
+      open={show}
+      onOpenChange={(next) => {
+        if (!next) dismiss();
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogTitle>Restricted mode on</DialogTitle>
+        <DialogDescription>
+          This preview uses a read-only sample from Leon&apos;s Index, balanced
+          across Feed tabs so you can see videos, articles, repos, and links.
+          Actions are locked until you get access.
+        </DialogDescription>
         <div className="mt-5 flex flex-wrap gap-3">
-          <button type="button" onClick={() => router.push('/login?from=restricted')} className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-signal bg-canvas px-3 text-sm font-medium text-signal hover:bg-raised">Get access</button>
-          <button type="button" onClick={dismiss} className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-contrasignal-deep bg-canvas px-3 text-sm font-medium text-body hover:bg-raised">Keep looking</button>
+          <button
+            type="button"
+            onClick={() => {
+              dismiss();
+              router.push('/login?from=restricted');
+            }}
+            className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-signal bg-canvas px-3 text-sm font-medium text-signal hover:bg-raised"
+          >
+            Get access
+          </button>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-contrasignal-deep bg-canvas px-3 text-sm font-medium text-body hover:bg-raised"
+          >
+            Keep looking
+          </button>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -216,7 +216,11 @@ export function SubmitJobProvider({
     setDocsOpenRaw(next);
   }, [restricted, showRestrictedToast]);
   const docsOpen = docsOpenRaw;
-  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandOpen, setCommandOpenRaw] = useState(false);
+  const setCommandOpen = useCallback((next: boolean) => {
+    if (next && restricted) { showRestrictedToast('Sign in to run commands on your own Index.'); return; }
+    setCommandOpenRaw(next);
+  }, [restricted, showRestrictedToast]);
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState('summary');
   const [freestylePrompt, setFreestylePrompt] = useState('');
@@ -335,7 +339,7 @@ export function SubmitJobProvider({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [setCommandOpen]);
 
   const submitJob = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -392,10 +396,10 @@ export function SubmitJobProvider({
   );
 
   const openDocs = useCallback(() => setDocsOpen(true), []);
-  const openCommand = useCallback(() => setCommandOpen(true), []);
+  const openCommand = useCallback(() => setCommandOpen(true), [setCommandOpen]);
   const go = useCallback((href: string) => {
-    setCommandOpen(false);
-    setDocsOpen(false);
+    setCommandOpenRaw(false);
+    setDocsOpenRaw(false);
     window.location.assign(href);
   }, []);
 

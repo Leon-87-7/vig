@@ -36,7 +36,7 @@ export function AppHeader() {
               <span className="font-semibold text-signal">Restricted mode on</span>
               <Link href="/login?from=restricted" className="rounded border border-line border-b-2 border-b-signal bg-canvas px-2 py-1 text-xs font-medium text-signal hover:bg-raised">Get access</Link>
             </div>
-            <p className="text-xs text-body">You're viewing a read-only sample of Leon's Index</p>
+            <p className="text-xs text-body">You&apos;re viewing a read-only sample of Leon&apos;s Index</p>
           </div>
         ) : (
         <div className="grid grid-cols-[repeat(3,auto)] gap-x-6 gap-y-1.5">
