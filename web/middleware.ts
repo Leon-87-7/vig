@@ -1,48 +1,41 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/logout", "/privacy", "/terms"];
+const PUBLIC_PATHS = ["/login", "/logout", "/privacy", "/terms", "/restricted"];
+
+function withPreviewNoindex(response: NextResponse, pathname: string, preview?: string) {
+  if (preview && pathname !== "/") response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return response;
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const session = request.cookies.get("vig_session");
+  const preview = request.cookies.get("ownix_preview");
 
-  // Mock/demo mode: no real auth backend, so skip the session gate. Guarded to
-  // non-production so a stray NEXT_PUBLIC_API_MOCK=1 in a prod build can't ship
-  // with auth disabled.
   if (
     process.env.NODE_ENV !== "production" &&
     process.env.NEXT_PUBLIC_API_MOCK === "1"
   ) {
-    return NextResponse.next();
+    return withPreviewNoindex(NextResponse.next(), pathname, preview?.value);
   }
 
-  const session = request.cookies.get("vig_session");
-
-  // Public landing: authed visitors forward to /feed, everyone else sees it.
+  // Public landing stays reachable for everyone; the CTA is session-aware.
   if (pathname === "/") {
-    return session?.value
-      ? NextResponse.redirect(new URL("/feed", request.url), 307)
-      : NextResponse.next();
-  }
-
-  if (
-    PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
-  ) {
     return NextResponse.next();
   }
 
-  if (!session?.value) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return withPreviewNoindex(NextResponse.next(), pathname, preview?.value);
   }
 
-  return NextResponse.next();
+  if (!session?.value && !preview?.value) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return withPreviewNoindex(NextResponse.next(), pathname, preview?.value);
 }
 
 export const config = {
-  // Skip _next internals, the API, and any path with a file extension (public/
-  // static assets: *.svg, *.png, manifest.json, icon0.svg, …). Without the
-  // `.*\.` clause, asset requests made while logged out (i.e. on /login and
-  // /logout) hit the session gate and 307 to /login, so the SVGs never load.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|.*\\.).*)"],
 };

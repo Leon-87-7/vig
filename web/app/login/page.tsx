@@ -112,6 +112,7 @@ export default function LoginPage() {
         <h2 className="text-balance text-2xl font-semibold tracking-[-0.02em] text-ink">
           Sign in to your Index
         </h2>
+        <p className="mt-2 text-center text-sm leading-6 text-body">Sign in to save your own links and unlock actions.</p>
 
         <div
           className="mt-6 flex min-h-12 w-full flex-col items-center justify-center gap-3"
@@ -144,6 +145,10 @@ export default function LoginPage() {
               page or check your connection.
             </p>
           )}
+        </div>
+
+        <div className="mt-5 w-full rounded-md border border-line bg-canvas px-3 py-2 text-center text-sm text-muted" aria-disabled="true">
+          Connect Google locked until approval
         </div>
 
         <Link

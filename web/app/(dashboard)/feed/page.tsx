@@ -33,6 +33,7 @@ import { useSubmitJob } from '@/components/submit-job';
 import { FileCode2, Link2, Plus } from 'lucide-react';
 import type { JobSummary } from '@/components/job-card';
 import { LinksTable } from '@/components/links-table';
+import { useRestrictedMode } from '@/lib/restricted/context';
 
 const CONTENT_TYPES = new Set(['short', 'long', 'article', 'repo']);
 
@@ -61,6 +62,35 @@ function normalizeContentType(value: string | null): string {
   return value && CONTENT_TYPES.has(value) ? value : '';
 }
 
+
+function RestrictedIntroModal() {
+  const router = useRouter();
+  const { restricted } = useRestrictedMode();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!restricted) return;
+    if (window.sessionStorage.getItem('ownix_preview_intro_seen') === '1') return;
+    setShow(true);
+  }, [restricted]);
+  if (!show) return null;
+  const dismiss = () => {
+    window.sessionStorage.setItem('ownix_preview_intro_seen', '1');
+    setShow(false);
+  };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-canvas/80 px-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="restricted-intro-title" className="w-full max-w-lg rounded-lg border border-line bg-surface p-5 shadow-overlay">
+        <h2 id="restricted-intro-title" className="text-lg font-semibold text-ink">Restricted mode on</h2>
+        <p className="mt-3 text-sm leading-6 text-body">This preview uses a read-only sample from Leon&apos;s Index, balanced across Feed tabs so you can see videos, articles, repos, and links. Actions are locked until you get access.</p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button type="button" onClick={() => router.push('/login?from=restricted')} className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-signal bg-canvas px-3 text-sm font-medium text-signal hover:bg-raised">Get access</button>
+          <button type="button" onClick={dismiss} className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-contrasignal-deep bg-canvas px-3 text-sm font-medium text-body hover:bg-raised">Keep looking</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function FeedPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -68,6 +98,7 @@ function FeedPageContent() {
   const urlContentType = normalizeContentType(
     searchParams.get('type'),
   );
+  const { restricted } = useRestrictedMode();
   const {
     ctFilter,
     setCtFilter,
@@ -79,7 +110,7 @@ function FeedPageContent() {
     loading,
     error,
     reload,
-  } = useFeedData(urlContentType);
+  } = useFeedData(urlContentType, restricted);
   const {
     setOpen: setSubmitOpen,
     openDocs,
@@ -286,6 +317,7 @@ function FeedPageContent() {
 
   return (
     <PageShell>
+      <RestrictedIntroModal />
       {oauthResult && (
         <div
           role="status"
@@ -303,7 +335,7 @@ function FeedPageContent() {
 
       {/* Disconnected-only nudge (CONTEXT.md `Account affordance`) — the
           sidebar owns the persistent state; this panel disappears once connected. */}
-      {googleConnected === false && (
+      {!restricted && googleConnected === false && (
         <section className="rounded-lg border border-line bg-surface p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>

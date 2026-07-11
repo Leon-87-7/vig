@@ -54,10 +54,10 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/login"
+                href="/restricted"
                 className="inline-flex h-10 items-center justify-center rounded-md bg-signal px-5 text-sm font-medium text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-canvas"
               >
-                Open Ownix
+                Look inside
               </Link>
               <span className="font-mono text-xs text-muted">
                 Invite-only while young

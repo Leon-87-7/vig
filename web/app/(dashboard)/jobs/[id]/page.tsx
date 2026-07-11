@@ -26,6 +26,7 @@ import {
 import { PageShell } from "@/components/page-shell";
 import { SkeletonBlock } from "@/components/feed/feed-states";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useRestrictedMode } from "@/lib/restricted/context";
 
 const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
   ssr: false,
@@ -473,14 +474,17 @@ function JobActionsBar({
 }
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
-  const { job, fetchState } = useJobDetail(params.id);
+  const { restricted } = useRestrictedMode();
+  const { job, fetchState } = useJobDetail(params.id, restricted);
   const { annotation, loaded, handleSave } = useJobAnnotation(
     params.id,
     fetchState,
+    restricted,
   );
   const { jobTags, allTags, toggleTag, createTag } = useJobTags(
     params.id,
     fetchState,
+    restricted,
   );
 
   if (fetchState === "loading") {

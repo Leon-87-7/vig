@@ -6,15 +6,21 @@ import { InviteGate } from '@/components/invite-gate';
 import { GoogleStatusProvider } from '@/components/google-status';
 import { SubmitJobProvider } from '@/components/submit-job';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { RestrictedModeProvider } from '@/lib/restricted/context';
+import { cookies } from 'next/headers';
+
+export const metadata = { robots: { index: false, follow: false } };
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const restricted = cookies().get('ownix_preview')?.value === '1';
   return (
     <TooltipProvider>
-      <InviteGate>
+      <RestrictedModeProvider restricted={restricted}>
+        <InviteGate restricted={restricted}>
         <GoogleStatusProvider>
           <SubmitJobProvider>
             <div className="flex h-screen overflow-hidden">
@@ -34,6 +40,7 @@ export default function DashboardLayout({
           </SubmitJobProvider>
         </GoogleStatusProvider>
       </InviteGate>
+      </RestrictedModeProvider>
     </TooltipProvider>
   );
 }

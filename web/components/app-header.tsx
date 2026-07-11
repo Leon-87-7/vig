@@ -3,6 +3,8 @@
 import { ArrowBigUp, Command } from 'lucide-react';
 import { useSubmitJob } from '@/components/submit-job';
 import { Tooltip } from '@/components/ui/tooltip';
+import Link from 'next/link';
+import { useRestrictedMode } from '@/lib/restricted/context';
 
 /**
  * The global sticky brand bar, pinned to the top of the scroll area on every
@@ -12,6 +14,7 @@ import { Tooltip } from '@/components/ui/tooltip';
  */
 export function AppHeader() {
   const { setOpen, openCommand } = useSubmitJob();
+  const { restricted } = useRestrictedMode();
   return (
     <header className="relative z-20 shrink-0 border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur-md sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-5 gap-y-3 sm:justify-start">
@@ -27,7 +30,15 @@ export function AppHeader() {
           aria-hidden="true"
           className="my-1 hidden w-px self-stretch bg-line-strong sm:block"
         />
-        {/* Ownix rhythm: the personal act, the owned store, the shared layer. */}
+        {restricted ? (
+          <div className="flex flex-col gap-1 rounded-lg border border-line bg-surface px-3 py-2">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold text-signal">Restricted mode on</span>
+              <Link href="/login?from=restricted" className="rounded border border-line border-b-2 border-b-signal bg-canvas px-2 py-1 text-xs font-medium text-signal hover:bg-raised">Get access</Link>
+            </div>
+            <p className="text-xs text-body">You're viewing a read-only sample of Leon's Index</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-[repeat(3,auto)] gap-x-6 gap-y-1.5">
           <span className="text-sm font-medium italic text-body">
             Collect.
@@ -48,6 +59,7 @@ export function AppHeader() {
             Brain.
           </span>
         </div>
+        )}
 
         <Tooltip
           content="Open command launcher Ctrl+Shift+K"

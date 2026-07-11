@@ -245,7 +245,7 @@ describe('FeedPage', () => {
   it('initializes content type from the URL type param', () => {
     navigationMock.searchParams = new URLSearchParams('type=short');
     render(<FeedTree />);
-    expect(mockUseFeedData).toHaveBeenCalledWith('short');
+    expect(mockUseFeedData).toHaveBeenCalledWith('short', false);
   });
 
   it('renders content-type tabs with counts', () => {

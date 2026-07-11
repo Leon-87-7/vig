@@ -1,5 +1,8 @@
 'use client';
 
+import { useRestrictedMode } from '@/lib/restricted/context';
+import { RestrictedFacade } from '@/components/restricted-facade';
+
 import { useState } from 'react';
 import { MessageSquareText } from 'lucide-react';
 import { useTemplateList } from '@/lib/hooks/useTemplateList';
@@ -288,6 +291,9 @@ function UserTemplateRow({
 }
 
 export default function PromptsPage() {
+  const { restricted } = useRestrictedMode();
+  if (restricted) return <RestrictedFacade icon={MessageSquareText} title="Recipes">Recipes shape enrichment prompts for your own Index. Creating, editing, and deleting recipes is locked in this read-only preview.</RestrictedFacade>;
+
   const {
     templates,
     loading,

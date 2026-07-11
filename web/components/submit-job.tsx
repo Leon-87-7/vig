@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DocUploadPanel } from './doc-upload-panel';
+import { useRestrictedMode } from '@/lib/restricted/context';
 
 /** The job the API accepted, timestamped so consumers can react to repeats. */
 export interface AcceptedJob {
@@ -203,8 +204,18 @@ export function SubmitJobProvider({
 }: {
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  const [docsOpen, setDocsOpen] = useState(false);
+  const { restricted, showRestrictedToast } = useRestrictedMode();
+  const [open, setOpenRaw] = useState(false);
+  const [docsOpenRaw, setDocsOpenRaw] = useState(false);
+  const setOpen = useCallback((next: boolean) => {
+    if (next && restricted) { showRestrictedToast('Sign in to submit URLs to your own Index.'); return; }
+    setOpenRaw(next);
+  }, [restricted, showRestrictedToast]);
+  const setDocsOpen = useCallback((next: boolean) => {
+    if (next && restricted) { showRestrictedToast('Sign in to parse documents into your own Index.'); return; }
+    setDocsOpenRaw(next);
+  }, [restricted, showRestrictedToast]);
+  const docsOpen = docsOpenRaw;
   const [commandOpen, setCommandOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [template, setTemplate] = useState('summary');

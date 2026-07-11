@@ -121,6 +121,8 @@ async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
         max_age=_COOKIE_MAX_AGE,
         path="/",
     )
+    if await database.get_user_status(payload.id) == "approved":
+        response.delete_cookie("ownix_preview", path="/", secure=settings.SESSION_COOKIE_SECURE)
     log.info("auth.telegram_login", tg_id=payload.id, username=payload.username)
     return {"ok": True}
 

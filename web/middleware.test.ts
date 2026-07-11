@@ -34,10 +34,9 @@ describe('middleware routing cutover', () => {
     expect(response.status).toBe(200);
   });
 
-  it('redirects authenticated root visits to the Feed', () => {
+  it('lets authenticated root visits reach the public landing route', () => {
     const response = middleware(requestFor('/', 'vig_session=abc'));
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('https://ownix.test/feed');
+    expect(response.status).toBe(200);
   });
 
   it('keeps /feed behind the session gate', () => {
