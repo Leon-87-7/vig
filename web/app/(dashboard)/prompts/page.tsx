@@ -293,7 +293,10 @@ function UserTemplateRow({
 export default function PromptsPage() {
   const { restricted } = useRestrictedMode();
   if (restricted) return <RestrictedFacade icon={MessageSquareText} title="Recipes">Recipes shape enrichment prompts for your own Index. Creating, editing, and deleting recipes is locked in this read-only preview.</RestrictedFacade>;
+  return <PromptsWorkspace />;
+}
 
+function PromptsWorkspace() {
   const {
     templates,
     loading,

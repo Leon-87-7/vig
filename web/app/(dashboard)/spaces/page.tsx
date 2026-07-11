@@ -13,7 +13,10 @@ import { PageShell, PageHeader } from '@/components/page-shell';
 export default function SpacesPage() {
   const { restricted } = useRestrictedMode();
   if (restricted) return <RestrictedFacade icon={LayoutGrid} title="Collections">Collections are visible in the full product for grouping saved jobs into durable research sets. Creating and editing collections is locked in this read-only preview.</RestrictedFacade>;
+  return <SpacesWorkspace />;
+}
 
+function SpacesWorkspace() {
   const { spaces, loading, error, reload } = useSpaceList();
   const {
     showForm,
