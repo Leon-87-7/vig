@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import MockProvider from "@/components/MockProvider";
+import { SITE_URL } from "@/lib/site";
 
 // Two voices (DESIGN.md): Inter for human language, JetBrains Mono for machine facts.
 const inter = Inter({
@@ -18,11 +19,23 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Ownix — Your internet, indexed",
   description:
     "Collect what matters. Own your Index. Shape the Brain.",
   icons: {
     icon: "/icon0.svg",
+  },
+  openGraph: {
+    siteName: "Ownix",
+    type: "website",
+    title: "Ownix — Your internet, indexed",
+    description:
+      "Collect what matters. Own your Index. Shape the Brain.",
+    images: ["/web-app-manifest-512x512.png"],
+  },
+  twitter: {
+    card: "summary",
   },
 };
 

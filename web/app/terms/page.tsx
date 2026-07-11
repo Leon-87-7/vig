@@ -11,6 +11,11 @@ import {
 
 export const metadata: Metadata = {
   title: 'Terms of Service — Ownix',
+  description:
+    'Terms for using Ownix, a personal Index for saved videos, links, articles, repos, documents, and ideas.',
+  alternates: {
+    canonical: '/terms',
+  },
 };
 
 export default function TermsPage() {

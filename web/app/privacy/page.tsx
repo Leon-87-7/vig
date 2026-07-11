@@ -11,6 +11,11 @@ import {
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Ownix',
+  description:
+    'How Ownix handles Telegram identity, saved links and documents, generated analysis, and optional Google Drive or Sheets access.',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {

@@ -1,5 +1,14 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AuthShell } from '@/components/auth-shell';
+
+export const metadata: Metadata = {
+  title: 'Signed out — Ownix',
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export default function LogoutPage() {
   return (

@@ -1,7 +1,38 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Footer from '@/components/ui/footer';
 import Header from '@/components/ui/public-header';
 import { HeroGradient } from '@/components/hero-gradient';
+import { SITE_URL } from '@/lib/site';
+
+export const metadata: Metadata = {
+  title: 'Ownix — Collect the internet you care about',
+  description:
+    'Save videos, articles, repos, documents, and ideas into a searchable personal Index. Your Feed keeps them legible; the Brain turns chosen contributions into shared signal.',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    siteName: 'Ownix',
+    type: 'website',
+    url: SITE_URL,
+    title: 'Ownix — Your internet, indexed',
+    description:
+      'Save videos, articles, repos, documents, and ideas into a searchable personal Index you can return to.',
+    images: ['/web-app-manifest-512x512.png'],
+  },
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Ownix',
+  url: SITE_URL,
+  applicationCategory: 'ProductivityApplication',
+  operatingSystem: 'Web',
+  description:
+    'Ownix saves videos, articles, repos, documents, and ideas into a searchable personal Index.',
+};
 
 const pipelines = [
   [
@@ -27,6 +58,10 @@ const previewRows = [
 export default function LandingPage() {
   return (
     <main className="relative isolate min-h-screen overflow-hidden bg-canvas text-ink">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-5 sm:px-6 lg:px-8">
         <Header />
 

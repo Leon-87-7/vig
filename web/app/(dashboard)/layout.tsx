@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Sidebar } from '@/components/sidebar';
 import { AppHeader } from '@/components/app-header';
 import { PageBackground } from '@/components/page-background';
@@ -6,6 +7,15 @@ import { InviteGate } from '@/components/invite-gate';
 import { GoogleStatusProvider } from '@/components/google-status';
 import { SubmitJobProvider } from '@/components/submit-job';
 import { TooltipProvider } from '@/components/ui/tooltip';
+
+// Private user data — never indexable. Middleware already redirects
+// unauthenticated crawlers to /login; this covers any gap.
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function DashboardLayout({
   children,
