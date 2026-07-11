@@ -242,7 +242,7 @@ export function useFeedData(initialContentType = '', restricted = false) {
     } catch {
       // swallow during background polling
     }
-  }, []);
+  }, [restricted]);
 
   // -------------------------------------------------------------------------
   // Effects

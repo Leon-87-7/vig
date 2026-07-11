@@ -31,7 +31,7 @@ export function middleware(request: NextRequest) {
   // dashboard layout's robots metadata.
   const session = request.cookies.get("vig_session");
   const preview = request.cookies.get("ownix_preview");
-  if (!session?.value && !preview?.value) {
+  if (!session?.value && preview?.value !== "1") {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
