@@ -22,12 +22,24 @@ export function AppSlot() {
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (media.matches) return;
-    const id = setInterval(
-      () => setActive((i) => (i + 1) % icons.length),
-      2800,
-    );
-    return () => clearInterval(id);
+    let id: ReturnType<typeof setInterval> | undefined;
+    const sync = () => {
+      clearInterval(id);
+      if (media.matches) {
+        setActive(0);
+      } else {
+        id = setInterval(
+          () => setActive((i) => (i + 1) % icons.length),
+          2800,
+        );
+      }
+    };
+    sync();
+    media.addEventListener('change', sync);
+    return () => {
+      clearInterval(id);
+      media.removeEventListener('change', sync);
+    };
   }, []);
 
   return (

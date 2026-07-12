@@ -3,6 +3,15 @@
 @tailwind utilities;
 
 @layer base {
+
+  /* Anchor jumps (e.g. the landing's #invite) glide instead of teleporting.
+     The reduced-motion block below already forces scroll-behavior: auto. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   :root {
     --sb-track-color: theme("colors.surface");
     --sb-thumb-color: theme("colors.line.DEFAULT");
