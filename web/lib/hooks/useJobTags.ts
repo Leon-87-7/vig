@@ -53,7 +53,7 @@ export function useJobTags(jobId: string, fetchState: FetchState, disabled = fal
   // Create a tag in the user's library, then attach it to this job.
   const createTag = useCallback(
     async (values: TagFormState) => {
-      if (disabled) throw new Error('Restricted mode on');
+      if (disabled) return;
       const res = await fetch('/api/controls/tags', {
         method: 'POST',
         credentials: 'include',
