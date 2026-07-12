@@ -53,3 +53,5 @@ web/public/seed.json
 
 */brag/*
 error.log
+
+*.instructions.md
