@@ -313,7 +313,7 @@ class TestPreviewCorpus:
             {
                 "type": "http",
                 "client": ("127.0.0.1", 12345),
-                "headers": [(b"x-forwarded-for", b"203.0.113.10, 127.0.0.1")],
+                "headers": [(b"x-forwarded-for", b"198.51.100.250, 203.0.113.10")],
             }
         )
 

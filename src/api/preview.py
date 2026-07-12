@@ -62,7 +62,7 @@ def _preview_client_key(request: Request) -> str:
     if peer and _trusted_proxy_peer(peer):
         forwarded_for = request.headers.get("x-forwarded-for")
         if forwarded_for:
-            return forwarded_for.split(",", 1)[0].strip() or peer
+            return forwarded_for.rsplit(",", 1)[-1].strip() or peer
         real_ip = request.headers.get("x-real-ip")
         if real_ip:
             return real_ip.strip() or peer
