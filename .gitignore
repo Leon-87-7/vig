@@ -53,3 +53,6 @@ web/public/seed.json
 
 */brag/*
 error.log
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
