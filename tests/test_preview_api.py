@@ -306,6 +306,7 @@ class TestPreviewCorpus:
 
         now = 1000.0
         monkeypatch.setattr(preview.time, "monotonic", lambda: now)
+        monkeypatch.setattr(preview, "_RATE_LIMIT_MAX_REQUESTS", 10)
         preview._preview_rate_limit.update(
             {
                 "stale-1": [now - preview._RATE_LIMIT_WINDOW_SECONDS - 1],
