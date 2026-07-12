@@ -63,14 +63,11 @@ export function useLinksTable({ enabled }: { enabled: boolean }) {
     setPage(0);
   };
 
-  // Fetch the sort/page-size preference once per session (first time the
-  // Links tab is opened), not on every re-entry — the view rarely changes
-  // between visits and re-fetching it would re-trigger the PUT-back effect
-  // below with an object that's merely a fresh copy of what's already set.
-  const viewFetchStarted = useRef(false);
+  // Fetch the sort/page-size preference once per session after it completes.
+  // If the Links tab is left mid-fetch, `viewLoaded` stays false so re-entry
+  // can retry instead of getting stuck behind a stale "started" latch.
   useEffect(() => {
-    if (!enabled || viewFetchStarted.current) return;
-    viewFetchStarted.current = true;
+    if (!enabled || viewLoaded) return;
     let cancelled = false;
     const loadView = async () => {
       try {
@@ -90,7 +87,7 @@ export function useLinksTable({ enabled }: { enabled: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, viewLoaded]);
 
   // Debounce only the search box; page navigation should load immediately.
   useEffect(() => {
