@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLinksTable } from './useLinksTable';
 
 function deferred<T>() {
@@ -14,6 +14,21 @@ function deferred<T>() {
 describe('useLinksTable', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('starts idle and does not fetch while disabled', () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useLinksTable({ enabled: false }));
+
+    expect(result.current.state).toBe('idle');
+    expect(result.current.viewLoaded).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('retries the view preference load after leaving Links mid-fetch', async () => {
@@ -52,6 +67,7 @@ describe('useLinksTable', () => {
       await firstView.promise;
     });
     expect(result.current.viewLoaded).toBe(false);
+    expect(result.current.state).toBe('idle');
 
     rerender({ enabled: true });
 

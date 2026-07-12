@@ -6,6 +6,7 @@ import {
   LINKS_PAGE_SIZES,
   type LinkRow,
   type LinksOrder,
+  type LinksTableState,
   type LinksView,
   type UseLinksTableResult,
 } from '@/lib/hooks/useLinksTable';
@@ -119,11 +120,11 @@ function TableCard({ link }: { link: LinkRow }) {
 }
 
 function linksCountLabel(
-  state: 'loading' | 'ready' | 'error',
+  state: LinksTableState,
   query: string,
   total: number,
 ): string {
-  if (state === 'loading') return 'loading…';
+  if (state === 'loading' || state === 'idle') return 'loading…';
   if (query.trim()) return `${total} result${total === 1 ? '' : 's'}`;
   return `${total} link${total === 1 ? '' : 's'}`;
 }
@@ -226,6 +227,7 @@ export function LinksTable({
     hasPrevious,
     hasNext,
   } = linksData;
+  const pending = state === 'loading' || state === 'idle';
 
   return (
     <section className="space-y-3">
@@ -242,7 +244,7 @@ export function LinksTable({
           </span>
         </div>
         <p className="font-mono text-xs tabular-nums text-muted">
-          {state === 'loading'
+          {pending
             ? 'Loading…'
             : `${start}-${end} of ${data.total}`}
         </p>
@@ -252,7 +254,7 @@ export function LinksTable({
 
       {/* Same 639px breakpoint as the table's `hidden sm:block` — CSS gates both. */}
       <div className="space-y-2 sm:hidden">
-        {state === 'loading' && (
+        {pending && (
           <p className="rounded-lg border border-line bg-surface px-4 py-8 text-center text-body">
             Loading extracted links…
           </p>
@@ -335,7 +337,7 @@ export function LinksTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {state === 'loading' && (
+              {pending && (
                 <tr>
                   <td
                     colSpan={3}
@@ -406,7 +408,7 @@ export function LinksTable({
           </label>
           <button
             type="submit"
-            disabled={state === 'loading'}
+            disabled={pending}
             className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50"
           >
             Go
@@ -415,7 +417,7 @@ export function LinksTable({
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={!hasPrevious || state === 'loading'}
+            disabled={!hasPrevious || pending}
             onClick={() => setPage((value) => Math.max(0, value - 1))}
             className="h-10 rounded-lg border border-line bg-surface px-3 text-[13px] font-medium text-ink transition-ui hover:bg-raised active:scale-[0.96] disabled:text-muted disabled:opacity-50"
           >
@@ -423,7 +425,7 @@ export function LinksTable({
           </button>
           <button
             type="button"
-            disabled={!hasNext || state === 'loading'}
+            disabled={!hasNext || pending}
             onClick={() => setPage((value) => value + 1)}
             className="h-10 rounded-lg bg-signal px-3 text-[13px] font-medium text-onsignal transition-ui hover:bg-signal-bright active:scale-[0.96] disabled:bg-surface disabled:text-muted"
           >

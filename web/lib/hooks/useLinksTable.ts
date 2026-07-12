@@ -26,6 +26,7 @@ export type LinksView = {
   order: LinksOrder;
   size: 25 | 50 | 100;
 };
+export type LinksTableState = 'idle' | 'loading' | 'ready' | 'error';
 
 const DEFAULT_LINKS_VIEW: LinksView = {
   sort: 'last_seen',
@@ -52,8 +53,8 @@ export function useLinksTable({ enabled }: { enabled: boolean }) {
     offset: 0,
     total: 0,
   });
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>(
-    'loading',
+  const [state, setState] = useState<LinksTableState>(
+    enabled ? 'loading' : 'idle',
   );
   const [message, setMessage] = useState('');
   const [jumpPage, setJumpPage] = useState('1');
@@ -63,11 +64,16 @@ export function useLinksTable({ enabled }: { enabled: boolean }) {
     setPage(0);
   };
 
+  useEffect(() => {
+    if (!enabled) setState('idle');
+  }, [enabled]);
+
   // Fetch the sort/page-size preference once per session after it completes.
   // If the Links tab is left mid-fetch, `viewLoaded` stays false so re-entry
   // can retry instead of getting stuck behind a stale "started" latch.
   useEffect(() => {
     if (!enabled || viewLoaded) return;
+    setState('loading');
     let cancelled = false;
     const loadView = async () => {
       try {
