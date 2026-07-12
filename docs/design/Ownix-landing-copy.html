@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    >
+    <title>Ownix — Your internet, indexed</title>
+    <meta
+      name="description"
+      content="Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index — searchable, agent-ready markdown."
+    >
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    >
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    >
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    >
+    <style>
+      :root {
+        --canvas: #0d0e10;
+        --surface: #16181c;
+        --surface-raised: #202329;
+        --hairline: #30343d;
+        --hairline-strong: #343a44;
+        --ink: #f4f1eb;
+        --body: #c6c1b8;
+        --muted: #948e84;
+        --signal: #d99a45;
+        --signal-bright: #efb566;
+        --signal-deep: #a57534;
+        --on-signal: #1b1309;
+        --status-done: #4ade80;
+        --status-done-tint: #122b1c;
+        --type-short: #c084fc;
+        --type-long: #38bdf8;
+        --type-article: #2dd4bf;
+        --type-repo: #fb7185;
+        --telegram-blue: #26A5E4;
+        --telegram-ring: #145b7d;
+        --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        --r-sm: 4px;
+        --r-md: 6px;
+        --r-lg: 8px;
+        --sp-xxs: 4px;
+        --sp-xs: 8px;
+        --sp-sm: 12px;
+        --sp-md: 16px;
+        --sp-lg: 24px;
+        --sp-xl: 32px;
+        --sp-xxl: 48px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box
+      }
+
+      html {
+        scroll-behavior: smooth
+      }
+
+      @media (prefers-reduced-motion:reduce) {
+        html {
+          scroll-behavior: auto
+        }
+
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important
+        }
+      }
+
+      body {
+        background: var(--canvas);
+        color: var(--body);
+        font-family: var(--font-ui);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit
+      }
+
+      ::selection {
+        background: var(--signal);
+        color: var(--on-signal)
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--signal);
+        outline-offset: 2px;
+        border-radius: var(--r-sm)
+      }
+
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 var(--sp-lg)
+      }
+
+      /* ---------- nav ---------- */
+      .nav {
+        border-bottom: 1px solid var(--hairline);
+        background: var(--canvas);
+      }
+
+      .nav-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--sp-md) var(--sp-lg);
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-sm);
+        text-decoration: none
+      }
+
+      .wordmark strong {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--ink);
+        letter-spacing: -0.25px
+      }
+
+      .wordmark span {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted)
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-xs)
+      }
+
+      .btn-ghost {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 32px;
+        padding: 0 14px;
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-md);
+        font-family: var(--font-ui);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 150ms ease-out;
+      }
+
+      .btn-ghost:hover {
+        background: var(--surface-raised)
+      }
+
+      .btn-signal {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 32px;
+        padding: 0 14px;
+        background: var(--signal);
+        color: var(--on-signal);
+        border: none;
+        border-radius: var(--r-md);
+        font-family: var(--font-ui);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 150ms ease-out;
+      }
+
+      .btn-signal:hover {
+        background: var(--signal-bright)
+      }
+
+      .btn-signal:active {
+        background: var(--signal-deep)
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        padding: var(--sp-xxl) 0 var(--sp-xxl)
+      }
+
+      .hero-lead {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: var(--sp-md)
+      }
+
+      h1 {
+        color: var(--ink);
+        font-size: clamp(30px, 6vw, 52px);
+        font-weight: 600;
+        line-height: 1.15;
+        letter-spacing: -0.5px;
+        max-width: 16ch;
+        margin-bottom: var(--sp-lg);
+      }
+
+      h1 .lost {
+        color: var(--muted)
+      }
+
+      .hero-sub {
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--body);
+        max-width: 56ch;
+        margin-bottom: var(--sp-xl);
+      }
+
+      .hero-sub .index-word {
+        color: var(--ink);
+        font-weight: 500
+      }
+
+      /* rotating app icon slot */
+      .app-slot {
+        display: inline-grid;
+        vertical-align: -4px;
+        width: 22px;
+        height: 22px;
+        position: relative;
+      }
+
+      .app-slot svg {
+        grid-area: 1/1;
+        width: 22px;
+        height: 22px;
+        opacity: 0;
+        transition: opacity 400ms ease-out;
+      }
+
+      .app-slot svg.on {
+        opacity: 1
+      }
+
+      @media (prefers-reduced-motion:reduce) {
+        .app-slot svg {
+          display: none
+        }
+
+        .app-slot svg:first-child {
+          display: block;
+          opacity: 1
+        }
+      }
+
+      .hero-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-sm);
+        flex-wrap: wrap
+      }
+
+      .hero-note {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: var(--sp-xs)
+      }
+
+      /* ---------- sections ---------- */
+      section {
+        padding: var(--sp-xxl) 0;
+        border-top: 1px solid var(--hairline)
+      }
+
+      h2 {
+        color: var(--ink);
+        font-size: clamp(22px, 3.4vw, 28px);
+        font-weight: 600;
+        line-height: 1.25;
+        letter-spacing: -0.25px;
+        margin-bottom: var(--sp-md);
+      }
+
+      .section-body {
+        font-size: 15px;
+        line-height: 1.6;
+        max-width: 58ch;
+        margin-bottom: var(--sp-lg)
+      }
+
+      /* ---------- capture demo ---------- */
+      .demo-plate {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+      }
+
+      .demo-video {
+        aspect-ratio: 16/9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--sp-sm);
+        background: var(--canvas);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .demo-video .play {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 1px solid var(--hairline-strong);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--body);
+      }
+
+      .demo-video p {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted)
+      }
+
+      .demo-caption {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-md);
+        padding: var(--sp-sm) var(--sp-md);
+        flex-wrap: wrap;
+      }
+
+      .demo-timeline {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--body)
+      }
+
+      .demo-timeline b {
+        color: var(--status-done);
+        font-weight: 500
+      }
+
+      .demo-caption span {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted)
+      }
+
+      .badge-row {
+        display: flex;
+        gap: var(--sp-xs);
+        flex-wrap: wrap;
+        margin-top: var(--sp-lg)
+      }
+
+      .badge-type {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        padding: 2px 6px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--hairline);
+        background: transparent;
+      }
+
+      .badge-type.short {
+        color: var(--type-short)
+      }
+
+      .badge-type.long {
+        color: var(--type-long)
+      }
+
+      .badge-type.article {
+        color: var(--type-article)
+      }
+
+      .badge-type.repo {
+        color: var(--type-repo)
+      }
+
+      /* ---------- agent story ---------- */
+      .story-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-lg);
+        align-items: start;
+      }
+
+      @media (max-width:760px) {
+        .story-grid {
+          grid-template-columns: 1fr
+        }
+      }
+
+      .story-quote {
+        font-size: 15px;
+        line-height: 1.6
+      }
+
+      .story-quote p {
+        margin-bottom: var(--sp-md)
+      }
+
+      .story-sig {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted)
+      }
+
+      .md-plate {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+      }
+
+      .md-plate-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--sp-xs) var(--sp-sm);
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .md-plate-head span {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.4px;
+        color: var(--muted)
+      }
+
+      .badge-done {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        padding: 2px 6px;
+        border-radius: var(--r-sm);
+        background: var(--status-done-tint);
+        color: var(--status-done);
+      }
+
+      .md-plate pre {
+        padding: var(--sp-md);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--body);
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 280px;
+        overflow: hidden;
+        -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent);
+        mask-image: linear-gradient(to bottom, black 70%, transparent);
+      }
+
+      .md-plate pre .k {
+        color: var(--muted)
+      }
+
+      .paste-line {
+        margin-top: var(--sp-lg);
+        font-size: 15px;
+        line-height: 1.6;
+        max-width: 58ch;
+      }
+
+      .paste-line code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-sm);
+        padding: 1px 5px;
+        color: var(--ink);
+      }
+
+      /* ---------- compounds ---------- */
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--sp-sm);
+        margin-bottom: var(--sp-lg);
+      }
+
+      @media (max-width:760px) {
+        .tiles {
+          grid-template-columns: repeat(2, 1fr)
+        }
+      }
+
+      .tile {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-lg);
+        padding: 12px 16px;
+      }
+
+      .tile .cap {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        color: var(--muted);
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: var(--sp-xxs);
+      }
+
+      .tile .val {
+        font-size: 28px;
+        font-weight: 600;
+        line-height: 1.1;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tile .val small {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--muted)
+      }
+
+      .drive-plate {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-lg);
+        padding: var(--sp-md);
+        display: flex;
+        gap: var(--sp-sm);
+        align-items: flex-start;
+        max-width: 58ch;
+      }
+
+      .drive-plate svg {
+        flex-shrink: 0;
+        margin-top: 2px
+      }
+
+      .drive-plate p {
+        font-size: 14px;
+        line-height: 1.5
+      }
+
+      .drive-plate .own {
+        color: var(--ink);
+        font-weight: 500
+      }
+
+      /* ---------- invite ---------- */
+      .invite {
+        border-top: 1px solid var(--hairline)
+      }
+
+      .invite-inner {
+        background: var(--surface);
+        border: 1px solid var(--hairline);
+        border-radius: var(--r-lg);
+        padding: var(--sp-xl);
+      }
+
+      .invite h2 {
+        margin-bottom: var(--sp-sm)
+      }
+
+      .invite p {
+        font-size: 15px;
+        line-height: 1.6;
+        max-width: 52ch;
+        margin-bottom: var(--sp-lg)
+      }
+
+      .btn-telegram {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--sp-xs);
+        height: 36px;
+        padding: 0 16px;
+        background: var(--telegram-blue);
+        color: #fff;
+        border: none;
+        border-radius: var(--r-md);
+        font-family: var(--font-ui);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+        transition: filter 150ms ease-out;
+      }
+
+      .btn-telegram:hover {
+        filter: brightness(1.08)
+      }
+
+      .btn-telegram:focus-visible {
+        outline: 2px solid var(--telegram-ring);
+        outline-offset: 2px
+      }
+
+      .invite-note {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: var(--sp-sm);
+        margin-bottom: 0 !important
+      }
+
+      /* ---------- brain line + footer ---------- */
+      .brain-line {
+        padding: var(--sp-lg) 0;
+        border-top: 1px solid var(--hairline);
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      footer {
+        border-top: 1px solid var(--hairline);
+        padding: var(--sp-lg) 0 var(--sp-xxl);
+      }
+
+      .foot-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-md);
+        flex-wrap: wrap;
+      }
+
+      .foot-inner .fm {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted)
+      }
+
+      .foot-links {
+        display: flex;
+        gap: var(--sp-md)
+      }
+
+      .foot-links a {
+        font-size: 13px;
+        color: var(--muted);
+        text-decoration: none
+      }
+
+      .foot-links a:hover {
+        color: var(--body)
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <nav
+      class="nav"
+      aria-label="Main"
+    >
+      <div class="nav-inner">
+        <a
+          class="wordmark"
+          href="/"
+        >
+          <strong>Ownix</strong>
+          <span>your internet, indexed</span>
+        </a>
+        <div class="nav-links">
+          <a
+            class="btn-ghost"
+            href="/login"
+          >Sign in</a>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="wrap">
+        <p class="hero-lead">The friend you send everything to.</p>
+        <h1>You watched it. You liked it. <span class="lost">You lost it.</span></h1>
+        <p class="hero-sub">
+          Share to Ownix from
+          <span
+            class="app-slot"
+            id="appSlot"
+            aria-hidden="true"
+          >
+            <!-- YouTube -->
+            <svg
+              class="on"
+              viewBox="0 0 24 24"
+              fill="#FF0000"
+            >
+              <path
+                d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6z"
+              />
+            </svg>
+            <!-- Shorts -->
+            <svg
+              viewBox="0 0 24 24"
+              fill="#FF0000"
+            >
+              <path
+                d="M17.7 8.6a4.2 4.2 0 0 0-4-7.3L5.6 5.6a4.2 4.2 0 0 0 .7 7.8 4.2 4.2 0 0 0 4 7.3l8.1-4.3a4.2 4.2 0 0 0-.7-7.8zM9.8 14.9V9.1l5 2.9z"
+              />
+            </svg>
+            <!-- Instagram -->
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <rect
+                x="2"
+                y="2"
+                width="20"
+                height="20"
+                rx="5.5"
+                stroke="#E1306C"
+                stroke-width="2"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="4.5"
+                stroke="#E1306C"
+                stroke-width="2"
+              />
+              <circle
+                cx="17.3"
+                cy="6.7"
+                r="1.3"
+                fill="#E1306C"
+              />
+            </svg>
+            <!-- TikTok -->
+            <svg
+              viewBox="0 0 24 24"
+              fill="#f4f1eb"
+            >
+              <path
+                d="M19.6 6.7a5.6 5.6 0 0 1-3.4-3.6 6 6 0 0 1-.2-1.6h-3.7v13.7a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V8.6a6.7 6.7 0 0 0-.9-.1 6.6 6.6 0 1 0 6.6 6.6V9.3a9.2 9.2 0 0 0 4.6 1.2V6.9c-.3 0-.7 0-1-.2z"
+              />
+            </svg>
+            <!-- GitHub -->
+            <svg
+              viewBox="0 0 24 24"
+              fill="#f4f1eb"
+            >
+              <path
+                d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.9 10.9c.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C19.2 4.8 20.2 5 20.2 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.5-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"
+              />
+            </svg>
+          </span><span class="sr-only">any app</span>
+          — three taps, and a minute later it's in your <span class="index-word">Index</span>: transcribed, summarized,
+          searchable, ready to paste into your AI.
+        </p>
+        <div class="hero-actions">
+          <a
+            class="btn-signal"
+            href="#invite"
+          >Get an invite</a>
+          <a
+            class="btn-ghost"
+            href="/restricted"
+          >Look inside</a>
+          <span class="hero-note">invite-only for now</span>
+        </div>
+      </div>
+    </header>
+
+    <section aria-labelledby="h-capture">
+      <div class="wrap">
+        <h2 id="h-capture">Three taps. Nothing new to learn.</h2>
+        <p class="section-body">
+          It's the share sheet you already use — aimed at Ownix instead of a friend.
+          Mid-doomscroll, mid-commute, mid-anything: share it, keep scrolling.
+          Ownix does the reading.
+        </p>
+
+        <div class="demo-plate">
+          <!--
+        DROP THE SCREEN RECORDING HERE.
+        Replace .demo-video contents with:
+        <video controls preload="metadata" poster="/demo-poster.jpg" style="width:100%;display:block">
+          <source src="/demo-capture.mp4" type="video/mp4">
+        </video>
+        Recording flow: YouTube share sheet -> Telegram bot reply -> item in the Ownix feed.
+      -->
+          <div class="demo-video">
+            <div
+              class="play"
+              aria-hidden="true"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+              >
+                <path d="M4 2.5v11l9-5.5z" />
+              </svg>
+            </div>
+            <p>demo-capture.mp4 · share sheet → bot → Index</p>
+          </div>
+          <div class="demo-caption">
+            <span class="demo-timeline">17:24 shared · <b>17:24 transcript ready</b> · 17:30 full analysis</span>
+            <span>Real capture, real time. No cuts.</span>
+          </div>
+        </div>
+
+        <div
+          class="badge-row"
+          aria-label="What Ownix indexes"
+        >
+          <span class="badge-type short">SHORT · REELS · TIKTOK</span>
+          <span class="badge-type long">LONG VIDEO</span>
+          <span class="badge-type article">ARTICLE · PDF</span>
+          <span class="badge-type repo">REPO</span>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-agent">
+      <div class="wrap">
+        <h2 id="h-agent">Doomscroll in, engineering standards out.</h2>
+
+        <div class="story-grid">
+          <div class="story-quote">
+            <p>
+              An Instagram reel about post-launch support was about to fly past me,
+              like everything does. I shared it to Ownix, got the full transcript back,
+              and pasted it into Codex — which turned it into the support-playbook
+              rules for another project I'm building.
+            </p>
+            <p>A reel became rules in a production codebase.</p>
+            <p class="story-sig">— Leon, building Ownix</p>
+          </div>
+
+          <div
+            class="md-plate"
+            aria-label="The actual transcript file"
+          >
+            <div class="md-plate-head">
+              <span>20260711_144906_48FB971E_transcript.md</span>
+              <span class="badge-done">DONE</span>
+            </div>
+            <pre><span class="k"># Transcript</span>
+
+<span class="k">**Source:**</span> instagram.com/reel/DamFvyUj3U0
+<span class="k">**Platform:**</span> instagram_reels
+<span class="k">**Processed:**</span> 2026-07-11T14:49:36
+
+---
+
+Your AI assistant built your app and shipped
+it to production. Customers, they're now
+paying for it. And at 2:00 in the morning,
+a customer can't log in. So, tell me, who
+handles that? Your AI assistant? Probably
+not, because it's not connected to your
+production system. So your AI assistant
+built the product, but nobody told it to
+build the support system too...</pre>
+          </div>
+        </div>
+
+        <p class="paste-line">
+          Every item in your Index has copy-a-segment and copy-all, or grab the
+          whole <code>.md</code> file. Claude, Cursor, Codex — they all eat markdown.
+        </p>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-compounds">
+      <div class="wrap">
+        <h2 id="h-compounds">It compounds — and it's yours.</h2>
+        <p class="section-body">
+          One month of casual saving, no effort beyond the share button:
+        </p>
+
+        <div class="tiles">
+          <div class="tile"><span class="cap">Items indexed</span><span class="val">260</span></div>
+          <div class="tile"><span class="cap">Links extracted</span><span class="val">623</span></div>
+          <div class="tile"><span class="cap">Videos transcribed</span><span class="val">207</span></div>
+          <div class="tile"><span class="cap">Repos collected</span><span class="val">35</span></div>
+        </div>
+
+        <p class="section-body">
+          Browse by thumbnail, search by title or topic, and pull up every link a
+          video ever mentioned — the course, the repo, the tool — long after the
+          video itself scrolled away.
+        </p>
+
+        <div class="drive-plate">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5M4 17h16v3H4z"
+              stroke="#c6c1b8"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <p>
+            Everything also lands in your Google Drive as markdown.
+            <span class="own">Your files, your account — leave anytime and lose nothing.</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="invite"
+      id="invite"
+      aria-labelledby="h-invite"
+    >
+      <div class="wrap">
+        <div class="invite-inner">
+          <h2 id="h-invite">Invite-only for now.</h2>
+          <p>
+            Sign in with Telegram and drop your email — I approve every member
+            personally, usually within a few hours. Early members get a direct line
+            to me and shape what gets built next.
+          </p>
+          <!-- Replace href with the Telegram login widget / bot deep link -->
+          <a
+            class="btn-telegram"
+            href="/login"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M21.9 4.5L2.7 11.9c-1.3.5-1.3 1.3-.2 1.6l4.9 1.5 1.9 5.8c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.2 1.8-.9l3.3-15.4c.3-1.3-.5-1.9-1.7-1.8z"
+              />
+            </svg>
+            Sign in with Telegram
+          </a>
+          <p class="invite-note">no password · approval within hours, not weeks</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="wrap">
+      <p class="brain-line">
+        A shared Brain is growing quietly underneath all of this — early members shape it.
+      </p>
+    </div>
+
+    <footer>
+      <div class="wrap foot-inner">
+        <span class="fm">Ownix — your internet, indexed.</span>
+        <div class="foot-links">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var slot = document.getElementById('appSlot');
+        if (!slot) return;
+        var mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+        if (mq.matches) return; // static first icon via CSS fallback
+        var icons = slot.querySelectorAll('svg');
+        var i = 0;
+        setInterval(function () {
+          icons[i].classList.remove('on');
+          i = (i + 1) % icons.length;
+          icons[i].classList.add('on');
+        }, 2800);
+      })();
+    </script>
+
+  </body>
+
+</html>
