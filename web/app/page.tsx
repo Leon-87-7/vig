@@ -11,12 +11,14 @@ export const metadata: Metadata = {
     'Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index - searchable, agent-ready markdown.',
 };
 
-const btnGhost =
-  'inline-flex h-8 items-center justify-center rounded-md border border-line bg-transparent px-3.5 text-[13px] font-medium leading-none text-ink transition-ui hover:bg-raised';
-const btnSignal =
-  'inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium leading-none text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep';
+// Touch devices get 44px targets (WCAG 2.5.5) without changing the 32px
+// pointer-device buttons the design system specifies.
+const touchTarget =
+  '[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:px-5';
+const btnGhost = `inline-flex h-8 items-center justify-center rounded-md border border-line bg-transparent px-3.5 text-[13px] font-medium leading-none text-ink transition-ui hover:bg-raised ${touchTarget}`;
+const btnSignal = `inline-flex h-8 items-center justify-center rounded-md bg-signal px-3.5 text-[13px] font-medium leading-none text-onsignal transition-ui hover:bg-signal-bright active:bg-signal-deep ${touchTarget}`;
 const linkClasses =
-  'transition-ui hover:text-signal-bright focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface';
+  'inline-block transition-ui hover:text-signal-bright focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface [@media(pointer:coarse)]:py-3';
 
 const indexBadges = [
   ['SHORT · REELS · TIKTOK', 'text-type-short'],
@@ -57,7 +59,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className={`ml-1 inline-flex h-8 items-center rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui duration-200 hover:bg-signal hover:text-onsignal`}
+              className={`ml-1 inline-flex h-8 items-center rounded-md border border-line px-3.5 text-[13px] font-medium text-ink transition-ui duration-200 hover:bg-signal hover:text-onsignal ${touchTarget}`}
             >
               Sign in
             </Link>
@@ -68,11 +70,14 @@ export default function LandingPage() {
       <main className="bg-canvas text-body">
       <header className="relative isolate overflow-hidden py-12">
         <HeroGradient />
-        {/* Legibility scrim: copy sits on near-canvas, the shader's hot
-            corners survive toward the right edge. */}
+        {/* Legibility scrim. Below lg the copy spans nearly the full hero
+            width, so the left-to-right gradient would leave its right edge
+            over barely-scrimmed shader — flat 90% canvas there; the gradient
+            (hot corners surviving on the right) is lg-up only, where the
+            960px wrap keeps text inside the 0.88 zone. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
+          className="absolute inset-0 -z-10 bg-canvas/90 lg:bg-transparent lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
         />
         <div className="mx-auto max-w-[960px] px-6">
           <p className="mb-4 text-sm font-medium text-muted">
@@ -281,7 +286,9 @@ export default function LandingPage() {
             button:
           </p>
 
-          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {/* Below 360px the two-line mono captions misalign the values —
+              stack the tiles instead. */}
+          <div className="mb-6 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-4">
             {tiles.map(([cap, val]) => (
               <div
                 key={cap}
@@ -337,7 +344,7 @@ export default function LandingPage() {
             </p>
             <Link
               href="/login"
-              className="inline-flex h-9 items-center gap-2 rounded-md bg-telegram-blue px-4 text-[13px] font-medium leading-none text-canvas transition-[filter] duration-150 ease-out hover:brightness-[1.08]"
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-telegram-blue px-4 text-[13px] font-medium leading-none text-canvas transition-[filter] duration-150 ease-out hover:brightness-[1.08] [@media(pointer:coarse)]:h-11"
             >
               <svg
                 width="16"
