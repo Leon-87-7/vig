@@ -5,7 +5,7 @@ import { HeroGradient } from '@/components/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
-import TelegramIcon from '@/components/svg/telegram-icon';
+import { TelegramIcon } from '@/components/svg/telegram-icon';
 import { ChevronsRight } from 'lucide-react';
 
 const pageDescription =
@@ -73,6 +73,7 @@ export default function LandingPage() {
               Ownix
             </span>
           </Link>
+          
           <div className="flex items-center gap-2">
             <Link
               href="/login"
@@ -403,17 +404,17 @@ export default function LandingPage() {
         <div className="flex flex-col px-3 gap-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:justify-between">
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-3">
             <a
-              href="#invite"
+              href="#top"
               className="hover:text-signal-bright"
             >
               <OwnixLogo
                 aria-hidden="true"
                 focusable="false"
-                className="h-10 w-10 transition-transform duration-200 ease-out-quart group-hover:scale-110 group-hover:text-signal-bright group-hover:rotate-[-6deg]"
+                className="h-10 w-10 transition-transform duration-200 ease-out-quart hover:scale-110 hover:text-contrasignal hover:rotate-[-6deg]"
               />
             </a>
             <div className="flex flex-col">
-              <span className="text-lg font-semibold text-body group-hover:text-contrasignal">
+              <span className="text-lg font-semibold text-body ">
                 Ownix
               </span>
               <span className="text-sm leading-6">
