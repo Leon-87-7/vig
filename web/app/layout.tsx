@@ -18,6 +18,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  // Absolute URLs for og:image etc. Vercel falls back to the deployment URL
+  // when this is unset; a custom domain should set NEXT_PUBLIC_SITE_URL.
+  ...(process.env.NEXT_PUBLIC_SITE_URL
+    ? { metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL) }
+    : {}),
   title: "Ownix — Your internet, indexed",
   description:
     "Collect what matters. Own your Index. Shape the Brain.",

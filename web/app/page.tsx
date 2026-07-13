@@ -6,10 +6,23 @@ import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
 
+const pageDescription =
+  'Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index - searchable, agent-ready markdown.';
+
 export const metadata: Metadata = {
   title: 'Ownix - Your internet, indexed',
-  description:
-    'Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index - searchable, agent-ready markdown.',
+  description: pageDescription,
+  openGraph: {
+    title: 'Ownix - Your internet, indexed',
+    description: pageDescription,
+    type: 'website',
+    siteName: 'Ownix',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Ownix - Your internet, indexed',
+    description: pageDescription,
+  },
 };
 
 // Touch devices get 44px targets (WCAG 2.5.5) without changing the 32px
