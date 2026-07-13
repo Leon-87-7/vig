@@ -5,6 +5,8 @@ import { HeroGradient } from '@/components/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
+import TelegramIcon from '@/components/svg/telegram-icon';
+import { ChevronsRight } from 'lucide-react';
 
 const pageDescription =
   'Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index - searchable, agent-ready markdown.';
@@ -52,6 +54,7 @@ export default function LandingPage() {
   return (
     <>
       <nav
+        id="top"
         aria-label="Main"
         className="border-b border-line bg-canvas"
       >
@@ -94,16 +97,19 @@ export default function LandingPage() {
             className="absolute inset-0 -z-10 bg-canvas/90 lg:bg-transparent lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
           />
           <div className="mx-auto max-w-[960px] px-6">
-            <p className="hero-rise mb-4 text-sm font-medium text-muted">
+            <p className="text-pretty hero-rise mb-4 text-sm font-medium text-muted">
               The friend you send everything to.
             </p>
             <h1 className="hero-rise mb-6 max-w-[16ch] text-[clamp(30px,6vw,52px)] font-semibold leading-[1.15] tracking-[-0.5px] text-ink [animation-delay:90ms]">
               You watched it. You liked it.{' '}
               <span className="text-muted">You lost it.</span>
             </h1>
-            <p className="hero-rise mb-8 max-w-[56ch] text-base leading-relaxed text-body [animation-delay:180ms]">
-              Share to Ownix from <AppSlot /> - three taps, and a
-              minute later it&apos;s in your{' '}
+            <p className="text-pretty hero-rise mb-8 max-w-[56ch] text-base leading-relaxed text-body [animation-delay:180ms]">
+              Share to Ownix from &ensp; <AppSlot />{' '}
+              <span>
+                <ChevronsRight className="inline-block ml-1 mr-3" />
+              </span>
+              three taps, and a minute later it&apos;s in your{' '}
               <span className="font-medium text-ink">Index</span>:
               transcribed, summarized, searchable, ready to paste into
               your AI.
@@ -139,7 +145,7 @@ export default function LandingPage() {
             >
               Three taps. Nothing new to learn.
             </h2>
-            <p className="mb-6 max-w-[58ch] text-[15px] leading-relaxed">
+            <p className="text-pretty mb-6 max-w-[58ch] text-[15px] leading-relaxed">
               It&apos;s the share sheet you already use - aimed at
               Ownix instead of a friend. Mid-doomscroll, mid-commute,
               mid-anything: share it, keep scrolling. Ownix does the
@@ -169,7 +175,7 @@ export default function LandingPage() {
                     <path d="M4 2.5v11l9-5.5z" />
                   </svg>
                 </div>
-                <p className="font-mono text-xs text-muted">
+                <p className="text-pretty font-mono text-xs text-muted">
                   demo-capture.mp4 · share sheet → bot → Index
                 </p>
               </div>
@@ -218,7 +224,7 @@ export default function LandingPage() {
 
             <div className="grid items-start gap-6 md:grid-cols-2">
               <div className="text-[15px] leading-relaxed">
-                <p className="mb-4">
+                <p className="text-pretty mb-4">
                   An Instagram reel about post-launch support was
                   about to fly past me, like everything does. I shared
                   it to Ownix, got the full transcript back, and
@@ -226,10 +232,10 @@ export default function LandingPage() {
                   support-playbook rules for another project I&apos;m
                   building.
                 </p>
-                <p className="mb-4">
+                <p className="text-pretty mb-4">
                   A reel became rules in a production codebase.
                 </p>
-                <p className="font-mono text-xs text-muted">
+                <p className="text-pretty font-mono text-xs text-muted">
                   - Leon, building Ownix
                 </p>
               </div>
@@ -276,7 +282,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <p className="mt-6 max-w-[58ch] text-[15px] leading-relaxed">
+            <p className="text-pretty mt-6 max-w-[58ch] text-[15px] leading-relaxed">
               Every item in your Index has copy-a-segment and
               copy-all, or grab the whole{' '}
               <code className="rounded-sm border border-line bg-surface px-[5px] py-px font-mono text-xs text-ink">
@@ -298,7 +304,7 @@ export default function LandingPage() {
             >
               It compounds - and it&apos;s yours.
             </h2>
-            <p className="mb-6 max-w-[58ch] text-[15px] leading-relaxed">
+            <p className="text-pretty mb-6 max-w-[58ch] text-[15px] leading-relaxed">
               One month of casual saving, no effort beyond the share
               button:
             </p>
@@ -324,7 +330,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <p className="mb-6 max-w-[58ch] text-[15px] leading-relaxed">
+            <p className="text-pretty mb-6 max-w-[58ch] text-[15px] leading-relaxed">
               Browse by thumbnail, search by title or topic, and pull
               up every link a video ever mentioned - the course, the
               repo, the tool - long after the video itself scrolled
@@ -332,14 +338,15 @@ export default function LandingPage() {
             </p>
 
             <div className="flex max-w-[58ch] items-start gap-3 rounded-lg border border-line bg-surface p-4">
-              <GoogleDriveIcon className="mt-0.5 h-[18px] w-[18px] shrink-0" />
-              <p className="text-sm leading-normal">
+              <GoogleDriveIcon className="my-auto h-[18px] w-[18px] shrink-0" />
+              <p className="text-pretty text-sm leading-normal">
                 Everything also lands in your Google Drive as
-                markdown.{' '}
-                <span className="font-medium text-ink">
+                markdown.
+                <br />
+                <b className="font-medium text-ink">
                   Your files, your account - leave anytime and lose
                   nothing.
-                </span>
+                </b>
               </p>
             </div>
           </div>
@@ -358,38 +365,30 @@ export default function LandingPage() {
               >
                 Invite-only for now.
               </h2>
-              <p className="mb-6 max-w-[52ch] text-[15px] leading-relaxed">
+              <p className="text-pretty mb-6 max-w-[52ch] text-[15px] leading-relaxed">
                 Sign in with Telegram and the bot will ask for your
-                email - I approve every member personally, usually
+                email. I approve every member personally, usually
                 within a few hours. Then you&apos;ll get a hello from
                 me, asking if you want to help build what Ownix
                 becomes.
               </p>
               <Link
                 href="/login"
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-telegram-blue px-4 text-[13px] font-medium leading-none text-canvas transition-[filter] duration-150 ease-out hover:brightness-[1.08] [@media(pointer:coarse)]:h-11"
+                className="inline-flex h-9 items-center gap-2 rounded-full bg-telegram-blue px-4 text-[13px] font-medium leading-none text-canvas transition-[filter] duration-150 ease-out hover:brightness-[1.08] [@media(pointer:coarse)]:h-11"
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M21.9 4.5L2.7 11.9c-1.3.5-1.3 1.3-.2 1.6l4.9 1.5 1.9 5.8c.2.6.1.9.8.9.5 0 .7-.2 1-.5l2.4-2.3 5 3.7c.9.5 1.6.2 1.8-.9l3.3-15.4c.3-1.3-.5-1.9-1.7-1.8z" />
-                </svg>
+                <TelegramIcon />
                 Sign in with Telegram
               </Link>
-              <p className="mt-3 font-mono text-xs text-muted">
+              <p className="text-pretty mt-3 font-mono text-xs text-muted">
                 no password · the bot collects your email · approval
-                within hours, not weeks
+                within hours.
               </p>
             </div>
           </div>
         </section>
 
         <div className="mx-auto max-w-[960px] px-6">
-          <p className="border-t border-line py-6 text-[13px] text-muted">
+          <p className="text-pretty border-t border-line py-6 text-[13px] text-muted">
             A shared Brain is growing quietly underneath all of this -
             early members shape it.
           </p>
@@ -403,13 +402,18 @@ export default function LandingPage() {
           row - wordmark left, nav right - no dividers either way. */}
         <div className="flex flex-col px-3 gap-3 min-[450px]:flex-row min-[450px]:items-center min-[450px]:justify-between">
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-3">
-            <OwnixLogo
-              aria-hidden="true"
-              focusable="false"
-              className="h-10 w-10 "
-            />
+            <a
+              href="#invite"
+              className="hover:text-signal-bright"
+            >
+              <OwnixLogo
+                aria-hidden="true"
+                focusable="false"
+                className="h-10 w-10 transition-transform duration-200 ease-out-quart group-hover:scale-110 group-hover:text-signal-bright group-hover:rotate-[-6deg]"
+              />
+            </a>
             <div className="flex flex-col">
-              <span className="text-lg font-semibold text-body">
+              <span className="text-lg font-semibold text-body group-hover:text-contrasignal">
                 Ownix
               </span>
               <span className="text-sm leading-6">
