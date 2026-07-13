@@ -3,6 +3,7 @@ import Link from 'next/link';
 import OwnixLogo from '@/app/ownix-logo.svg';
 import { HeroGradient } from '@/components/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
+import { CountUp } from '@/components/landing/count-up';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
 
 export const metadata: Metadata = {
@@ -27,11 +28,11 @@ const indexBadges = [
   ['REPO', 'text-type-repo'],
 ];
 
-const tiles = [
-  ['Items indexed', '260'],
-  ['Links extracted', '623'],
-  ['Videos transcribed', '207'],
-  ['Repos collected', '35'],
+const tiles: [string, number][] = [
+  ['Items indexed', 260],
+  ['Links extracted', 623],
+  ['Videos transcribed', 207],
+  ['Repos collected', 35],
 ];
 
 export default function LandingPage() {
@@ -80,21 +81,21 @@ export default function LandingPage() {
           className="absolute inset-0 -z-10 bg-canvas/90 lg:bg-transparent lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
         />
         <div className="mx-auto max-w-[960px] px-6">
-          <p className="mb-4 text-sm font-medium text-muted">
+          <p className="hero-rise mb-4 text-sm font-medium text-muted">
             The friend you send everything to.
           </p>
-          <h1 className="mb-6 max-w-[16ch] text-[clamp(30px,6vw,52px)] font-semibold leading-[1.15] tracking-[-0.5px] text-ink">
+          <h1 className="hero-rise mb-6 max-w-[16ch] text-[clamp(30px,6vw,52px)] font-semibold leading-[1.15] tracking-[-0.5px] text-ink [animation-delay:90ms]">
             You watched it. You liked it.{' '}
             <span className="text-muted">You lost it.</span>
           </h1>
-          <p className="mb-8 max-w-[56ch] text-base leading-relaxed text-body">
+          <p className="hero-rise mb-8 max-w-[56ch] text-base leading-relaxed text-body [animation-delay:180ms]">
             Share to Ownix from <AppSlot /> - three taps, and a minute
             later it&apos;s in your{' '}
             <span className="font-medium text-ink">Index</span>:
             transcribed, summarized, searchable, ready to paste into
             your AI.
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="hero-rise flex flex-wrap items-center gap-3 [animation-delay:270ms]">
             <a
               href="#invite"
               className={btnSignal}
@@ -289,7 +290,7 @@ export default function LandingPage() {
           {/* Below 360px the two-line mono captions misalign the values —
               stack the tiles instead. */}
           <div className="mb-6 grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-4">
-            {tiles.map(([cap, val]) => (
+            {tiles.map(([cap, val], i) => (
               <div
                 key={cap}
                 className="rounded-lg border border-line bg-surface px-4 py-3"
@@ -298,7 +299,7 @@ export default function LandingPage() {
                   {cap}
                 </span>
                 <span className="text-[28px] font-semibold leading-[1.1] text-ink tabular-nums">
-                  {val}
+                  <CountUp value={val} delay={i * 80} />
                 </span>
               </div>
             ))}
