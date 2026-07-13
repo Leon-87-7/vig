@@ -9,9 +9,9 @@ import { GitHubIcon } from '@/components/svg/github-icon';
 
 const icons = [
   YouTubeIcon,
-  YouTubeShortsIcon,
   InstagramIcon,
   TikTokIcon,
+  YouTubeShortsIcon,
   GitHubIcon,
 ];
 
@@ -21,7 +21,9 @@ export function AppSlot() {
   const [active, setActive] = useState(0);
 
   useEffect(() => {
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const media = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    );
     let id: ReturnType<typeof setInterval> | undefined;
     const sync = () => {
       clearInterval(id);
