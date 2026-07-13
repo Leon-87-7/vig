@@ -28,6 +28,7 @@ import {
   type InviteUser,
 } from '@/components/invite-gate';
 import { useGoogleStatus } from '@/components/google-status';
+import { statusColors } from '@/lib/design-tokens';
 
 interface NavItem {
   href: string;
@@ -45,10 +46,10 @@ const NAV: NavItem[] = [
 ];
 
 const AVATAR_BORDER_COLORS = [
-  '#2e85ff',
-  '#fed006',
-  '#0ebe60',
-  '#fc4f58',
+  statusColors.processing,
+  statusColors.pending,
+  statusColors.done,
+  statusColors.error,
 ] as const;
 
 const AVATAR_BORDER_SHADER = {
@@ -140,9 +141,13 @@ function Avatar({
 }
 
 function useReducedMotionPreference() {
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (!window.matchMedia) {
+      setReducedMotion(true);
+      return;
+    }
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setReducedMotion(media.matches);
     update();
@@ -175,8 +180,8 @@ function GoogleConnectedAvatar({
         <PulsingBorder
           {...AVATAR_BORDER_SHADER}
           colors={colors}
-          speed={reducedMotion ? 0 : 1}
-          className="absolute inset-0 size-full rounded-full"
+          speed={reducedMotion === false ? 1 : 0}
+          className="pointer-events-none absolute inset-0 size-full rounded-full"
         />
       )}
       <Avatar
