@@ -169,7 +169,7 @@ export default function LandingPage() {
                 · 17:30 full analysis
               </span>
               <span className="text-xs font-medium text-muted">
-                Real capture, real time. No cuts.
+                Demo film coming - those timestamps are real.
               </span>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function LandingPage() {
 
       <section
         aria-labelledby="h-agent"
-        className="border-t border-line py-12"
+        className="border-t border-line py-16"
       >
         <div className="mx-auto max-w-[960px] px-6">
           <h2
@@ -327,7 +327,7 @@ export default function LandingPage() {
       <section
         id="invite"
         aria-labelledby="h-invite"
-        className="border-t border-line py-12"
+        className="border-t border-line py-16 md:py-20"
       >
         <div className="mx-auto max-w-[960px] px-6">
           <div className="rounded-lg border border-line bg-surface p-8">
@@ -338,10 +338,11 @@ export default function LandingPage() {
               Invite-only for now.
             </h2>
             <p className="mb-6 max-w-[52ch] text-[15px] leading-relaxed">
-              Sign in with Telegram and drop your email - I approve
-              every member personally, usually within a few hours.
-              Early members get a direct line to me and shape what
-              gets built next.
+              Sign in with Telegram and the bot will ask for your
+              email - I approve every member personally, usually
+              within a few hours. Then you&apos;ll get a hello from
+              me, asking if you want to help build what Ownix
+              becomes.
             </p>
             <Link
               href="/login"
@@ -359,7 +360,8 @@ export default function LandingPage() {
               Sign in with Telegram
             </Link>
             <p className="mt-3 font-mono text-xs text-muted">
-              no password · approval within hours, not weeks
+              no password · the bot collects your email · approval
+              within hours, not weeks
             </p>
           </div>
         </div>
