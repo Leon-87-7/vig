@@ -5,7 +5,7 @@ import { HeroGradient } from '@/components/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
-import TelegramIcon from '@/components/svg/telegram-icon';
+import { TelegramIcon } from '@/components/svg/telegram-icon';
 import { ChevronsRight } from 'lucide-react';
 
 const pageDescription =
