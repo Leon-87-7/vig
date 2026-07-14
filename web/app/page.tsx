@@ -4,6 +4,7 @@ import OwnixLogo from '@/app/ownix-logo.svg';
 import { HeroGradient } from '@/components/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
+import { DemoVideo } from '@/components/landing/demo-video';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
 import { TelegramIcon } from '@/components/svg/telegram-icon';
 import { ChevronsRight } from 'lucide-react';
@@ -67,13 +68,13 @@ export default function LandingPage() {
             <OwnixLogo
               aria-hidden="true"
               focusable="false"
-              className="h-7 w-7 group-hover:text-signal-bright motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out-quart motion-safe:group-hover:scale-110 motion-safe:group-hover:rotate-[-6deg]"
+              className="h-7 w-7 group-hover:text-signal-bright motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out-quart motion-safe:group-hover:scale-110  motion-safe:group-hover:rotate-[-6deg]"
             />
             <span className="group-hover:text-contrasignal">
               Ownix
             </span>
           </Link>
-          
+
           <div className="flex items-center gap-2">
             <Link
               href="/login"
@@ -154,42 +155,18 @@ export default function LandingPage() {
             </p>
 
             <div className="overflow-hidden rounded-lg border border-line bg-surface">
-              {/*
-              DROP THE SCREEN RECORDING HERE.
-              Replace the placeholder div with:
-              <video controls preload="metadata" poster="/demo-poster.jpg" className="block w-full">
-                <source src="/demo-capture.mp4" type="video/mp4" />
-              </video>
-              Recording flow: YouTube share sheet -> Telegram bot reply -> item in the Ownix feed.
-            */}
-              <div className="flex aspect-video flex-col items-center justify-center gap-3 border-b border-line bg-canvas">
-                <div
-                  aria-hidden="true"
-                  className="flex h-12 w-12 items-center justify-center rounded-full border border-line-strong text-body"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
-                  >
-                    <path d="M4 2.5v11l9-5.5z" />
-                  </svg>
-                </div>
-                <p className="text-pretty font-mono text-xs text-muted">
-                  demo-capture.mp4 · share sheet → bot → Index
-                </p>
-              </div>
+              {/* Recording flow: YouTube share sheet -> Telegram bot reply -> item in the Ownix feed. */}
+              <DemoVideo
+                src="/demo-capture.mp4"
+                className="block aspect-video w-full border-b border-line bg-canvas"
+              />
               <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
                 <span className="font-mono text-xs text-body">
-                  17:24 shared ·{' '}
+                  11:32 shared ·{' '}
                   <b className="font-medium text-status-done">
-                    17:24 transcript ready
+                    11:32 reel analysis ready
                   </b>{' '}
-                  · 17:30 full analysis
-                </span>
-                <span className="text-xs font-medium text-muted">
-                  Demo film coming - those timestamps are real.
+                  · 11:33 landed in Dashboard
                 </span>
               </div>
             </div>
@@ -410,7 +387,7 @@ export default function LandingPage() {
               <OwnixLogo
                 aria-hidden="true"
                 focusable="false"
-                className="h-10 w-10 transition-transform duration-200 ease-out-quart hover:scale-110 hover:text-contrasignal hover:rotate-[-6deg]"
+                className="h-10 w-10 transition-transform duration-200 ease-out-quart hover:scale-110 hover:text-contrasignal motion-safe:animate-[ownix-logo-cycle_7s_linear_infinite] hover:rotate-[-6deg]"
               />
             </a>
             <div className="flex flex-col">

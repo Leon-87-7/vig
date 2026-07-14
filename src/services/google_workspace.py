@@ -50,7 +50,7 @@ def user_folder_id(chat_id: int | None) -> str | None:
 
         service = build_google_service("drive", "v3", ["https://www.googleapis.com/auth/drive.file"], chat_id=chat_id)
         result = service.files().create(
-            body={"name": "vig", "mimeType": "application/vnd.google-apps.folder"},
+            body={"name": "Ownix", "mimeType": "application/vnd.google-apps.folder"},
             fields="id",
             supportsAllDrives=True,
         ).execute()
