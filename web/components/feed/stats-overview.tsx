@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { StatCard } from '@/components/stat-card';
+import { StatCard } from '@/components/feed/stat-card';
 import { Tooltip } from '@/components/ui/tooltip';
 import type { FeedStats } from '@/lib/hooks/useFeedData';
 

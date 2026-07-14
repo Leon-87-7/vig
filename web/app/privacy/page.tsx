@@ -7,7 +7,7 @@ import {
   LegalSection,
   LegalTitle,
   PublicShell,
-} from '@/components/public-shell';
+} from '@/components/shell/public-shell';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Ownix',

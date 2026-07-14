@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AuthShell } from '@/components/auth-shell';
+import { AuthShell } from '@/components/shell/auth-shell';
 
 export default function LogoutPage() {
   return (

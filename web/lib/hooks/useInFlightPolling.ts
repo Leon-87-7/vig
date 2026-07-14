@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { startPolling } from '@/lib/polling';
-import type { JobSummary } from '@/components/job-card';
+import type { JobSummary } from '@/components/feed/job-card';
 
 const IN_FLIGHT_STATUSES = new Set([
   'pending',

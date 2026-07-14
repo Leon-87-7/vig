@@ -10,14 +10,14 @@ import {
   useState,
 } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { SubmitUrlForm } from '@/components/submit-url-form';
+import { SubmitUrlForm } from '@/components/feed/submit-url-form';
 import { FileCode2, Link2, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { DocUploadPanel } from './doc-upload-panel';
+import { DocUploadPanel } from '@/components/doc-parser/doc-upload-panel';
 import { useRestrictedMode } from '@/lib/restricted/context';
 
 /** The job the API accepted, timestamped so consumers can react to repeats. */

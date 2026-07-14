@@ -19,11 +19,11 @@ vi.mock('@/lib/hooks/useJobAnnotation', () => ({
 vi.mock('@/lib/hooks/useJobTags', () => ({
   useJobTags: vi.fn(),
 }));
-vi.mock('@/components/TagPicker', () => ({
+vi.mock('@/components/ui/tag-picker', () => ({
   TagMenu: () => <div data-testid="tag-menu">TagMenu</div>,
   TagChips: () => <div data-testid="tag-chips">TagChips</div>,
 }));
-vi.mock('@/components/MarkdownEditor', () => ({
+vi.mock('@/components/ui/markdown-editor', () => ({
   default: () => <div data-testid="markdown-editor">MarkdownEditor</div>,
 }));
 // next/dynamic calls are resolved; mock the dynamic import target directly

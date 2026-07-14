@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { JobSummary } from '@/components/job-card';
+import type { JobSummary } from '@/components/feed/job-card';
 
 export interface FeedStats {
   total: number;

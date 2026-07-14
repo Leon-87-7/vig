@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Fuse from 'fuse.js';
-import type { JobSummary } from '@/components/job-card';
+import type { JobSummary } from '@/components/feed/job-card';
 
 export function useFuseSearch(jobs: JobSummary[]) {
   const [query, setQuery] = useState('');

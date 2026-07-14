@@ -22,7 +22,7 @@ vi.mock('./UrlsTab', () => ({
 vi.mock('./ContextTab', () => ({
   ContextTab: () => <div data-testid="context-tab">Context Tab</div>,
 }));
-vi.mock('@/components/ExportModal', () => ({
+vi.mock('@/components/ui/export-modal', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="export-modal"><button onClick={onClose}>Close Export</button></div>
   ),

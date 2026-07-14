@@ -3,13 +3,13 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import ExportModal from "@/components/ExportModal";
+import ExportModal from "@/components/ui/export-modal";
 import { useSpaceDetail } from "@/lib/hooks/useSpaceDetail";
 import { useSpaceEdit } from "@/lib/hooks/useSpaceEdit";
 import { UrlsTab } from "./UrlsTab";
 import { ContextTab } from "./ContextTab";
-import { TabBar } from "@/components/ui";
-import { PageShell } from "@/components/page-shell";
+import { TabBar } from "@/components/ui/tab-bar";
+import { PageShell } from "@/components/shell/page-shell";
 import { SkeletonBlock } from "@/components/feed/feed-states";
 
 type ActiveTab = "urls" | "context";

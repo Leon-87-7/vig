@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { StatusBadge } from "@/components/badges";
-import { PlatformBadge } from "@/components/platform-icon";
-import { DateTime } from "@/components/date-time";
-import { JobCardTags } from "@/components/job-card-tags";
+import { StatusBadge } from "@/components/ui/badges";
+import { PlatformBadge } from "@/components/ui/platform-icon";
+import { DateTime } from "@/components/ui/date-time";
+import { JobCardTags } from "@/components/feed/job-card-tags";
 import { buildJobHref } from "@/lib/job-detail-utils";
 
 export interface JobSummary {

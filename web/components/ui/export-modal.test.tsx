@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import ExportModal from './ExportModal';
+import ExportModal from './export-modal';
 
 const gdocTrigger = vi.hoisted(() => vi.fn());
 const gdocState = vi.hoisted(() => ({

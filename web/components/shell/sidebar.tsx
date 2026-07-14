@@ -26,8 +26,8 @@ import { siGithub, siGoogle } from 'simple-icons';
 import {
   useSessionUser,
   type InviteUser,
-} from '@/components/invite-gate';
-import { useGoogleStatus } from '@/components/google-status';
+} from '@/components/shell/invite-gate';
+import { useGoogleStatus } from '@/components/shell/google-status';
 import { statusColors } from '@/lib/design-tokens';
 
 interface NavItem {

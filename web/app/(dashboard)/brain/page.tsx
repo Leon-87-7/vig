@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 import { Brain } from "lucide-react";
-import { BrainGraph } from "@/components/brain-graph";
+import { BrainGraph } from "@/components/brain/brain-graph";
 import { useSemanticSearch } from "@/lib/hooks/useSemanticSearch";
 import type { BrainResult } from "@/lib/hooks/useSemanticSearch";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/shell/page-shell";
 
 function IdleBanner() {
   return (

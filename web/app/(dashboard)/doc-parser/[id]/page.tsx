@@ -3,10 +3,10 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Copy, Download, ExternalLink, Sparkles } from 'lucide-react';
-import { DocumentSourceChip } from '@/components/document-source-chip';
+import { DocumentSourceChip } from '@/components/doc-parser/document-source-chip';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
-import { downloadBlob } from '@/components/ExportModal';
-import { PageShell } from '@/components/page-shell';
+import { downloadBlob } from '@/components/ui/export-modal';
+import { PageShell } from '@/components/shell/page-shell';
 import { Tooltip } from '@/components/ui/tooltip';
 
 const RANDOM_PROMPTS = [

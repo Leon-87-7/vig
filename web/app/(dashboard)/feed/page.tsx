@@ -18,9 +18,9 @@ import { useFuseSearch } from '@/lib/hooks/useFuseSearch';
 import { useInFlightPolling } from '@/lib/hooks/useInFlightPolling';
 import { useBackgroundFreshness } from '@/lib/hooks/useBackgroundFreshness';
 import { useLinksTable } from '@/lib/hooks/useLinksTable';
-import { JobCard } from '@/components/job-card';
+import { JobCard } from '@/components/feed/job-card';
 import { StatsOverview } from '@/components/feed/stats-overview';
-import { FilterBar, type FilterTab } from '@/components/filter-bar';
+import { FilterBar, type FilterTab } from '@/components/ui/filter-bar';
 import {
   SkeletonGrid,
   SkeletonList,
@@ -29,13 +29,13 @@ import {
 } from '@/components/feed/feed-states';
 import { PreviewGrid } from '@/components/feed/preview-grid';
 import { RecoveryPanel } from '@/components/feed/recovery-panel';
-import { PageShell } from '@/components/page-shell';
-import { useGoogleStatus } from '@/components/google-status';
-import { useSubmitJob } from '@/components/submit-job';
+import { PageShell } from '@/components/shell/page-shell';
+import { useGoogleStatus } from '@/components/shell/google-status';
+import { useSubmitJob } from '@/components/feed/submit-job';
 import { FileCode2, Link2, Plus } from 'lucide-react';
 import { GoogleIcon } from '@/components/svg/google-icon';
-import type { JobSummary } from '@/components/job-card';
-import { LinksSearchBar, LinksTable } from '@/components/links-table';
+import type { JobSummary } from '@/components/feed/job-card';
+import { LinksSearchBar, LinksTable } from '@/components/feed/links-table';
 import { useRestrictedMode } from '@/lib/restricted/context';
 import {
   Dialog,

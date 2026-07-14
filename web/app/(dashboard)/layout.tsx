@@ -1,10 +1,10 @@
-import { Sidebar } from '@/components/sidebar';
-import { AppHeader } from '@/components/app-header';
-import { PageBackground } from '@/components/page-background';
-import { ScrollToTop } from '@/components/scroll-to-top';
-import { InviteGate } from '@/components/invite-gate';
-import { GoogleStatusProvider } from '@/components/google-status';
-import { SubmitJobProvider } from '@/components/submit-job';
+import { Sidebar } from '@/components/shell/sidebar';
+import { AppHeader } from '@/components/shell/app-header';
+import { PageBackground } from '@/components/shell/page-background';
+import { ScrollToTop } from '@/components/shell/scroll-to-top';
+import { InviteGate } from '@/components/shell/invite-gate';
+import { GoogleStatusProvider } from '@/components/shell/google-status';
+import { SubmitJobProvider } from '@/components/feed/submit-job';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { RestrictedModeProvider } from '@/lib/restricted/context';
 import DevPersonaSwitch from '@/components/ui/dev-persona-switch';

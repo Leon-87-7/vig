@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
-import { StatusBadge } from "@/components/badges";
-import { DateTime } from "@/components/date-time";
-import type { JobSummary } from "@/components/job-card";
-import { JobCardTags } from "@/components/job-card-tags";
-import { PlatformGlyph } from "@/components/platform-icon";
+import { StatusBadge } from "@/components/ui/badges";
+import { DateTime } from "@/components/ui/date-time";
+import type { JobSummary } from "@/components/feed/job-card";
+import { JobCardTags } from "@/components/feed/job-card-tags";
+import { PlatformGlyph } from "@/components/ui/platform-icon";
 import { buildJobHref } from "@/lib/job-detail-utils";
 
 interface PreviewCardProps {

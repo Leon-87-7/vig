@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
 
 import { useRecovery } from '@/lib/hooks/useRecovery';
-import { useSubmitJobOptional } from '@/components/submit-job';
+import { useSubmitJobOptional } from '@/components/feed/submit-job';
 
 const CLEAR_CONFIRM_COPY = 'Clear failed jobs in this tab? This marks them cancelled; it does not delete them from DB.';
 
