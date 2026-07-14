@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { TagMenu, TagChips } from "@/components/TagPicker";
-import { StatusBadge, TypeBadge } from "@/components/badges";
+import { TagMenu, TagChips } from "@/components/ui/tag-picker";
+import { StatusBadge, TypeBadge } from "@/components/ui/badges";
 import { useJobDetail } from "@/lib/hooks/useJobDetail";
 import { useJobAnnotation } from "@/lib/hooks/useJobAnnotation";
 import { useJobTags } from "@/lib/hooks/useJobTags";
@@ -23,14 +23,14 @@ import {
   parseLinks,
   jobScopeQuery,
 } from "@/lib/job-detail-utils";
-import { PageShell } from "@/components/page-shell";
+import { PageShell } from "@/components/shell/page-shell";
 import { SkeletonBlock } from "@/components/feed/feed-states";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useRestrictedMode } from "@/lib/restricted/context";
-import { useGoogleStatus } from "@/components/google-status";
+import { useGoogleStatus } from "@/components/shell/google-status";
 import { GoogleDriveIcon } from "@/components/svg/google-drive-icon";
 
-const MarkdownEditor = dynamic(() => import("@/components/MarkdownEditor"), {
+const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), {
   ssr: false,
   loading: () => (
     <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">

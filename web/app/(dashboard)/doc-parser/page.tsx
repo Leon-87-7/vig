@@ -1,7 +1,7 @@
 'use client';
 
 import { useRestrictedMode } from '@/lib/restricted/context';
-import { RestrictedFacade } from '@/components/restricted-facade';
+import { RestrictedFacade } from '@/components/shell/restricted-facade';
 
 import Link from 'next/link';
 import {
@@ -16,15 +16,15 @@ import {
   Sparkles,
   CircleQuestionMark,
 } from 'lucide-react';
-import { StatusBadge } from '@/components/badges';
-import { DocUploadPanel } from '@/components/doc-upload-panel';
+import { StatusBadge } from '@/components/ui/badges';
+import { DocUploadPanel } from '@/components/doc-parser/doc-upload-panel';
 import { TelegramToggle } from '@/components/doc-parser/telegram-toggle';
-import { FilterBar } from '@/components/filter-bar';
+import { FilterBar } from '@/components/ui/filter-bar';
 import {
   SkeletonList,
   EmptyState,
 } from '@/components/feed/feed-states';
-import { PageShell, PageHeader } from '@/components/page-shell';
+import { PageShell, PageHeader } from '@/components/shell/page-shell';
 
 type Job = {
   id: string;

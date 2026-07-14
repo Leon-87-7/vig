@@ -1,5 +1,5 @@
 import { PreviewCard } from "@/components/feed/preview-card";
-import type { JobSummary } from "@/components/job-card";
+import type { JobSummary } from "@/components/feed/job-card";
 
 export function PreviewGrid({
   jobs,

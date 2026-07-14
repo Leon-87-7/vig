@@ -13,7 +13,7 @@ vi.mock('@/components/doc-parser/telegram-toggle', () => ({
   TelegramToggle: () => <button>Telegram</button>,
 }));
 
-vi.mock('@/components/page-shell', () => ({
+vi.mock('@/components/shell/page-shell', () => ({
   PageShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
 }));
 

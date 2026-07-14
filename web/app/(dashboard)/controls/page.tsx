@@ -1,7 +1,7 @@
 'use client';
 
 import { useRestrictedMode } from '@/lib/restricted/context';
-import { RestrictedFacade } from '@/components/restricted-facade';
+import { RestrictedFacade } from '@/components/shell/restricted-facade';
 
 import { useEffect, useId, useState } from 'react';
 import { useTagList } from '@/lib/hooks/useTagList';
@@ -15,8 +15,8 @@ import {
   PenLine,
   TagX,
 } from 'lucide-react';
-import { PRESET_COLORS } from '@/components/TagPicker';
-import { PageShell, PageHeader } from '@/components/page-shell';
+import { PRESET_COLORS } from '@/components/ui/tag-picker';
+import { PageShell, PageHeader } from '@/components/shell/page-shell';
 
 const DEFAULT_COLOR = '#6366f1';
 

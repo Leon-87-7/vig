@@ -1,12 +1,12 @@
 'use client';
 
 import { useRestrictedMode } from '@/lib/restricted/context';
-import { RestrictedFacade } from '@/components/restricted-facade';
+import { RestrictedFacade } from '@/components/shell/restricted-facade';
 
 import { useState } from 'react';
 import { MessageSquareText } from 'lucide-react';
 import { useTemplateList } from '@/lib/hooks/useTemplateList';
-import { PageShell, PageHeader } from '@/components/page-shell';
+import { PageShell, PageHeader } from '@/components/shell/page-shell';
 import { Tooltip } from '@/components/ui/tooltip';
 import type {
   Template,

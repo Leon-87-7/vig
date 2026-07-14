@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { MoveLeft } from 'lucide-react';
-import { AuthShell } from '@/components/auth-shell';
+import { AuthShell } from '@/components/shell/auth-shell';
 import { GoogleIcon } from '@/components/svg/google-icon';
 
 interface TelegramUser {

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { swapSortOrder } from '@/lib/fetch-utils';
-import type { JobSummary } from '@/components/job-card';
+import type { JobSummary } from '@/components/feed/job-card';
 
 interface SpaceUrl {
   id: string;

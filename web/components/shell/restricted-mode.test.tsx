@@ -2,7 +2,7 @@
 import { fireEvent, render, screen } from '@/test/render';
 import { describe, expect, it, vi } from 'vitest';
 import { AppHeader } from './app-header';
-import { SubmitJobProvider, useSubmitJob } from './submit-job';
+import { SubmitJobProvider, useSubmitJob } from '@/components/feed/submit-job';
 import { RestrictedModeProvider } from '@/lib/restricted/context';
 
 vi.mock('next/navigation', () => ({

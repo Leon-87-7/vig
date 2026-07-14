@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSpaceUrls } from '@/lib/hooks/useSpaceUrls';
-import { TypeBadge } from '@/components/badges';
+import { TypeBadge } from '@/components/ui/badges';
 import { SkeletonLine } from '@/components/feed/feed-states';
 import { Tooltip } from '@/components/ui/tooltip';
 

@@ -12,7 +12,7 @@ const sessionMock = vi.hoisted(() => ({
   user: null as InviteUser | null,
 }));
 
-vi.mock('@/components/invite-gate', () => ({
+vi.mock('@/components/shell/invite-gate', () => ({
   useSessionUser: () => sessionMock.user,
 }));
 
@@ -21,7 +21,7 @@ const googleMock = vi.hoisted(() => ({
   disconnect: vi.fn(async () => true),
 }));
 
-vi.mock('@/components/google-status', () => ({
+vi.mock('@/components/shell/google-status', () => ({
   useGoogleStatus: () => ({
     connected: googleMock.connected,
     disconnect: googleMock.disconnect,

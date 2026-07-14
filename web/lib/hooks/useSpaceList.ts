@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { SpaceSummary } from '@/components/SpaceCard';
+import type { SpaceSummary } from '@/components/spaces/space-card';
 
 export function useSpaceList() {
   const [spaces, setSpaces] = useState<SpaceSummary[]>([]);

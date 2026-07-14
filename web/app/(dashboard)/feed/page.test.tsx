@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@/test/render';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { JobSummary } from '@/components/job-card';
-import { AppHeader } from '@/components/app-header';
-import { SubmitJobProvider } from '@/components/submit-job';
+import type { JobSummary } from '@/components/feed/job-card';
+import { AppHeader } from '@/components/shell/app-header';
+import { SubmitJobProvider } from '@/components/feed/submit-job';
 import { RestrictedModeProvider } from '@/lib/restricted/context';
 import FeedPage from './page';
 
@@ -67,7 +67,7 @@ vi.mock('@/lib/hooks/useInFlightPolling', () => ({
 const googleStatusMock = vi.hoisted(() => ({
   connected: null as boolean | null,
 }));
-vi.mock('@/components/google-status', () => ({
+vi.mock('@/components/shell/google-status', () => ({
   useGoogleStatus: () => ({
     connected: googleStatusMock.connected,
     refresh: vi.fn(),

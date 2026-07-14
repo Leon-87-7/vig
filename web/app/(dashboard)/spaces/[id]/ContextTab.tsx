@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useSpaceContext } from '@/lib/hooks/useSpaceContext';
 import { SkeletonLine } from '@/components/feed/feed-states';
 
-const MarkdownEditor = dynamic(() => import('@/components/MarkdownEditor'), {
+const MarkdownEditor = dynamic(() => import('@/components/ui/markdown-editor'), {
   ssr: false,
   loading: () => (
     <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">

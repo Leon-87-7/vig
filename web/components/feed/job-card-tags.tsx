@@ -1,6 +1,6 @@
 'use client';
 
-import { TagMenu, TagChips } from '@/components/TagPicker';
+import { TagMenu, TagChips } from '@/components/ui/tag-picker';
 import { useJobTags } from '@/lib/hooks/useJobTags';
 
 // Attached tag badges + compact dropdown for a feed card. Eager so existing

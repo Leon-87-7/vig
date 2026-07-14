@@ -3,7 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import OwnixLogo from '@/app/ownix-logo.svg';
 import leonAvatar from '@/images/leon-avatar-for-landing.png';
-import { HeroGradient } from '@/components/hero-gradient';
+import { HeroGradient } from '@/components/landing/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { DemoVideo } from '@/components/landing/demo-video';

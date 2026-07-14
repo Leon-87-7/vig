@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowBigUp, Command } from 'lucide-react';
-import { useSubmitJob } from '@/components/submit-job';
+import { useSubmitJob } from '@/components/feed/submit-job';
 import { Tooltip } from '@/components/ui/tooltip';
 import Link from 'next/link';
 

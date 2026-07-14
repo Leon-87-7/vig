@@ -1,7 +1,7 @@
 'use client';
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { PageShell, PageHeader } from '@/components/page-shell';
+import { PageShell, PageHeader } from '@/components/shell/page-shell';
 
 export function RestrictedFacade({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
