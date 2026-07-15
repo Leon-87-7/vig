@@ -567,9 +567,10 @@ export default function ControlsPage() {
           defaultOpen
         >
           <p className="mb-4 text-sm text-body">
-            Control which link domains Ownix processes automatically —
-            steer around noisy sources without touching individual
-            saves.
+            Control which link domains Ownix processes automatically.
+            Adding a domain to Allowed lets Ownix process links from
+            it; adding it to Ignored skips those links — steer around
+            noisy sources without touching individual saves.
           </p>
           <div className="grid gap-6 md:grid-cols-2">
             <div>
