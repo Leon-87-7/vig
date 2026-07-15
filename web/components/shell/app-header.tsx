@@ -21,8 +21,7 @@ export function AppHeader() {
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-5 gap-y-3 sm:justify-start">
         <Link
           href="/"
-          aria-label="Ownix home"
-          className="group flex cursor-pointer flex-col rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+          className="group flex flex-col rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <span className="text-4xl font-semibold leading-none tracking-tight text-ink motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-out-quart group-hover:text-signal-bright motion-safe:group-hover:-translate-y-0.5">
             Ownix

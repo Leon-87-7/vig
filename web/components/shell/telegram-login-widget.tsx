@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface TelegramUser {
   id: number;
@@ -24,10 +24,14 @@ export function TelegramLoginWidget({
 }: {
   align?: 'center' | 'start';
 }) {
-  const containerId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
   const lastAuthUser = useRef<TelegramUser | null>(null);
   const [authState, setAuthState] = useState<AuthState>('idle');
   const [authError, setAuthError] = useState<string | null>(null);
+  // 4xx means Telegram/the server rejected this specific sign-in attempt —
+  // reposting the same payload would just fail again, so only network
+  // failures and 5xx (worth retrying as-is) get a Retry action.
+  const [canRetry, setCanRetry] = useState(false);
   const [widgetState, setWidgetState] =
     useState<WidgetState>('loading');
 
@@ -35,6 +39,7 @@ export function TelegramLoginWidget({
     lastAuthUser.current = user;
     setAuthState('pending');
     setAuthError(null);
+    setCanRetry(false);
 
     try {
       const res = await fetch('/api/auth/telegram', {
@@ -52,14 +57,20 @@ export function TelegramLoginWidget({
         return;
       }
 
+      const retryable = res.status >= 500;
+      if (!retryable) lastAuthUser.current = null;
       setAuthState('error');
+      setCanRetry(retryable);
       setAuthError(
         res.status === 401
           ? 'Telegram could not verify this sign-in. Use the Telegram button again.'
-          : 'We could not complete sign-in. Try again.',
+          : retryable
+            ? 'We could not complete sign-in. Try again.'
+            : 'We could not complete sign-in. Use the Telegram button again.',
       );
     } catch {
       setAuthState('error');
+      setCanRetry(true);
       setAuthError(
         'We could not reach the login service. Check your connection and try again.',
       );
@@ -69,29 +80,31 @@ export function TelegramLoginWidget({
   function retryAuth() {
     if (lastAuthUser.current) {
       void authenticate(lastAuthUser.current);
-      return;
     }
-
-    setAuthState('idle');
-    setAuthError(null);
   }
 
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).onTelegramAuth =
-      async (user: TelegramUser) => {
-        await authenticate(user);
-      };
+    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
+    if (!botUsername) {
+      setWidgetState('error');
+      return;
+    }
 
-    const container = document.getElementById(containerId);
+    const container = containerRef.current;
     if (!container) return;
+
+    // Scoped to this effect run so cleanup only ever deletes its own
+    // handler — never a newer instance's, if one somehow mounted first.
+    const handleAuth = async (user: TelegramUser) => {
+      await authenticate(user);
+    };
+    const win = window as unknown as Record<string, unknown>;
+    win.onTelegramAuth = handleAuth;
 
     let cancelled = false;
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute(
-      'data-telegram-login',
-      process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? '',
-    );
+    script.setAttribute('data-telegram-login', botUsername);
     script.setAttribute('data-size', 'large');
     script.setAttribute('data-onauth', 'onTelegramAuth(user)');
     script.setAttribute('data-request-access', 'write');
@@ -106,11 +119,12 @@ export function TelegramLoginWidget({
 
     return () => {
       cancelled = true;
-      delete (window as unknown as Record<string, unknown>)
-        .onTelegramAuth;
-      script.remove();
+      // Drops the script tag and any iframe telegram-widget.js injected,
+      // so a remount never finds a stale widget still sitting in the DOM.
+      container.replaceChildren();
+      if (win.onTelegramAuth === handleAuth) delete win.onTelegramAuth;
     };
-  }, [authenticate, containerId]);
+  }, [authenticate, process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME]);
 
   return (
     <div className="flex w-full flex-col">
@@ -129,7 +143,7 @@ export function TelegramLoginWidget({
           </div>
         )}
         <div
-          id={containerId}
+          ref={containerRef}
           className={
             widgetState === 'error'
               ? 'hidden'
@@ -167,13 +181,15 @@ export function TelegramLoginWidget({
             <p className="text-sm leading-6 text-status-error">
               {authError}
             </p>
-            <button
-              type="button"
-              onClick={retryAuth}
-              className="inline-flex min-h-10 items-center justify-center rounded-md bg-signal px-5 text-sm font-medium text-onsignal transition-[background-color,transform] duration-150 ease-out-quart hover:bg-signal-bright active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface"
-            >
-              Retry Telegram sign-in
-            </button>
+            {canRetry && (
+              <button
+                type="button"
+                onClick={retryAuth}
+                className="inline-flex min-h-10 items-center justify-center rounded-md bg-signal px-5 text-sm font-medium text-onsignal transition-[background-color,transform] duration-150 ease-out-quart hover:bg-signal-bright active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-signal focus:ring-offset-2 focus:ring-offset-surface motion-reduce:transition-none motion-reduce:active:scale-100"
+              >
+                Retry Telegram sign-in
+              </button>
+            )}
           </div>
         )}
       </div>
