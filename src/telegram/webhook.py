@@ -1,5 +1,7 @@
 """POST /webhook — receives Telegram updates and callback queries."""
 
+# cspell:words allowlist allowlisted freestyle openrouter prd unallowlist unignore webapp
+
 from __future__ import annotations
 
 import asyncio
@@ -24,13 +26,13 @@ from src import database, queue
 from src.config import settings
 from src.services import storage
 from src.services.invite_notifications import notify_operator_invite
+from src.services import ops_bot
 from src.services.jobs import create_and_enqueue_job
 from src.services.repo_followup import enqueue_repo_pick
 from src.telegram.sender import (
     answer_callback_query,
     download_file,
     download_photo,
-    edit_message_reply_markup,
     edit_message_text,
     forward_message,
     send_document,
@@ -54,6 +56,13 @@ log = get_logger(__name__)
 router = APIRouter()
 
 _BATCH_TASKS: dict[str, asyncio.Task] = {}
+
+
+def _int_or_none(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _admin_label() -> str:
@@ -419,26 +428,9 @@ async def _cb_document_md(ctx: CallbackCtx) -> None:
 async def _cb_invite_decision(
     ctx: CallbackCtx, status: str, notify_message: str, log_action: str
 ) -> None:
-    """Shared handler for the operator's ✅ Approve / 🚫 Block invite buttons."""
-    if settings.OPERATOR_CHAT_ID is None or ctx.chat_id != settings.OPERATOR_CHAT_ID:
-        log.warning("invite_decision.unauthorized", chat_id=ctx.chat_id, action=log_action)
-        await answer_callback_query(ctx.cq_id, text="Not authorized.")
-        return
-    try:
-        target_chat_id = int(ctx.job_id)
-    except ValueError:
-        await answer_callback_query(ctx.cq_id, text="Invalid invite action.")
-        return
-    await database.set_user_status(target_chat_id, status)
-    await answer_callback_query(ctx.cq_id, text=log_action.capitalize())
-    await send_message(target_chat_id, notify_message)
-    if ctx.message_id:
-        label = "✅ Approved" if status == "approved" else "🚫 Blocked"
-        await edit_message_reply_markup(
-            ctx.chat_id,
-            ctx.message_id,
-            [[{"text": label, "callback_data": f"invite_status:{status}:{target_chat_id}"}]],
-        )
+    """Deprecated Ownix-bot invite callbacks; decisions now live on /webhook/ops."""
+    log.warning("invite_decision.deprecated_ownix_callback", chat_id=ctx.chat_id, action=log_action)
+    await answer_callback_query(ctx.cq_id, text="Use the Ops bot approval card.")
 
 
 async def _cb_invite_status(ctx: CallbackCtx) -> None:
@@ -781,9 +773,7 @@ async def _cmd_force(ctx: SlashCtx) -> None:
         task_type = _task_for(content_type)
         if pipeline == "repo":
             try:
-                from urllib.parse import urlparse as _urlparse
-
-                parts = [s for s in _urlparse(lookup_url).path.split("/") if s]
+                parts = [s for s in urlparse(lookup_url).path.split("/") if s]
                 owner_r, repo_r = parts[0], parts[1]
                 redis_client = queue._client()
                 await redis_client.delete(
@@ -887,9 +877,7 @@ _PROTECTED_DOMAINS = {"github.com"}
 
 def _normalize_domain(raw: str) -> str:
     """Strip to bare hostname, lowercase, drop 'www.' prefix."""
-    from urllib.parse import urlparse as _urlparse
-
-    host = _urlparse(raw).hostname or raw
+    host = urlparse(raw).hostname or raw
     return host.lower().removeprefix("www.")
 
 
@@ -1385,7 +1373,7 @@ async def _invite_gate_allows(
     return False
 
 
-async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: int) -> bool:
+async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: int | None) -> bool:
     if not re.match(r"^-[a-zA-Z0-9][a-zA-Z0-9_-]*$", text.split()[0]):
         return False
     parts = text.split()
@@ -1428,8 +1416,9 @@ async def _handle_user_template_shortcut(chat_id: int, text: str, message_id: in
         await _reply_cached_job(chat_id, job)
         return True
     job_id = job["id"]
-    await database.set_job_template_prompt(
+    await database.update_job_status(
         job_id,
+        "pending",
         freestyle_prompt=extra_instructions or None,
         template_detection_method=f"user_template:{tmpl_name}",
     )
@@ -1450,7 +1439,7 @@ async def _enqueue_simple_job(
     chat_id: int,
     url: str,
     content_type: str,
-    message_id: int,
+    message_id: int | None,
     *,
     skip_cache: bool = False,
 ) -> dict:
@@ -1482,7 +1471,7 @@ async def _reject_url(chat_id: int, text: str) -> None:
 
 
 async def _route_article(
-    chat_id: int, text: str, message_id: int, pending_template: str | None
+    chat_id: int, text: str, message_id: int | None, pending_template: str | None
 ) -> None:
     # A pending template is an explicit request for a fresh run; the shared
     # helper would otherwise return a cached URL-only job.
@@ -1492,7 +1481,7 @@ async def _route_article(
 
 
 async def _route_repo(
-    chat_id: int, text: str, message_id: int, pending_template: str | None, client
+    chat_id: int, text: str, message_id: int | None, pending_template: str | None, client
 ) -> None:
     repo_url = normalize_repo_url(text)
     if pending_template:
@@ -1513,7 +1502,7 @@ async def _route_video(
     chat_id: int,
     text: str,
     pipeline: str,
-    message_id: int,
+    message_id: int | None,
     pending_template: str | None,
 ) -> None:
     if pending_template == "freestyle":
@@ -1540,7 +1529,7 @@ async def _route_video(
         await send_message(chat_id, f"📥 Received!\njob_{job_id[-4:]}")
 
 
-async def _route_url(chat_id: int, text: str, message_id: int) -> None:
+async def _route_url(chat_id: int, text: str, message_id: int | None) -> None:
     client = queue._client()
     pending_template: str | None = await client.get(f"pending_template:{chat_id}")
     if pending_template:
@@ -1636,6 +1625,162 @@ async def _route_document_url(chat_id: int, url: str, message_id: int | None) ->
         log.info("document_url_not_pdf", chat_id=chat_id, url=url)
         return
     await _enqueue_document_job(chat_id, data, message_id)
+
+
+async def _settle_ops_invite_card(
+    chat_id: int | None, message_id: int | None, status: str, target_chat_id: int
+) -> None:
+    if chat_id is None or message_id is None:
+        return
+    label = "✅ Approved" if status == "approved" else "🚫 Blocked"
+    try:
+        await ops_bot.edit_ops_reply_markup(
+            int(chat_id),
+            int(message_id),
+            [
+                [
+                    {
+                        "text": label,
+                        "callback_data": f"ops_invite_status:{status}:{target_chat_id}",
+                    }
+                ]
+            ],
+        )
+    except Exception:
+        log.exception(
+            "ops_invite.card_settle_failed",
+            chat_id=chat_id,
+            message_id=message_id,
+            status=status,
+            target_chat_id=target_chat_id,
+        )
+
+
+async def _handle_ops_callback(callback: dict) -> None:
+    cq_id = callback.get("id", "")
+    data = callback.get("data", "")
+    msg = callback.get("message") or {}
+    chat_id = msg.get("chat", {}).get("id")
+    message_id = msg.get("message_id")
+    prefix, _, payload = data.partition(":")
+    mutating_prefixes = {
+        "ops_invite_approve",
+        "ops_invite_block",
+        "ops_approve_pending",
+        "ops_approve_pending_cancel",
+    }
+    if prefix in mutating_prefixes:
+        sender_id = (callback.get("from") or {}).get("id")
+        sender_chat_id = _int_or_none(sender_id)
+        if sender_chat_id is None or not ops_bot.can_admin(sender_chat_id):
+            log.warning(
+                "ops_callback.unauthorized",
+                sender_id=sender_id,
+                chat_id=chat_id,
+                data=data,
+            )
+            await ops_bot.answer_ops_callback(cq_id, "Not authorized.")
+            return
+    if prefix in {"ops_invite_approve", "ops_invite_block"}:
+        try:
+            target_chat_id = int(payload)
+        except ValueError:
+            await ops_bot.answer_ops_callback(cq_id, "Invalid invite action.")
+            return
+        status = "approved" if prefix == "ops_invite_approve" else "blocked"
+        async with database.connection() as conn:
+            cur = await conn.execute(
+                """
+                UPDATE users
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE tg_id = ?
+                  AND status = 'pending'
+                """,
+                (status, target_chat_id),
+            )
+            await conn.commit()
+        if cur.rowcount != 1:
+            current_status = await database.get_user_status(target_chat_id)
+            if current_status in {"approved", "blocked"}:
+                await _settle_ops_invite_card(chat_id, message_id, current_status, target_chat_id)
+                await ops_bot.answer_ops_callback(cq_id, f"Already {current_status}.")
+            else:
+                await ops_bot.answer_ops_callback(cq_id, "Already decided.")
+            return
+        await ops_bot.answer_ops_callback(cq_id, status.capitalize())
+        await _settle_ops_invite_card(chat_id, message_id, status, target_chat_id)
+        try:
+            await send_message(
+                target_chat_id,
+                _INVITE_APPROVED_MESSAGE if status == "approved" else _INVITE_BLOCKED_MESSAGE,
+            )
+        except Exception:
+            log.exception(
+                "ops_invite.user_outcome_notification_failed",
+                target_chat_id=target_chat_id,
+                status=status,
+            )
+        return
+    if prefix == "ops_invite_status":
+        await ops_bot.answer_ops_callback(cq_id, "Already decided.")
+        return
+    if prefix == "ops_approve_pending":
+        count = await ops_bot.approve_pending_batch(payload)
+        await ops_bot.answer_ops_callback(cq_id, f"Approved {count}")
+        if message_id:
+            await ops_bot.edit_ops_reply_markup(
+                int(chat_id),
+                int(message_id),
+                [
+                    [
+                        {
+                            "text": f"✅ Approved {count}",
+                            "callback_data": f"ops_batch_status:{payload}",
+                        }
+                    ]
+                ],
+            )
+        return
+    if prefix == "ops_approve_pending_cancel":
+        await ops_bot.answer_ops_callback(cq_id, "Canceled")
+        if message_id:
+            await ops_bot.edit_ops_reply_markup(int(chat_id), int(message_id), [])
+        return
+    await ops_bot.answer_ops_callback(cq_id)
+
+
+@router.post("/webhook/ops")
+async def ops_webhook(
+    request: Request,
+    x_telegram_bot_api_secret_token: str | None = Header(default=None),
+) -> dict[str, bool]:
+    if not settings.OPS_WEBHOOK_SECRET:
+        log.warning("ops_webhook_secret_unset")
+        raise HTTPException(status_code=403, detail="invalid secret")
+    if not compare_digest(x_telegram_bot_api_secret_token or "", settings.OPS_WEBHOOK_SECRET):
+        log.warning("ops_webhook_invalid_secret")
+        raise HTTPException(status_code=403, detail="invalid secret")
+    update = await request.json()
+    callback = update.get("callback_query")
+    if callback:
+        try:
+            await _handle_ops_callback(callback)
+        except Exception:
+            log.exception("ops_webhook_callback_error")
+            with suppress(Exception):
+                await ops_bot.answer_ops_callback(callback.get("id", ""))
+        return {"ok": True}
+    message = update.get("message") or update.get("edited_message") or {}
+    chat_id = _int_or_none((message.get("chat") or {}).get("id"))
+    sender_id = _int_or_none((message.get("from") or {}).get("id"))
+    message_id = _int_or_none(message.get("message_id"))
+    text = (message.get("text") or "").strip()
+    if chat_id and sender_id and text.startswith("/"):
+        parts: list[str] = text.split()
+        await ops_bot.handle_command(
+            ops_bot.OpsCtx(chat_id, sender_id, parts, message_id)
+        )
+    return {"ok": True}
 
 
 @router.post("/webhook")
