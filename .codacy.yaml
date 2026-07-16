@@ -40,3 +40,7 @@ exclude_paths:
   - 'web/next-env.d.ts'
   - 'data/**'
   - 'logs/**'
+  - '.env'
+  - '.env.*'
+  - '**/.env'
+  - '**/.env.*'
