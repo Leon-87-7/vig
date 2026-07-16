@@ -108,12 +108,19 @@ async def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         yield c, fake_redis, fake_http
 
 
-def _telegram_update(text: str, chat_id: int = 12345, message_id: int = 1) -> dict:
+def _telegram_update(
+    text: str,
+    chat_id: int = 12345,
+    message_id: int = 1,
+    *,
+    sender_id: int | None = None,
+) -> dict:
     return {
         "update_id": 1,
         "message": {
             "message_id": message_id,
             "chat": {"id": chat_id, "type": "private"},
+            "from": {"id": chat_id if sender_id is None else sender_id},
             "text": text,
         },
     }
@@ -2038,6 +2045,30 @@ async def test_ops_authorized_invite_callback_mutates_and_uses_ownix_user_messag
     assert user_messages and "bottest-token/sendMessage" in user_messages[0]["url"]
 
 
+async def test_ops_invite_callback_does_not_change_already_decided_user(
+    client, monkeypatch
+) -> None:
+    c, _, fake_http = client
+    monkeypatch.setattr("src.config.settings.OPS_BOT_TOKEN", "ops-token")
+    monkeypatch.setattr("src.config.settings.OPS_WEBHOOK_SECRET", "ops-secret")
+    monkeypatch.setattr("src.config.settings.OPS_ADMIN_CHAT_IDS", "900")
+    await database.set_user_status(779, "approved")
+
+    response = c.post(
+        "/webhook/ops",
+        json=_ops_callback("ops_invite_block:779", chat_id=900),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "ops-secret"},
+    )
+
+    assert response.status_code == 200
+    assert await database.get_user_status(779) == "approved"
+    assert any(
+        call["json"].get("text") == "Already decided."
+        and "botops-token/answerCallbackQuery" in call["url"]
+        for call in fake_http.calls
+    )
+
+
 async def test_ops_approve_pending_command_rejects_bare_at_without_mutating_all(
     client, monkeypatch
 ) -> None:
@@ -2063,6 +2094,92 @@ async def test_ops_approve_pending_command_rejects_bare_at_without_mutating_all(
         "Usage: /approve_pending <email-domain>" in call["json"].get("text", "")
         for call in fake_http.calls
     )
+
+
+async def test_ops_approve_pending_command_rejects_like_wildcard_domain(
+    client, monkeypatch
+) -> None:
+    c, _, fake_http = client
+    monkeypatch.setattr("src.config.settings.OPS_BOT_TOKEN", "ops-token")
+    monkeypatch.setattr("src.config.settings.OPS_WEBHOOK_SECRET", "ops-secret")
+    monkeypatch.setattr("src.config.settings.OPS_ADMIN_CHAT_IDS", "900")
+    await database.set_user_email(785, "a@example.com")
+    await database.set_user_status(785, "pending")
+
+    response = c.post(
+        "/webhook/ops",
+        json=_telegram_update("/approve_pending %.com", chat_id=900),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "ops-secret"},
+    )
+
+    assert response.status_code == 200
+    assert await database.get_user_status(785) == "pending"
+    assert any(
+        "Usage: /approve_pending <email-domain>" in call["json"].get("text", "")
+        for call in fake_http.calls
+    )
+
+
+async def test_ops_approve_pending_command_authorizes_sender_not_group_chat(
+    client, monkeypatch
+) -> None:
+    c, _, fake_http = client
+    monkeypatch.setattr("src.config.settings.OPS_BOT_TOKEN", "ops-token")
+    monkeypatch.setattr("src.config.settings.OPS_WEBHOOK_SECRET", "ops-secret")
+    monkeypatch.setattr("src.config.settings.OPS_ADMIN_CHAT_IDS", "900")
+
+    response = c.post(
+        "/webhook/ops",
+        json=_telegram_update("/approve_pending example.com", chat_id=-100, sender_id=901),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "ops-secret"},
+    )
+
+    assert response.status_code == 200
+    assert any(call["json"].get("text") == "Not authorized." for call in fake_http.calls)
+
+
+async def test_ops_rows_csv_neutralizes_formula_like_user_fields() -> None:
+    from src.services import ops_bot
+
+    payload = ops_bot.rows_csv(
+        [
+            {
+                "tg_id": 1,
+                "status": "pending",
+                "email": "=cmd@example.com",
+                "username": "@handle",
+                "first_name": "+Ada",
+                "last_name": "-Lovelace",
+                "created_at": "2026-07-16",
+                "updated_at": "2026-07-16",
+            }
+        ]
+    ).decode("utf-8")
+
+    assert "'=cmd@example.com" in payload
+    assert "'@handle" in payload
+    assert "'+Ada" in payload
+    assert "'-Lovelace" in payload
+
+
+async def test_ops_approve_pending_domain_commits_before_best_effort_notifications(
+    temp_db, monkeypatch
+) -> None:
+    from src.services import ops_bot
+
+    await database.set_user_email(786, "one@example.com")
+    await database.set_user_status(786, "pending")
+    await database.set_user_email(787, "two@example.com")
+    await database.set_user_status(787, "pending")
+    notify = AsyncMock(side_effect=[RuntimeError("telegram down"), None])
+    monkeypatch.setattr(ops_bot.sender, "send_message", notify)
+
+    count = await ops_bot.approve_pending_domain("example.com")
+
+    assert count == 2
+    assert await database.get_user_status(786) == "approved"
+    assert await database.get_user_status(787) == "approved"
+    assert notify.await_count == 2
 
 
 async def test_ops_approve_pending_callback_rejects_bare_at_without_mutating_all(
@@ -2109,6 +2226,22 @@ async def test_ops_pending_command_renders_rows_for_read_allowlist(client, monke
 
     assert response.status_code == 200
     assert any("Pending users" in call["json"].get("text", "") for call in fake_http.calls)
+
+
+async def test_ops_pending_command_authorizes_sender_not_group_chat(client, monkeypatch) -> None:
+    c, _, fake_http = client
+    monkeypatch.setattr("src.config.settings.OPS_BOT_TOKEN", "ops-token")
+    monkeypatch.setattr("src.config.settings.OPS_WEBHOOK_SECRET", "ops-secret")
+    monkeypatch.setattr("src.config.settings.OPS_CHAT_IDS", "900")
+
+    response = c.post(
+        "/webhook/ops",
+        json=_telegram_update("/pending", chat_id=-100, sender_id=901),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "ops-secret"},
+    )
+
+    assert response.status_code == 200
+    assert any(call["json"].get("text") == "Not authorized." for call in fake_http.calls)
 
 
 async def test_ops_unknown_command_returns_command_list(client, monkeypatch) -> None:

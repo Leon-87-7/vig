@@ -57,7 +57,9 @@ async def close() -> None:
 
 
 def _endpoint(method: str, *, bot_token: str | None = None) -> str:
-    token = bot_token or settings.TELEGRAM_BOT_TOKEN
+    token = settings.TELEGRAM_BOT_TOKEN if bot_token is None else bot_token
+    if not token:
+        raise RuntimeError("Telegram bot token is not configured")
     return f"{_API_BASE}/bot{token}/{method}"
 
 
@@ -332,7 +334,7 @@ async def answer_callback_query(
 
 async def download_photo(file_id: str, *, bot_token: str | None = None) -> tuple[bytes, str]:
     """Download a Telegram photo by file_id. Returns (raw_bytes, mime_type)."""
-    token = bot_token or settings.TELEGRAM_BOT_TOKEN
+    token = settings.TELEGRAM_BOT_TOKEN if bot_token is None else bot_token
     resp = await _http().get(_endpoint("getFile", bot_token=token), params={"file_id": file_id})
     _raise_for_status(resp, method="getFile")
     file_path: str = resp.json()["result"]["file_path"]
@@ -350,7 +352,7 @@ async def download_file(file_id: str, *, bot_token: str | None = None) -> bytes:
     Same getFile → /file/bot{token}/{path} two-step as download_photo, but
     format-agnostic (no mime map) — used for document uploads (#151).
     """
-    token = bot_token or settings.TELEGRAM_BOT_TOKEN
+    token = settings.TELEGRAM_BOT_TOKEN if bot_token is None else bot_token
     resp = await _http().get(_endpoint("getFile", bot_token=token), params={"file_id": file_id})
     _raise_for_status(resp, method="getFile")
     file_path: str = resp.json()["result"]["file_path"]

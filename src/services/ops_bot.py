@@ -23,6 +23,7 @@ HELP_TEXT = """Ops commands:
 @dataclass
 class OpsCtx:
     chat_id: int
+    sender_id: int
     parts: list[str]
     message_id: int | None = None
 
@@ -119,9 +120,23 @@ def normalize_email_domain(value: str) -> str | None:
     if "@" in domain or "." not in domain:
         return None
     labels = domain.split(".")
-    if any(not label or label.startswith("-") or label.endswith("-") for label in labels):
+    if any(
+        not label
+        or label.startswith("-")
+        or label.endswith("-")
+        or any(not (char.isalnum() or char == "-") for char in label)
+        for label in labels
+    ):
         return None
     return domain
+
+
+def _csv_cell(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    if value.startswith(("=", "+", "-", "@", "\t", "\r")):
+        return "'" + value
+    return value
 
 
 def format_rows(rows: list[dict]) -> str:
@@ -155,7 +170,7 @@ def rows_csv(rows: list[dict]) -> bytes:
     )
     writer.writeheader()
     for r in rows:
-        writer.writerow({k: r.get(k) for k in writer.fieldnames or []})
+        writer.writerow({k: _csv_cell(r.get(k)) for k in writer.fieldnames or []})
     return buf.getvalue().encode("utf-8")
 
 
@@ -197,15 +212,43 @@ async def approve_pending_domain(domain: str) -> int:
     domain = normalize_email_domain(domain) or ""
     if not domain:
         return 0
-    rows = await list_users("pending", email_domain=domain, limit=None)
+    params = ("%@" + domain,)
+    async with database.connection() as conn:
+        cur = await conn.execute(
+            """
+            SELECT tg_id, username, first_name, last_name, email, status, created_at, updated_at
+            FROM users
+            WHERE status = 'pending'
+              AND lower(coalesce(email, '')) LIKE ?
+            ORDER BY created_at DESC, tg_id DESC
+            """,
+            params,
+        )
+        rows = [dict(row) for row in await cur.fetchall()]
+        if not rows:
+            return 0
+        placeholders = ",".join("?" for _ in rows)
+        cur = await conn.execute(
+            f"""
+            UPDATE users
+            SET status = 'approved', updated_at = CURRENT_TIMESTAMP
+            WHERE status = 'pending'
+              AND tg_id IN ({placeholders})
+            """,
+            tuple(int(row["tg_id"]) for row in rows),
+        )
+        count = cur.rowcount
+        await conn.commit()
     for row in rows:
-        await database.set_user_status(int(row["tg_id"]), "approved")
-        await sender.send_message(int(row["tg_id"]), "You're in, send a link.")
-    return len(rows)
+        try:
+            await sender.send_message(int(row["tg_id"]), "You're in, send a link.")
+        except Exception:
+            log.exception("ops_batch_approval_notification_failed", tg_id=row.get("tg_id"))
+    return max(count, 0)
 
 
 async def handle_command(ctx: OpsCtx) -> None:
-    if not can_read(ctx.chat_id):
+    if not can_read(ctx.sender_id):
         await send_ops_message(ctx.chat_id, "Not authorized.")
         return
     cmd = ctx.parts[0].lower()
@@ -234,7 +277,7 @@ async def handle_command(ctx: OpsCtx) -> None:
         )
         return
     if cmd == "/approve_pending":
-        if not can_admin(ctx.chat_id):
+        if not can_admin(ctx.sender_id):
             await send_ops_message(ctx.chat_id, "Not authorized.")
             return
         if len(ctx.parts) != 2:

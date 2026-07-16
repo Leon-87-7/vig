@@ -94,6 +94,11 @@ async def test_send_message_success_returns_result(monkeypatch: pytest.MonkeyPat
     assert result == {"message_id": 42}
 
 
+def test_endpoint_rejects_explicit_empty_bot_token() -> None:
+    with pytest.raises(RuntimeError, match="Telegram bot token"):
+        sender._endpoint("sendMessage", bot_token="")
+
+
 @pytest.mark.asyncio
 async def test_send_document_marks_markdown_as_utf8_and_normalizes_dashes(
     monkeypatch: pytest.MonkeyPatch,

@@ -1656,7 +1656,20 @@ async def _handle_ops_callback(callback: dict) -> None:
             await ops_bot.answer_ops_callback(cq_id, "Invalid invite action.")
             return
         status = "approved" if prefix == "ops_invite_approve" else "blocked"
-        await database.set_user_status(target_chat_id, status)
+        async with database.connection() as conn:
+            cur = await conn.execute(
+                """
+                UPDATE users
+                SET status = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE tg_id = ?
+                  AND status = 'pending'
+                """,
+                (status, target_chat_id),
+            )
+            await conn.commit()
+        if cur.rowcount != 1:
+            await ops_bot.answer_ops_callback(cq_id, "Already decided.")
+            return
         await ops_bot.answer_ops_callback(cq_id, status.capitalize())
         await send_message(
             target_chat_id,
@@ -1728,10 +1741,11 @@ async def ops_webhook(
         return {"ok": True}
     message = update.get("message") or update.get("edited_message") or {}
     chat_id = (message.get("chat") or {}).get("id")
+    sender_id = (message.get("from") or {}).get("id")
     text = (message.get("text") or "").strip()
-    if chat_id and text.startswith("/"):
+    if chat_id and sender_id and text.startswith("/"):
         await ops_bot.handle_command(
-            ops_bot.OpsCtx(int(chat_id), text.split(), message.get("message_id"))
+            ops_bot.OpsCtx(int(chat_id), int(sender_id), text.split(), message.get("message_id"))
         )
     return {"ok": True}
 

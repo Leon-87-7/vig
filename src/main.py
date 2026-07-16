@@ -28,8 +28,12 @@ async def _register_webhook() -> None:
         "secret_token": settings.TELEGRAM_WEBHOOK_SECRET,
         "allowed_updates": ["message", "callback_query"],
     }
-    resp = await sender._http().post(tg_url, json=payload)
-    data = resp.json()
+    try:
+        resp = await sender._http().post(tg_url, json=payload)
+        data = resp.json()
+    except Exception:
+        log.exception("ops_webhook_registration_failed", url=payload["url"])
+        return
     if data.get("ok"):
         log.info("webhook_registered", url=payload["url"])
     else:
@@ -57,8 +61,12 @@ async def _register_ops_webhook() -> None:
         "secret_token": settings.OPS_WEBHOOK_SECRET,
         "allowed_updates": ["message", "callback_query"],
     }
-    resp = await sender._http().post(tg_url, json=payload)
-    data = resp.json()
+    try:
+        resp = await sender._http().post(tg_url, json=payload)
+        data = resp.json()
+    except Exception:
+        log.exception("ops_webhook_registration_failed", url=payload["url"])
+        return
     if data.get("ok"):
         log.info("ops_webhook_registered", url=payload["url"])
     else:
