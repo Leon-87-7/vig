@@ -2043,6 +2043,39 @@ async def test_ops_authorized_invite_callback_mutates_and_uses_ownix_user_messag
     assert await database.get_user_status(778) == "approved"
     user_messages = [c for c in fake_http.calls if c["json"].get("chat_id") == 778]
     assert user_messages and "bottest-token/sendMessage" in user_messages[0]["url"]
+    assert any(
+        "botops-token/editMessageReplyMarkup" in call["url"]
+        and call["json"]["reply_markup"]["inline_keyboard"][0][0]["text"] == "✅ Approved"
+        for call in fake_http.calls
+    )
+
+
+async def test_ops_invite_callback_settles_card_when_user_notification_fails(
+    client, monkeypatch
+) -> None:
+    c, _, fake_http = client
+    monkeypatch.setattr("src.config.settings.OPS_BOT_TOKEN", "ops-token")
+    monkeypatch.setattr("src.config.settings.OPS_WEBHOOK_SECRET", "ops-secret")
+    monkeypatch.setattr("src.config.settings.OPS_ADMIN_CHAT_IDS", "900")
+    monkeypatch.setattr(
+        "src.telegram.webhook.send_message",
+        AsyncMock(side_effect=RuntimeError("telegram chat not found")),
+    )
+    await database.set_user_status(780, "pending")
+
+    response = c.post(
+        "/webhook/ops",
+        json=_ops_callback("ops_invite_approve:780", chat_id=900),
+        headers={"X-Telegram-Bot-Api-Secret-Token": "ops-secret"},
+    )
+
+    assert response.status_code == 200
+    assert await database.get_user_status(780) == "approved"
+    assert any(
+        "botops-token/editMessageReplyMarkup" in call["url"]
+        and call["json"]["reply_markup"]["inline_keyboard"][0][0]["text"] == "✅ Approved"
+        for call in fake_http.calls
+    )
 
 
 async def test_ops_invite_callback_does_not_change_already_decided_user(
@@ -2063,8 +2096,13 @@ async def test_ops_invite_callback_does_not_change_already_decided_user(
     assert response.status_code == 200
     assert await database.get_user_status(779) == "approved"
     assert any(
-        call["json"].get("text") == "Already decided."
+        call["json"].get("text") == "Already approved."
         and "botops-token/answerCallbackQuery" in call["url"]
+        for call in fake_http.calls
+    )
+    assert any(
+        "botops-token/editMessageReplyMarkup" in call["url"]
+        and call["json"]["reply_markup"]["inline_keyboard"][0][0]["text"] == "✅ Approved"
         for call in fake_http.calls
     )
 

@@ -41,6 +41,3 @@ exclude_paths:
   - 'data/**'
   - 'logs/**'
   - '.env'
-  - '.env.*'
-  - '**/.env'
-  - '**/.env.*'
