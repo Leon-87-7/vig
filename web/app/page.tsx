@@ -10,7 +10,7 @@ import { DemoVideo } from '@/components/landing/demo-video';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
 import { OpenAIIcon } from '@/components/svg/openai-icon';
 import { TelegramLoginWidget } from '@/components/shell/telegram-login-widget';
-import { ChevronsRight } from 'lucide-react';
+import { ChevronsRight, MessageSquareQuote } from 'lucide-react';
 
 const pageDescription =
   'Share videos, articles, and repos to Ownix from any app. Three taps, and a minute later the transcript and summary are in your Index - searchable, agent-ready markdown.';
@@ -393,6 +393,13 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+        <div className="flex mx-auto max-w-[960px] gap-3 border-t border-line p-6">
+          <MessageSquareQuote className="my-auto h-4 w-6 shrink-0" />
+          <p className="text-pretty text-[13px] text-muted leading-normal">
+            A shared Brain is growing quietly underneath all of this -
+            early members shape it.
+          </p>
+        </div>
 
         <section
           aria-labelledby="stats"
@@ -481,12 +488,6 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-        <div className="mx-auto max-w-[960px] px-6">
-          <p className="text-pretty border-t border-line py-6 text-[13px] text-muted">
-            A shared Brain is growing quietly underneath all of this -
-            early members shape it.
-          </p>
-        </div>
       </main>
 
       <footer className="z-10 border-t border-line py-6 text-sm text-muted w-11/12 max-w-7xl mx-auto">

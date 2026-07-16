@@ -32,7 +32,7 @@ export function AppSlot() {
       } else {
         id = setInterval(
           () => setActive((i) => (i + 1) % icons.length),
-          2800,
+          2600,
         );
       }
     };
