@@ -51,6 +51,10 @@ web/.next/
 # Local dev mock snapshot of real data (regenerate from data/jobs.db)
 web/public/seed.json
 
+# Local operator/debug exports
+local-users.csv
+logs/*.txt
+
 */brag/*
 error.log
 
