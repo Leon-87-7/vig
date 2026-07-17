@@ -42,6 +42,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
 
   const refetchTags = useCallback(() => {
+    // nosemgrep -- same-origin relative API path; segments are server-issued IDs, URI-encoded in linkTagsPath
     fetch(linkTagsPath(linkId), { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setLinkTags(asTags(d)))
@@ -61,6 +62,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   }, [refetchAll]);
 
   const toggleTag = useCallback(async (tagId: string, attached: boolean) => {
+    // nosemgrep -- same-origin relative API path; segments are server-issued IDs, URI-encoded in linkTagsPath
     const res = await fetch(linkTagsPath(linkId, tagId), {
       method: attached ? 'DELETE' : 'POST',
       credentials: 'include',
@@ -77,6 +79,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
     });
     if (!res.ok) throw new Error(res.status === 409 ? 'Tag name already exists' : 'Create failed');
     const tag = (await res.json()) as TagSummary;
+    // nosemgrep -- same-origin relative API path; segments are server-issued IDs, URI-encoded in linkTagsPath
     const attach = await fetch(linkTagsPath(linkId, tag.id), { method: 'POST', credentials: 'include' });
     if (!attach.ok) throw new Error('Tag created but could not be attached to this link');
     refetchAll(true);
