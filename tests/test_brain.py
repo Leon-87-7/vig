@@ -111,10 +111,11 @@ async def test_resolve_identity_github_returns_pair():
         "src.services.github.fetch_repo_description",
         new=AsyncMock(return_value="The React Framework for the Web"),
     ):
-        title, description = await _resolve_identity(url)
+        title, description, resolved = await _resolve_identity(url)
 
     assert title == "vercel/next.js"
     assert description == "The React Framework for the Web"
+    assert resolved is True
 
 
 @pytest.mark.asyncio
@@ -122,10 +123,12 @@ async def test_resolve_identity_github_missing_description():
     url = "https://github.com/vercel/next.js"
 
     with patch("src.services.github.fetch_repo_description", new=AsyncMock(return_value=None)):
-        title, description = await _resolve_identity(url)
+        title, description, resolved = await _resolve_identity(url)
 
     assert title == "vercel/next.js"
     assert description == ""
+    # None is ambiguous (missing repo vs transport error) -> retryable.
+    assert resolved is False
 
 
 @pytest.mark.asyncio
@@ -136,12 +139,13 @@ async def test_resolve_identity_strong_meta_skips_jina():
 
     with patch(
         "src.brain._fetch_meta",
-        new=AsyncMock(return_value=("Installation - Tailwind CSS", GOOD_DESC)),
+        new=AsyncMock(return_value=("Installation - Tailwind CSS", GOOD_DESC, True)),
     ), patch("src.services.jina.fetch_markdown", new=jina):
-        title, description = await _resolve_identity(url)
+        title, description, resolved = await _resolve_identity(url)
 
     assert title == "Installation - Tailwind CSS"
     assert description == GOOD_DESC
+    assert resolved is True
     jina.assert_not_called()
 
 
@@ -152,15 +156,16 @@ async def test_resolve_identity_vague_description_escalates_to_jina():
     body = "First paragraph of the article, detailed enough to describe it.\n\nSecond paragraph."
 
     with patch(
-        "src.brain._fetch_meta", new=AsyncMock(return_value=("A Fine Article", "Short."))
+        "src.brain._fetch_meta", new=AsyncMock(return_value=("A Fine Article", "Short.", True))
     ), patch(
         "src.services.jina.fetch_markdown",
         new=AsyncMock(return_value=("A Fine Article — Full Title", body)),
     ):
-        title, description = await _resolve_identity(url)
+        title, description, resolved = await _resolve_identity(url)
 
     assert title == "A Fine Article — Full Title"
     assert description == "First paragraph of the article, detailed enough to describe it."
+    assert resolved is True
 
 
 @pytest.mark.asyncio
@@ -168,13 +173,14 @@ async def test_resolve_identity_falls_back_to_host_hint():
     """Total fetch failure yields the deterministic host hint and an empty description."""
     url = "https://docs.tailwindcss.com/getting-started"
 
-    with patch("src.brain._fetch_meta", new=AsyncMock(return_value=("", ""))), patch(
+    with patch("src.brain._fetch_meta", new=AsyncMock(return_value=("", "", False))), patch(
         "src.services.jina.fetch_markdown", new=AsyncMock(side_effect=Exception("down"))
     ):
-        title, description = await _resolve_identity(url)
+        title, description, resolved = await _resolve_identity(url)
 
     assert title == "docs.tailwindcss"
     assert description == ""
+    assert resolved is False
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +223,7 @@ async def test_soft_dedup_seen_count():
              patch("src.brain._embed", new_callable=AsyncMock) as mock_embed, \
              patch(
                  "src.brain._resolve_identity",
-                 new=AsyncMock(return_value=("Example Tool — Official Site", GOOD_DESC)),
+                 new=AsyncMock(return_value=("Example Tool — Official Site", GOOD_DESC, True)),
              ):
 
             mock_settings.DB_PATH = db_path
@@ -340,7 +346,7 @@ async def test_normalized_url_dedup_variants():
         with patch("src.brain.settings") as mock_settings, \
              patch("src.brain.upload_file", new_callable=AsyncMock) as mock_upload, \
              patch("src.brain._embed", new_callable=AsyncMock) as mock_embed, \
-             patch("src.brain._resolve_identity", new=AsyncMock(return_value=("Tool", ""))):
+             patch("src.brain._resolve_identity", new=AsyncMock(return_value=("Tool", "", True))):
             mock_settings.DB_PATH = db_path
             mock_settings.GOOGLE_DRIVE_FOLDER_BRAIN = "fake-folder-id"
             mock_settings.BRAIN_MIN_SCORE = 0.5
@@ -718,7 +724,7 @@ async def test_refresh_repairs_missing_description_and_reembeds():
         with patch("src.brain.settings") as mock_settings, \
              patch(
                  "src.brain._resolve_identity",
-                 new=AsyncMock(return_value=("Example Tool", GOOD_DESC)),
+                 new=AsyncMock(return_value=("Example Tool", GOOD_DESC, True)),
              ), \
              patch("src.brain._embed", new=fake_embed), \
              patch("src.brain.upload_file", new_callable=AsyncMock) as mock_upload:

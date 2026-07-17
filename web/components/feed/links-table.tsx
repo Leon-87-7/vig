@@ -136,17 +136,16 @@ function LinkUrl({ link }: { link: LinkRow }) {
 }
 
 function LinkDescription({ link }: { link: LinkRow }) {
-  // Standalone identity: the row shows the link's own description; the video
-  // topic is only a fallback while description is unset (pre-backfill rows).
-  const description = [link.title, link.description ?? link.topic]
+  // Standalone identity: the collapsed row shows only the link's own
+  // title · description. The source-video topic is provenance and appears
+  // exclusively inside the expanded panel — never as row identity.
+  const description = [link.title, link.description]
     .filter(Boolean)
     .join(' · ');
   return description ? (
     <TruncatedDescription
       text={description}
-      provenance={
-        link.description && link.topic ? link.topic : undefined
-      }
+      provenance={link.topic || undefined}
     />
   ) : null;
 }
@@ -167,7 +166,7 @@ function TableCard({ link }: { link: LinkRow }) {
           {link.seen_count === 1 ? '' : 's'}
         </span>
       </div>
-      {Boolean(link.title || link.topic) && (
+      {Boolean(link.title || link.description) && (
         <div className="mt-2 font-mono">
           <LinkDescription link={link} />
         </div>

@@ -1979,15 +1979,21 @@ async def upsert_job_annotation(job_id: str, notes: str) -> dict:
     )
 
 
-async def list_link_tags(link_id: str) -> list[dict]:
-    """Return tags attached to *link_id* ordered by name."""
+async def list_link_tags(link_id: str, chat_id: int | None = None) -> list[dict]:
+    """Return tags attached to *link_id* ordered by name.
+
+    Tags are viewer-private (CONTEXT.md "Link tag") — pass ``chat_id`` to
+    constrain to the viewer's own vocabulary.
+    """
+    scope = " AND t.chat_id = ?" if chat_id is not None else ""
+    params: tuple = (link_id, chat_id) if chat_id is not None else (link_id,)
     return await _fetch_dicts(
-        """SELECT t.id, t.name, t.color, t.meaning, t.icon
+        f"""SELECT t.id, t.name, t.color, t.meaning, t.icon
            FROM link_tags lt
            JOIN tags t ON t.id = lt.tag_id
-           WHERE lt.link_id = ?
+           WHERE lt.link_id = ?{scope}
            ORDER BY t.name""",
-        (link_id,),
+        params,
     )
 
 
@@ -2039,7 +2045,7 @@ async def batch_list_job_tags(job_ids: list[str]) -> dict[str, list[dict]]:
     if not job_ids:
         return {}
     rows = await _fetch_in(
-        """SELECT jt.job_id, t.id, t.name, t.color, t.meaning
+        """SELECT jt.job_id, t.id, t.name, t.color, t.meaning, t.icon
            FROM job_tags jt
            JOIN tags t ON t.id = jt.tag_id
            WHERE jt.job_id IN ({placeholders})

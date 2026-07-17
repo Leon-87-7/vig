@@ -13,6 +13,23 @@ export interface TagSummary {
 
 const asTags = (d: unknown): TagSummary[] => (Array.isArray(d) ? d : []);
 
+// One vocabulary request shared by every cluster on the page (a 50-row table
+// mounts 100 clusters across the two responsive branches). Invalidated on
+// tag creation so new tags appear everywhere.
+let vocabularyPromise: Promise<TagSummary[]> | null = null;
+function fetchVocabulary(force = false): Promise<TagSummary[]> {
+  if (force || !vocabularyPromise) {
+    vocabularyPromise = fetch('/api/controls/tags', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(asTags)
+      .catch(() => {
+        vocabularyPromise = null;
+        return [];
+      });
+  }
+  return vocabularyPromise;
+}
+
 export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   const [linkTags, setLinkTags] = useState<TagSummary[]>(initialTags);
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
@@ -24,18 +41,14 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
       .catch(() => {});
   }, [linkId]);
 
-  const refetchAll = useCallback(() => {
-    fetch('/api/controls/tags', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setAllTags(asTags(d)))
-      .catch(() => {});
+  const refetchAll = useCallback((force = false) => {
+    void fetchVocabulary(force).then(setAllTags);
   }, []);
 
-  // Vocabulary loads once per mount; linkTags seeds from useState(initialTags)
-  // above. Never sync on initialTags identity — `link.tags ?? []` makes a fresh
-  // array per render, which would loop setState forever.
-  // ponytail: N rows = N vocabulary fetches (same trade-off as job cards);
-  // fold into the links payload if it bites.
+  // Vocabulary loads through the shared module cache; linkTags seeds from
+  // useState(initialTags) above. Never sync on initialTags identity —
+  // `link.tags ?? []` makes a fresh array per render, which would loop
+  // setState forever.
   useEffect(() => {
     refetchAll();
   }, [refetchAll]);
@@ -59,7 +72,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
     const tag = (await res.json()) as TagSummary;
     const attach = await fetch(`/api/brain/links/${linkId}/tags/${tag.id}`, { method: 'POST', credentials: 'include' });
     if (!attach.ok) throw new Error('Tag created but could not be attached to this link');
-    refetchAll();
+    refetchAll(true);
     refetchTags();
   }, [linkId, refetchAll, refetchTags]);
 

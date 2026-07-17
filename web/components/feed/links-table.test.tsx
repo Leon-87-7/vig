@@ -80,13 +80,14 @@ describe('LinksTable standalone identity line', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('falls back to title · topic while description is missing', () => {
+  it('shows only the title while description is unresolved — topic never leaks into the row', () => {
     render(<LinksTable linksData={makeLinksData(baseLink)} />);
     expect(
-      screen.getAllByText(
-        '10M Free Icons & Stock Photos · The video discusses consistent branding across platforms.',
-      ).length,
+      screen.getAllByText('10M Free Icons & Stock Photos').length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.queryByText(/The video discusses/, { exact: false }),
+    ).not.toBeInTheDocument();
   });
 });
 

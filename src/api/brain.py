@@ -39,13 +39,22 @@ async def get_graph() -> dict[str, list[dict]]:
 
 @brain_router.get("/links")
 async def list_links(
+    request: Request,
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     q: str = Query(default=""),
     sort: str = Query(default="last_seen"),
     order: str = Query(default="desc"),
 ) -> dict:
-    return await brain.list_links(limit=limit, offset=offset, q=q, sort=sort, order=order)
+    # Link inventory stays operator-wide; tag matching/payload is viewer-private.
+    return await brain.list_links(
+        limit=limit,
+        offset=offset,
+        q=q,
+        sort=sort,
+        order=order,
+        viewer_chat_id=request.state.user["id"],
+    )
 # ---------------------------------------------------------------------------
 # Link-tag links
 # ---------------------------------------------------------------------------
@@ -53,7 +62,8 @@ async def list_links(
 
 @brain_router.get("/links/{link_id}/tags")
 async def get_link_tags(link_id: str, request: Request) -> list[dict]:
-    return await database.list_link_tags(link_id)
+    chat_id: int = request.state.user["id"]
+    return await database.list_link_tags(link_id, chat_id=chat_id)
 
 
 @brain_router.post("/links/{link_id}/tags/{tag_id}", status_code=201)

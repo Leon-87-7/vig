@@ -61,7 +61,7 @@
 
 **Interfaces:**
 - Consumes: `description` from Task 2's payload.
-- Behavior: description present → line is `title · description`; expanded panel appends muted `From: <topic>` when topic exists. Description absent → today's `title · topic` line, no provenance footer.
+- Behavior: the collapsed row is always link-own identity only — `title · description` (or just `title` while description is unresolved); the topic renders exclusively as the muted `From: <topic>` provenance line in the expanded panel. (Revised during PR #390 review: the earlier title·topic transition fallback contradicted the resolved requirement and was dropped.)
 
 - [ ] Steps: failing Vitest → implement → `npm test -- --run` pass → `npm run lint` → commit `feat(web): link rows show title·description, provenance in More panel (closes #381)`.
 
