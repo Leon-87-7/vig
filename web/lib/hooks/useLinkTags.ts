@@ -13,6 +13,13 @@ export interface TagSummary {
 
 const asTags = (d: unknown): TagSummary[] => (Array.isArray(d) ? d : []);
 
+// Fixed-shape, same-origin API path with every dynamic segment URI-encoded —
+// IDs come from our own database, never from a user-typed URL.
+function linkTagsPath(linkId: string, tagId?: string): string {
+  const base = '/api/brain/links/' + encodeURIComponent(linkId) + '/tags';
+  return tagId ? base + '/' + encodeURIComponent(tagId) : base;
+}
+
 // One vocabulary request shared by every cluster on the page (a 50-row table
 // mounts 100 clusters across the two responsive branches). Invalidated on
 // tag creation so new tags appear everywhere.
@@ -35,7 +42,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
 
   const refetchTags = useCallback(() => {
-    fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags`, { credentials: 'include' })
+    fetch(linkTagsPath(linkId), { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setLinkTags(asTags(d)))
       .catch(() => {});
@@ -54,7 +61,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   }, [refetchAll]);
 
   const toggleTag = useCallback(async (tagId: string, attached: boolean) => {
-    const res = await fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags/${encodeURIComponent(tagId)}`, {
+    const res = await fetch(linkTagsPath(linkId, tagId), {
       method: attached ? 'DELETE' : 'POST',
       credentials: 'include',
     });
@@ -70,7 +77,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
     });
     if (!res.ok) throw new Error(res.status === 409 ? 'Tag name already exists' : 'Create failed');
     const tag = (await res.json()) as TagSummary;
-    const attach = await fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags/${encodeURIComponent(tag.id)}`, { method: 'POST', credentials: 'include' });
+    const attach = await fetch(linkTagsPath(linkId, tag.id), { method: 'POST', credentials: 'include' });
     if (!attach.ok) throw new Error('Tag created but could not be attached to this link');
     refetchAll(true);
     refetchTags();
