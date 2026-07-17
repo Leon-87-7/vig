@@ -70,55 +70,6 @@ When the user mentions a "task" or "TASK" by number (e.g. "task 14"), look it up
 
 Every `##` / `###` / `####` heading is preceded by a `<!-- §N.M -->` anchor comment, so grep always lands one line above the heading.
 
-## Library source (opensrc)
-
-Key dependency source code is cached globally at `C:\Users\leone\.opensrc\repos\`. Use these paths when debugging library internals — prefer reading the actual source over guessing from docs.
-
-| Package                       | Cached path                                               |
-| ----------------------------- | --------------------------------------------------------- |
-| `fastapi`                     | `github.com/fastapi/fastapi/0.136.3`                      |
-| `google-genai`                | `github.com/googleapis/python-genai/2.7.0`                |
-| `aiosqlite`                   | `github.com/omnilib/aiosqlite/0.22.1`                     |
-| `redis-py`                    | `github.com/redis/redis-py/8.0.0`                         |
-| `httpx`                       | `github.com/encode/httpx/0.28.1`                          |
-| `apscheduler`                 | `github.com/agronholm/apscheduler/master`                 |
-| `pydantic-settings`           | `github.com/pydantic/pydantic-settings/2.14.1`            |
-| `structlog`                   | `github.com/hynek/structlog/25.5.0`                       |
-| `vitest`                      | `github.com/vitest-dev/vitest/4.1.8`                      |
-| `msw`                         | `github.com/mswjs/msw/2.14.6`                             |
-| `@testing-library/react`      | `github.com/testing-library/react-testing-library/16.3.2` |
-| `@testing-library/jest-dom`   | `github.com/testing-library/jest-dom/6.9.1`               |
-| `@testing-library/user-event` | `github.com/testing-library/user-event/14.6.1`            |
-| `react-force-graph-2d`        | `github.com/vasturiano/react-force-graph-2d/1.29.1`       |
-
-All paths are relative to the cache root. Example full path: `C:\Users\leone\.opensrc\repos\github.com\fastapi\fastapi\0.136.3\`.
-
-## Design Context
-
-Frontend design (the `web/` Next.js dashboard) is guided by `PRODUCT.md` at the
-repo root — register (`product`), users, purpose, brand personality (**bold,
-precise, crafted**), anti-references, design principles, and the WCAG AA + reduced-motion
-bar. The visual system lives in `DESIGN.md` at the repo root — North Star "The
-Operator's Console": dark plate ladder, one rationed signal orange (`#f6921e`)
-that always means _act here_, JetBrains Mono for machine facts, flat-by-default
-elevation. Read both before any UI work; DESIGN.md's frontmatter tokens are
-normative. Reference inspirations are archived in `designs/`.
-The `impeccable` design skill lives at `agent-knowledge/skills/impeccable/` — read its `SKILL.md` before any UI work.
-
-### Component layout (`web/components/`)
-
-Every component lives at `web/components/<area>/<kebab-name>.tsx` — there are no
-loose files at the components root. To find one, pick the folder by what it is:
-
-- `shell/` — app chrome imported by layouts/shells (header, sidebar, page-shell, auth/public shells, invite/restricted gates, google-status, mock-provider).
-- `ui/` — shared primitives used by 2+ features (badges, platform-icon, date-time, filter-bar, spinner, tab-bar, dialog, tooltip, export-modal, tag-picker, markdown-editor, …).
-- `feed/`, `doc-parser/`, `brain/`, `spaces/`, `landing/` — feature folders named after the dashboard route that consumes them.
-- `svg/` — icon components.
-
-Files are kebab-case; a component's `.test.tsx` sits beside it. No barrel
-`index.ts` files (they hurt grep-ability) — import the file directly, e.g.
-`@/components/feed/job-card`.
-
 ## Agent skills
 
 ### Issue tracker
