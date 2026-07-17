@@ -35,7 +35,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
 
   const refetchTags = useCallback(() => {
-    fetch(`/api/brain/links/${linkId}/tags`, { credentials: 'include' })
+    fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setLinkTags(asTags(d)))
       .catch(() => {});
@@ -54,7 +54,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
   }, [refetchAll]);
 
   const toggleTag = useCallback(async (tagId: string, attached: boolean) => {
-    const res = await fetch(`/api/brain/links/${linkId}/tags/${tagId}`, {
+    const res = await fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags/${encodeURIComponent(tagId)}`, {
       method: attached ? 'DELETE' : 'POST',
       credentials: 'include',
     });
@@ -70,7 +70,7 @@ export function useLinkTags(linkId: string, initialTags: TagSummary[] = []) {
     });
     if (!res.ok) throw new Error(res.status === 409 ? 'Tag name already exists' : 'Create failed');
     const tag = (await res.json()) as TagSummary;
-    const attach = await fetch(`/api/brain/links/${linkId}/tags/${tag.id}`, { method: 'POST', credentials: 'include' });
+    const attach = await fetch(`/api/brain/links/${encodeURIComponent(linkId)}/tags/${encodeURIComponent(tag.id)}`, { method: 'POST', credentials: 'include' });
     if (!attach.ok) throw new Error('Tag created but could not be attached to this link');
     refetchAll(true);
     refetchTags();

@@ -739,28 +739,34 @@ async def list_links(
     # ponytail: substring LIKE, not typo-tolerant fuzzy; add FTS5 if a profiler/users ask.
     """
     import aiosqlite
+    import json
 
-    tag_scope = " AND t.chat_id = ?" if viewer_chat_id is not None else ""
-
-    where = "COALESCE(j.status, '') != 'cancelled'"
+    # Every query below is a join of static fragments with bound parameters —
+    # nothing user-controlled ever lands in the SQL text. The viewer scope uses
+    # the null-tolerant `(? IS NULL OR t.chat_id = ?)` form so the statement
+    # itself never varies with the caller.
+    where_parts = ["COALESCE(j.status, '') != 'cancelled'"]
     filter_params: list[Any] = []
     if q.strip():
-        where += f""" AND (
+        where_parts.append(
+            """(
             l.url LIKE ? ESCAPE '\\'
             OR l.title LIKE ? ESCAPE '\\'
             OR l.description LIKE ? ESCAPE '\\'
             OR EXISTS (
                 SELECT 1 FROM link_tags lt
                 JOIN tags t ON t.id = lt.tag_id
-                WHERE lt.link_id = l.id AND lower(t.name) = lower(?){tag_scope}
+                WHERE lt.link_id = l.id AND lower(t.name) = lower(?)
+                  AND (? IS NULL OR t.chat_id = ?)
             )
         )"""
+        )
         query = q.strip()
         escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
-        filter_params = [like, like, like, query]
-        if viewer_chat_id is not None:
-            filter_params.append(viewer_chat_id)
+        filter_params = [like, like, like, query, viewer_chat_id, viewer_chat_id]
+
+    where = " AND ".join(where_parts)
 
     sort_columns = {
         "last_seen": "l.last_seen_at",
@@ -768,43 +774,45 @@ async def list_links(
     }
     sort_column = sort_columns.get(sort, sort_columns["last_seen"])
     sort_direction = "ASC" if order == "asc" else "DESC"
-    order_by = f"{sort_column} {sort_direction}, l.url ASC"
+    order_by = ", ".join([sort_column + " " + sort_direction, "l.url ASC"])
+
+    from_clause = "FROM links l LEFT JOIN jobs j ON j.id = l.source_job"
+    count_sql = " ".join(["SELECT COUNT(*) AS total", from_clause, "WHERE", where])
+    rows_sql = " ".join(
+        [
+            "SELECT l.id, l.url, l.title, l.topic, l.description,"
+            " l.seen_count, l.created_at, l.last_seen_at",
+            from_clause,
+            "WHERE",
+            where,
+            "ORDER BY",
+            order_by,
+            "LIMIT ? OFFSET ?",
+        ]
+    )
 
     async with aiosqlite.connect(settings.DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        count_cursor = await conn.execute(
-            f"""SELECT COUNT(*) AS total
-                FROM links l
-                LEFT JOIN jobs j ON j.id = l.source_job
-                WHERE {where}""",
-            filter_params,
-        )
+        count_cursor = await conn.execute(count_sql, filter_params)
         count_row = await count_cursor.fetchone()
-        cursor = await conn.execute(
-            f"""SELECT l.id, l.url, l.title, l.topic, l.description, l.seen_count, l.created_at, l.last_seen_at
-                FROM links l
-                LEFT JOIN jobs j ON j.id = l.source_job
-                WHERE {where}
-                ORDER BY {order_by}
-                LIMIT ? OFFSET ?""",
-            (*filter_params, limit, offset),
-        )
+        cursor = await conn.execute(rows_sql, (*filter_params, limit, offset))
         rows = [dict(r) for r in await cursor.fetchall()]
 
-        # Attached tags, batched on the same connection. Brain-only databases
-        # (tests, standalone) may lack the tags tables — treat as untagged.
+        # Attached tags, batched on the same connection via json_each so the
+        # statement is a single static string. Brain-only databases (tests,
+        # standalone) may lack the tags tables — treat as untagged.
         link_ids = [row["id"] for row in rows]
         tags_by_link: dict[str, list[dict]] = {lid: [] for lid in link_ids}
         if link_ids:
-            placeholders = ",".join("?" * len(link_ids))
             try:
                 tag_cursor = await conn.execute(
-                    f"""SELECT lt.link_id, t.id, t.name, t.color, t.meaning, t.icon
-                        FROM link_tags lt
-                        JOIN tags t ON t.id = lt.tag_id
-                        WHERE lt.link_id IN ({placeholders}){tag_scope}
-                        ORDER BY t.name""",
-                    [*link_ids, viewer_chat_id] if viewer_chat_id is not None else link_ids,
+                    """SELECT lt.link_id, t.id, t.name, t.color, t.meaning, t.icon
+                       FROM link_tags lt
+                       JOIN tags t ON t.id = lt.tag_id
+                       WHERE lt.link_id IN (SELECT value FROM json_each(?))
+                         AND (? IS NULL OR t.chat_id = ?)
+                       ORDER BY t.name""",
+                    (json.dumps(link_ids), viewer_chat_id, viewer_chat_id),
                 )
                 for tag_row in await tag_cursor.fetchall():
                     tag = dict(tag_row)

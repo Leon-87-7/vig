@@ -1983,17 +1983,16 @@ async def list_link_tags(link_id: str, chat_id: int | None = None) -> list[dict]
     """Return tags attached to *link_id* ordered by name.
 
     Tags are viewer-private (CONTEXT.md "Link tag") — pass ``chat_id`` to
-    constrain to the viewer's own vocabulary.
+    constrain to the viewer's own vocabulary. The statement is static; the
+    scope is the null-tolerant ``(? IS NULL OR t.chat_id = ?)`` form.
     """
-    scope = " AND t.chat_id = ?" if chat_id is not None else ""
-    params: tuple = (link_id, chat_id) if chat_id is not None else (link_id,)
     return await _fetch_dicts(
-        f"""SELECT t.id, t.name, t.color, t.meaning, t.icon
+        """SELECT t.id, t.name, t.color, t.meaning, t.icon
            FROM link_tags lt
            JOIN tags t ON t.id = lt.tag_id
-           WHERE lt.link_id = ?{scope}
+           WHERE lt.link_id = ? AND (? IS NULL OR t.chat_id = ?)
            ORDER BY t.name""",
-        params,
+        (link_id, chat_id, chat_id),
     )
 
 
