@@ -73,6 +73,11 @@
 | [#367](https://github.com/Leon-87-7/vig/issues/367) | Next 16: rename middleware.ts -> proxy.ts | Web / Next16 | — |
 | [#368](https://github.com/Leon-87-7/vig/issues/368) | Next 16: end-to-end verification + deploy check | Web / Next16 | — |
 | [#352](https://github.com/Leon-87-7/vig/issues/352) | Auto-approve new users while keeping operator block controls | Auth / Access | — |
+| [#391](https://github.com/Leon-87-7/vig/issues/391) | feat(landing): replace demo video with #onboarding storyboard shell; move recording to a later #demo section | Web / Landing | — |
+| [#392](https://github.com/Leon-87-7/vig/issues/392) | feat(landing): onboarding storyboard orchestration with placeholder scenes | Web / Landing | #391 |
+| [#393](https://github.com/Leon-87-7/vig/issues/393) | feat(landing): integrate Rive runtime with one test scene | Web / Landing | #392 |
+| [#394](https://github.com/Leon-87-7/vig/issues/394) | design(landing): author the seven onboarding Rive scenes (HITL) | Design / Landing | #393 |
+| [#395](https://github.com/Leon-87-7/vig/issues/395) | feat(landing): onboarding copy, timing polish, and verification pass (HITL) | Web / Landing | #394 |
 
 ---
 
@@ -458,6 +463,14 @@ Standalone link identity + link tags (source: docs/TASK.md tasks 30 & 32 — gri
 └── #387 Links search box matches tag names exactly ✓
 #383 global tag palette redesign — parallel, no dependency ✓
 Critical path: #381 → #384 → #385; #382 → {#386, #387} independent chain; #383 parallel
+
+Ownix mobile onboarding hero (source: docs/plans/2026-07-17-ownix-mobile-onboarding-hero.md — ADR-0037)
+#391 landing restructure: storyboard shell replaces demo video in place; recording → later #demo
+└── #392 storyboard orchestration with placeholder scenes + Vitest coverage
+    └── #393 Rive runtime integration with one test scene
+        └── #394 author the seven onboarding Rive scenes (HITL)
+            └── #395 copy, timing polish, and verification pass (HITL)
+Critical path: #391 → #392 → #393 → #394 → #395 (fully linear)
 ```
 
 ---

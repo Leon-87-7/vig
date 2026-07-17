@@ -23,6 +23,38 @@ Related product decisions:
 - `PRODUCT.md`
 - `DESIGN.md`
 
+## Codebase Grounding (verified 2026-07-17)
+
+Facts from the current `web/app/page.tsx` and `web/package.json` that constrain
+this plan:
+
+- **Anchor convention is mixed.** `#top` (nav), `#hero` (header), and `#invite`
+  (section) are element ids; `#demo` and `#showcase` are ids on the `<h2>`
+  headings inside `aria-labelledby` sections. The auto-scroll target
+  `#showcase` therefore currently resolves to a heading, not a section. The new
+  `#onboarding` id should go on the `<section>` element (it has no labelled
+  heading), matching `#hero`/`#invite`.
+- **`page.tsx` is a server component** (it exports `metadata`). The storyboard
+  must be a `'use client'` component imported into it — the same pattern as
+  `count-up.tsx`, `demo-video.tsx`, and `app-slot.tsx` in
+  `web/components/landing/`.
+- **Stack: Next 14.2 App Router, React 18, Tailwind 3.** The Rive package pick
+  in Phase 3 must support React 18; verify against current Rive docs at
+  implementation time.
+- **The demo section carries more than the video.** It includes the timestamp
+  caption and the index-badges row (`role="group"`, "What Ownix indexes").
+  Moving the section to `#demo` later in the page moves the badges too — see
+  Open Questions.
+- **An unlabelled Brain teaser divider** sits between `#features` and `#stats`
+  ("A shared Brain is growing quietly underneath all of this"). It stays where
+  it is; the section-order lists in this plan omit it because it is a divider,
+  not a section.
+- **Reduced-motion convention exists**: the page already uses Tailwind
+  `motion-safe:` variants (logo hover/cycle animations). New CSS-side motion
+  should follow it; the JS-side gate uses `matchMedia('(prefers-reduced-motion: reduce)')`.
+- Landing components are kebab-case with colocated `.test.tsx`, no barrels —
+  `onboarding-storyboard.tsx` fits the existing layout.
+
 ## Goal
 
 Add a mobile-first animated onboarding section to the Ownix public landing page
@@ -57,12 +89,12 @@ The landing page should use this section order and these IDs:
 #invite
 ```
 
-The current `#demo` screen recording should move later in the page. It should no
-longer be the first explanatory section after the hero because it is a proof
-recording of a desktop plus mobile workflow, not the mobile onboarding
-storyboard.
-
-The new `#onboarding` section should sit directly after `#hero`.
+Decided 2026-07-17: the onboarding storyboard **replaces the demo video in
+place**. The current demo section (directly after `#hero`) keeps its heading
+("Three taps. Nothing new to learn.") and the index-badges row; only the video
+element inside it is swapped for the storyboard, and the section becomes
+`#onboarding`. The recording (`/demo-capture.mp4`) moves to a new `#demo` proof
+section later in the page, before `#invite`.
 
 ## Hero Section Decisions
 
@@ -90,7 +122,10 @@ You watched it. You liked it. You lost it.
 
 ## Onboarding Section Decisions
 
-`#onboarding` should be a full-viewport cinematic section.
+`#onboarding` should be a full-viewport cinematic section. (Per the 2026-07-17
+decision it retains the existing section chrome — the "Three taps" heading above
+and the index-badges row below — with the phone module in the video's old slot;
+"full-viewport" budgets for that chrome via the `max-height` calc below.)
 
 It should be mobile-only in presentation: one phone-scale flow, not a phone plus
 desktop composition.
@@ -744,6 +779,13 @@ These are intentionally unresolved until implementation/art direction:
 4. Should the end-card include CTAs, or only logo plus tagline?
 5. How much of the existing landing copy should be shortened once the
    onboarding section carries the workflow explanation?
+6. ~~Do the index badges move with the demo section?~~ **Resolved 2026-07-17:**
+   badges and the "Three taps" heading stay in place — the storyboard replaces
+   the demo video inside the existing section; only the recording moves to a
+   later `#demo` proof section.
+7. ~~Does the demo heading need rewording?~~ **Resolved 2026-07-17:** no — the
+   heading stays with the onboarding section. The later `#demo` proof section
+   gets its own minimal framing.
 
 ## Non-Goals
 
