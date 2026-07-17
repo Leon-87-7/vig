@@ -13,7 +13,7 @@ from src import database
 from src.config import settings
 from src.telegram.sender import send_message, send_inline_keyboard
 from src.templates import PROMPT_TEMPLATES, validate_template_choice
-from src.utils import job_tag
+from src.utils import dashboard_button_row, job_tag
 from src.utils.logger import get_logger
 from src.services.repo_followup import offer_repo_followups
 
@@ -528,7 +528,10 @@ async def run(job_id: str) -> None:
     await send_inline_keyboard(
         chat_id,
         f"{tag}\nWhat's next?",
-        buttons=[[{"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"}]],
+        buttons=[
+            [{"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"}],
+            *dashboard_button_row(job_id),
+        ],
     )
     # Best-effort UX add-on — a follow-up failure must not block completion.
     try:

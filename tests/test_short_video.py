@@ -208,6 +208,7 @@ def _patch_pipeline(transcript_resp: dict, *, job: dict | None = None):
                             return_value={"message_id": 2}),
             "send_document": p("src.processors.short_video.send_document", new_callable=AsyncMock),
             "edit_message_text": p("src.processors.short_video.edit_message_text", new_callable=AsyncMock),
+            "send_inline_keyboard": p("src.processors.short_video.send_inline_keyboard", new_callable=AsyncMock),
             "fetch_frames": p("src.processors.short_video.frames.fetch_frames", new_callable=AsyncMock, return_value=_FRAME_RESP),
             "vision": p("src.processors.short_video.gemini.call_gemini_vision", new_callable=AsyncMock, return_value=_VISION),
             "upload_file": p("src.processors.short_video.upload_file", new_callable=AsyncMock, return_value=("fid", "https://drive/x")),

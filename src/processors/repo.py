@@ -17,7 +17,7 @@ from src.services.sheets import append_repo_row, update_repo_row
 from src.telegram.sender import edit_message_text, send_document, send_inline_keyboard, send_message
 from src.utils.background_tasks import spawn_background
 from src.utils.logger import get_logger
-from src.utils import job_tag
+from src.utils import dashboard_button_row, job_tag
 from src.utils.markdown import _humanize_age
 
 log = get_logger(__name__)
@@ -521,8 +521,11 @@ async def run(job: dict) -> None:
     # Summary + Freestyle button
     prefix = "\n".join(warning_lines) + "\n\n" if warning_lines else ""
     summary = f"{tag}\n{prefix}" + _format_summary_message(owner, repo, analysis, bundle)
-    freestyle_btn = [[{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}]]
-    await send_inline_keyboard(chat_id, summary, freestyle_btn)
+    buttons = [
+        [{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}],
+        *dashboard_button_row(job_id),
+    ]
+    await send_inline_keyboard(chat_id, summary, buttons)
 
     # Sheets — fire-and-forget
     current_job = {
