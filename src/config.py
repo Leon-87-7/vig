@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     SESSION_COOKIE_SECURE: bool = True  # set False only for local HTTP dev
     SESSION_BACKEND: str = "redis"  # "redis" in prod; "memory" for local browser auth loops
     MINI_APP_URL: str = ""
+    DASHBOARD_URL: str = "https://app.leondev.xyz"
     DEV_LOGIN_ENABLED: bool = False
 
     # Ops bot (ADR-0036) — separate internal Telegram operations surface.

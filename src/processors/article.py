@@ -15,7 +15,7 @@ from src import database
 from src.config import settings
 from src.telegram.sender import edit_message_text, send_document, send_inline_keyboard, send_message
 from src.services.gemini import extract_json
-from src.utils import job_tag
+from src.utils import job_dashboard_url, job_tag
 from src.utils.logger import get_logger
 from src.services.repo_followup import offer_repo_followups
 
@@ -338,7 +338,10 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     await send_inline_keyboard(
         chat_id,
         f"{tag}\nWhat's next?",
-        buttons=[[{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}]],
+        buttons=[
+            [{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}],
+            [{"text": "🔗 Open in Dashboard", "url": job_dashboard_url(job_id)}],
+        ],
     )
     # Best-effort UX add-on — a follow-up failure must not block Brain ingest.
     try:
