@@ -444,3 +444,215 @@ inventing a third pattern.
   directly?
 - Same logo treatment as login (full lockup), or a smaller/plainer mark since
   these are read-only legal pages, not a branded entry moment?
+
+## 24. Feed inventory IA — Links view, Docs ingest action, command launcher ✅ ISSUED #333-#336 - ✅DONE
+
+> **Grill:** `/grilling` — product/UX information architecture; no external
+> API hinge beyond matching the command-palette component pattern.
+
+The Feed control row currently mixes two concepts: a mobile-only `Submit` action
+chip (`web/app/(dashboard)/page.tsx:310-330`) and content-type filter tabs from
+`CONTENT_TYPE_FILTERS` (`page.tsx:38-51`) rendered by `SegmentedTabs`
+(`web/components/filter-bar.tsx:60-190`). The existing Docs entry is a link-tab
+to `/doc-parser`, but the discussion resolved that redirect tabs break the
+operator's flow because tabs visually promise an in-page view switch. The Brain
+page currently owns a `Links` internal tab (`BRAIN_TABS`,
+`web/app/(dashboard)/brain/page.tsx:44-47`) and renders `LinksTable` under it
+(`brain/page.tsx:552-655`), but Links is an inventory surface, while Brain should
+stay the semantic search/graph workbench. Long-term action discovery should use
+a shadcn-style command palette with shortcut hints (`CommandShortcut`) so desktop
+doesn't accumulate header buttons for every intake path.
+
+**Wanted:** make Feed the operator inventory and intake surface: Links becomes a
+first-class Feed view, Docs becomes an ingest action/modal rather than a tab, and
+Brain loses the redundant Links table.
+
+**UI**
+
+- Replace redirect-style Feed tabs with an IA rule: `SegmentedTabs` entries that
+  look like tabs should switch Feed content in place. Do not add new tabs that
+  navigate away or open modals.
+- Add a first-class `Links` Feed view by extracting/reusing the Brain page's
+  `LinksTable` (`web/app/(dashboard)/brain/page.tsx`) into a shared component
+  and rendering it from the Feed page. Remove the Brain page's `Links` tab so
+  `/brain` is focused on semantic search + graph.
+- Rename the default `All` tab to `Feed`. Keep `Links` in the same top-level
+  tab row (`Feed` / `Short` / `Long` / `Article` / `Repo` / `Links`) and use a
+  thicker desktop divider before `Links` so it reads as adjacent inventory, not
+  another job content type.
+- Make Feed search context-sensitive: job tabs search job fields, while the
+  `Links` tab searches link inventory fields (`url`, `title`, `topic`). Hide
+  job status filters on `Links`.
+- Convert Docs from a Feed tab into an ingest action that mirrors `Submit URL`:
+  mobile can show it as an action chip in the same wrap grid as Submit; desktop
+  keeps actions outside `SegmentedTabs`.
+- Add a global `D` shortcut to open the Docs ingest modal, using the same
+  editable-target guard posture as the existing Feed search `/` shortcut
+  (`web/components/filter-bar.tsx:18-27`) and Submit URL shortcut behavior.
+- On successful Docs ingest, continue into the dedicated Doc Parser workflow
+  (`/doc-parser`, or a specific parser detail route if available). Do not delete
+  the Doc Parser page as part of this IA change; treat it as the processing/detail
+  surface until the new Feed entry point proves the full workflow can live there.
+- Add the command launcher in this slice: a shadcn-style `CommandDialog` with
+  grouped actions and right-aligned `CommandShortcut` hints, reusing the existing
+  dashboard dialog styling. On desktop, show one visible `Commands` launcher
+  button instead of separate sibling header buttons for Submit URL / Docs ingest;
+  `Submit URL` is an item inside the launcher. The launcher shows `Cmd/Ctrl+Shift+K`
+  as its shortcut hint. Preserve editable-target guards for all global shortcuts.
+  Commands:
+  - `Submit URL` — shortcut `N` ("new").
+  - `Ingest Docs` — shortcut `D` ("docs").
+  - `Open Links` — shortcut `L` ("links").
+  - Divider / separate recovery group.
+  - `Retry Pending` — shortcut hint `R P`; enabled only when stale pending jobs
+    exist in the active job scope.
+  - `Retry Failed` — shortcut hint `R F`; mirrors the recovery action for failed
+    and stale in-flight jobs.
+  - `Clear Failed` — shortcut `C` ("clear"); requires confirmation, marking
+    failed jobs cancelled rather than deleting them.
+  - `Search` — shortcut `/`; focuses the Feed search for the current job tab.
+  - `Search Links` — shortcut hint `L /`; switches to `Links` and focuses the
+    same Feed search input in link-search mode.
+- Follow `DESIGN.md`: action chips/buttons use the signal accent deliberately,
+  real active tabs use the signal active state, machine counts stay mono, and all
+  keyboard/motion behavior honors WCAG-AA focus and `prefers-reduced-motion`.
+
+**Open questions** (resolve in grill)
+
+- Resolved: the Feed is the parent surface; tabs are `Feed` / `Short` / `Long` /
+  `Article` / `Repo` / `Links`. `Links` joins the current row with a thicker
+  desktop divider and context-sensitive search/status behavior.
+- Resolved: ship the command palette now, not a temporary desktop Docs button.
+  The first command set is `Submit URL`, `Ingest Docs`, `Open Links`,
+  `Retry Pending`, `Retry Failed`, `Clear Failed`, `Search`, and `Search Links`,
+  with shadcn `CommandShortcut` hints. Keep `Retry Pending`, `Retry Failed`, and
+  `Clear Failed` visible in the existing recovery panel as contextual repair
+  buttons; the command palette is an additional keyboard-driven entry point, not
+  a replacement. Recovery commands operate on the current active job scope:
+  `Feed` means all job types, typed tabs scope to that content type, and `Links`
+  hides/disables recovery commands because link inventory does not share the job
+  status lifecycle.
+- Resolved: `Ingest Docs` modal exposes the full current Doc Parser input
+  surface, including PDF upload and document URL ingest.
+- Resolved: after successful Docs submit, route directly to the parser detail
+  page when the API returns a job id; fall back to `/doc-parser` otherwise. Do
+  not keep the user in Feed with an optimistic parser row in this slice.
+- Resolved: move the Links inventory API to `/api/feed/links`, but make this the
+  final implementation step so the UI move, shared Links component, command
+  launcher, and search behavior land before the route rename can disrupt
+  anything.
+
+## 30. Link-level tags in the Links table + mobile color-badge redesign ✅ ISSUED TO GITHUB #382 #383 #386 #387 - ✅DONE
+
+> **Grill:** `/grill-with-docs` — the tag-attachment target is task 11's schema
+> call; this brief owns the surface + color system.
+
+> **Grill together with task 11.** Task 11 decides the data model (URL ↔ tag
+> join, canonicalization); this brief renders it in the Links table and
+> redesigns the badge colors. Same feature, two layers.
+
+The Links table (`web/components/links-table.tsx`) renders URL / Last seen /
+Appearances only — **no tag column today**. A `TagPicker`
+(`web/components/TagPicker.tsx`) and job-tag badges (`web/components/job-card-tags.tsx`)
+already exist for _job_ tags; the tag vocabulary lives in the `tags` table.
+Task 11 is the prerequisite: tags must follow the canonical URL, not the job,
+before a per-link tag UI makes sense.
+
+**Wanted:** each link row carries its own tags, editable inline; on mobile the
+tags render as color badges, with a re-designed tag color palette.
+
+**UI**
+
+- Add a tags affordance to `links-table.tsx` (desktop table row + the `sm:hidden`
+  `TableCard`), reusing `TagPicker` — do not fork the picker.
+- Mobile: tags as color badges (reuse/adapt `job-card-tags.tsx`'s badge render).
+- **New tag color palette** — DESIGN.md rations signal orange to "act here"
+  only, so tag category colors must be a _separate_ accent set that doesn't
+  collide with signal orange or the status hues. This is the design call.
+
+**Resolved 2026-07-11** (via task 11's grill session 1)
+
+- ~~Keyed to `links.url`/`links.id`?~~ → **`links.id` FK** (`link_tags` mirrors
+  `job_tags`; see task 11's resolved list). Unblocked: the tag column can be
+  specced against `link_id`.
+- New constraint inherited from task 11: the Links table becomes
+  **viewer-scoped** (per-tenant Brain), and a **Community Brain tab** joins the
+  Brain page — this brief's tag UI applies to the personal view; the Community
+  tab shows no tags (pending re-confirmation in task 11's next session).
+
+**Resolved 2026-07-17** (this brief's grill, session 1)
+
+- The "standalone link search" concern raised alongside this brief split out as
+  **task 32** (per-URL description + search fix, backend layer) — no dependency
+  in either direction.
+- **Badge form — dots + optional icons, no names in the row.** A tag renders as
+  a small filled color circle by default; a tag may optionally carry an icon
+  (new nullable `tags.icon` column, Lucide name, optional picker in the
+  create/edit modal) rendered in the tag's color. Desktop hover reveals
+  name + meaning via tooltip.
+- **Palette — ~10 curated hues, orange-yellow band excluded.** One global
+  palette replacing `PRESET_COLORS` (shared vocabulary ⇒ job-tag chips change
+  too): hues picked in OKLCH at matched lightness/chroma so every dot passes
+  3:1 non-text contrast on all three plates; the signal-orange→pending-yellow
+  band (~30°–90°) is removed entirely (today's set literally contains
+  `#eab308` = `status-pending`). Migration remaps existing tags on banned
+  colors to the nearest allowed hue. Sharing a hue *family* with a status color
+  is acceptable — tag dots and status badges never occupy the same slot.
+- **Edit UX — the cluster IS the trigger.** One shared component on both
+  breakpoints: the dot/icon cluster is a button opening the existing `TagMenu`
+  dropdown (names visible there); untagged rows show a ghost "+" affordance.
+  No fork of the picker, no separate Tags button.
+- **Filter — the search box also matches tag names.** Typing "svg" matches
+  links tagged exactly `svg` (via the `link_tags` join, exact tag-name match —
+  not substring) OR-ed with the normal substring match over
+  url/title/description. One input, no separate filter control.
+
+## 32. Standalone link identity — per-URL description + search that doesn't leak siblings ✅ ISSUED TO GITHUB #381 #384 #385 - ✅DONE
+
+> **Grill:** started 2026-07-17 (task 30's session — split out as its own brief).
+> Backend/Brain-ingest layer; **no dependency on task 11 or task 30**. Task 30's
+> tag UI renders on top of whatever this brief ships, but neither blocks the other.
+
+Every Brain link currently borrows its identity from the video it was extracted
+from: `ingest_links` (`src/brain.py:282`) stamps each link with the **source
+job's `topic`**, `_resolve_title` (`src/brain.py:77`) has Gemini invent a title
+_from that video topic_, the embedding doc is `url + title + topic`, and the
+Links table search LIKE-matches `topic` (`brain.list_links`,
+`src/brain.py:515`). Net effect: searching "svg" returns every sibling link of
+an svg video — featurenest.com, invoicegenerator.io — because they all share
+the video's topic string (screenshot evidence 2026-07-17).
+
+**Wanted:** each link is a standalone node — its title and description come from
+the URL itself, and search matches only link-own fields.
+
+**Resolved 2026-07-17** (this grill)
+
+- **Description source — tiered:** (1) `github.com` URLs → existing
+  `src/services/github.py` repo description, no page fetch; (2) everything else
+  → plain HTTP fetch + parse `og:description` / `<meta name="description">`;
+  (3) only if the result is vague or **< 40 chars** → escalate to Jina Reader
+  (`src/services/jina.py`) and extract title + first paragraph. Fall back to
+  today's behavior on total failure.
+- **Schema:** new `links.description` column (migration). `links.topic` is kept
+  but demoted to **provenance only** ("seen in a video about X") — removed from
+  the search LIKE columns, the embedding doc, and the table's description line.
+  Search + embedding become `url / title / description`.
+- **Title:** the page's own title wins — GitHub → `owner/repo: description`,
+  meta parse → `og:title` / `<title>`, Jina → markdown H1. The
+  extraction-provided label becomes the fallback, URL hint last.
+  `_resolve_title`'s Gemini call is deleted.
+
+- **Backfill — refresh loop repair:** `description IS NULL` becomes a repair
+  condition in `_select_refresh_batch`, next to missing embedding / drive file.
+  Each cycle fetches the description, rewrites the title if a page title is
+  found, **re-embeds with the new doc**, and re-uploads the `.md`. No one-time
+  script; the table converges over refresh cycles.
+- **Provenance placement:** the row shows link-own identity only
+  (`title · description`). The video topic ("seen in a video about X") appears
+  **only inside the expanded More panel, as the last line under the full
+  description text** (per annotated screenshot, 2026-07-17). Nothing
+  provenance-related is searchable.
+- **Defaults (agreed by omission):** vague-detection = length < 40 chars OR
+  obvious boilerplate ("Just a moment…", cookie/consent walls); fetch budget =
+  ~5s timeout + response-size cap per link; fetch failures leave
+  `description NULL` so the refresh loop retries them naturally.
