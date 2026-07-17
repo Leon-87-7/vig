@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LinksTable } from '@/components/feed/links-table';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { UseLinksTableResult } from '@/lib/hooks/useLinksTable';
 
 const baseLink = {
+  id: 'lnk_1',
   url: 'https://thenounproject.com',
   title: '10M Free Icons & Stock Photos',
   topic: 'The video discusses consistent branding across platforms.',
@@ -12,6 +14,7 @@ const baseLink = {
   seen_count: 1,
   first_seen: '2026-07-14T09:05:00Z',
   last_seen: '2026-07-14T09:05:00Z',
+  tags: [] as { id: string; name: string; color: string; meaning: string; icon?: string | null }[],
 };
 
 function makeLinksData(link: typeof baseLink): UseLinksTableResult {
@@ -84,5 +87,35 @@ describe('LinksTable standalone identity line', () => {
         '10M Free Icons & Stock Photos · The video discusses consistent branding across platforms.',
       ).length,
     ).toBeGreaterThan(0);
+  });
+});
+
+describe('LinkTagCluster', () => {
+  it('shows the ghost + affordance on untagged rows', () => {
+    render(<LinksTable linksData={makeLinksData(baseLink)} />);
+    // Desktop row + mobile card each render the cluster trigger.
+    expect(
+      screen.getAllByRole('button', { name: 'Add link tag' }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('renders name-less dots for attached tags, names only in the tooltip', () => {
+    render(
+      <TooltipProvider>
+        <LinksTable
+          linksData={makeLinksData({
+            ...baseLink,
+            tags: [
+              { id: 't1', name: 'svg', color: '#f87171', meaning: 'vector art' },
+              { id: 't2', name: 'ui', color: '#60a5fa', meaning: '' },
+            ],
+          })}
+        />
+      </TooltipProvider>,
+    );
+    const clusters = screen.getAllByRole('button', { name: 'Edit 2 link tags' });
+    expect(clusters.length).toBeGreaterThan(0);
+    // The tag name never renders as row text — badge is a color dot only.
+    expect(screen.queryByText('svg')).not.toBeInTheDocument();
   });
 });

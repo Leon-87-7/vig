@@ -46,6 +46,47 @@ async def list_links(
     order: str = Query(default="desc"),
 ) -> dict:
     return await brain.list_links(limit=limit, offset=offset, q=q, sort=sort, order=order)
+# ---------------------------------------------------------------------------
+# Link-tag links
+# ---------------------------------------------------------------------------
+
+
+@brain_router.get("/links/{link_id}/tags")
+async def get_link_tags(link_id: str, request: Request) -> list[dict]:
+    return await database.list_link_tags(link_id)
+
+
+@brain_router.post("/links/{link_id}/tags/{tag_id}", status_code=201)
+async def attach_link_tag(link_id: str, tag_id: str, request: Request) -> dict:
+    chat_id: int = request.state.user["id"]
+    tag = await database.get_tag(chat_id, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    try:
+        await database.attach_link_tag(link_id, tag_id)
+    except Exception:
+        # FK violation — the link row doesn't exist.
+        raise HTTPException(status_code=404, detail="Link not found")
+    return {
+        "id": tag["id"],
+        "name": tag["name"],
+        "color": tag["color"],
+        "meaning": tag["meaning"],
+        "icon": tag.get("icon"),
+    }
+
+
+@brain_router.delete("/links/{link_id}/tags/{tag_id}", status_code=204)
+async def detach_link_tag(link_id: str, tag_id: str, request: Request):
+    chat_id: int = request.state.user["id"]
+    tag = await database.get_tag(chat_id, tag_id)
+    if tag is None:
+        raise HTTPException(status_code=404, detail="Tag not found")
+    deleted = await database.detach_link_tag(link_id, tag_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Tag not attached to this link")
+    from fastapi import Response
+    return Response(status_code=204)
 
 
 @brain_router.get("/links/view")

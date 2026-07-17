@@ -44,6 +44,24 @@ CREATE TABLE IF NOT EXISTS links (
 CREATE INDEX IF NOT EXISTS idx_links_url ON links(url);
 CREATE INDEX IF NOT EXISTS idx_links_updated_at ON links(updated_at);
 CREATE INDEX IF NOT EXISTS idx_links_created_at ON links(created_at);
+
+-- Tag tables are owned by src/database.py; mirrored here so brain-standalone
+-- databases (tests, tooling) support the tag-aware link search.
+CREATE TABLE IF NOT EXISTS tags (
+    id         TEXT PRIMARY KEY,
+    chat_id    INTEGER NOT NULL,
+    name       TEXT NOT NULL,
+    meaning    TEXT NOT NULL DEFAULT '',
+    color      TEXT NOT NULL DEFAULT '#8b5cf6',
+    icon       TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(chat_id, name)
+);
+CREATE TABLE IF NOT EXISTS link_tags (
+    link_id TEXT NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    tag_id  TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (link_id, tag_id)
+);
 """
 
 
@@ -234,6 +252,11 @@ async def _resolve_identity(url: str) -> tuple[str, str]:
 
     return title or fallback, description
 
+
+
+def _link_embedding_doc(url: str, title: str | None, description: str | None) -> str:
+    """Compose the searchable/semantic identity doc for one link."""
+    return " ".join(part.strip() for part in (url, title or "", description or "") if part and part.strip())
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-10))
@@ -450,8 +473,8 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                 ):
                     title_str = provided_title
 
-                # Build embedding document (url+title+topic until the #384 cutover)
-                embed_doc = f"{url} {title_str} {topic}"
+                # Embedding doc = link-own identity only (url+title+description, #384)
+                embed_doc = _link_embedding_doc(url, title_str, description)
                 embedding_arr = await _embed(embed_doc)
                 embedding_blob = embedding_arr.tobytes() if embedding_arr is not None else None
 
@@ -662,7 +685,7 @@ async def list_links(
 
     ``sort`` is ``last_seen`` or ``appearances`` and ``order`` is ``asc``/``desc``
     (anything else falls back to ``last_seen`` desc).
-    ``q`` filters by case-insensitive substring across url/title/topic.
+    ``q`` filters by case-insensitive substring across url/title/description, plus exact tag names.
     # ponytail: substring LIKE, not typo-tolerant fuzzy; add FTS5 if a profiler/users ask.
     """
     import aiosqlite
@@ -670,10 +693,20 @@ async def list_links(
     where = "COALESCE(j.status, '') != 'cancelled'"
     filter_params: list[Any] = []
     if q.strip():
-        where += " AND (l.url LIKE ? ESCAPE '\\' OR l.title LIKE ? ESCAPE '\\' OR l.topic LIKE ? ESCAPE '\\')"
-        escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where += """ AND (
+            l.url LIKE ? ESCAPE '\\'
+            OR l.title LIKE ? ESCAPE '\\'
+            OR l.description LIKE ? ESCAPE '\\'
+            OR EXISTS (
+                SELECT 1 FROM link_tags lt
+                JOIN tags t ON t.id = lt.tag_id
+                WHERE lt.link_id = l.id AND lower(t.name) = lower(?)
+            )
+        )"""
+        query = q.strip()
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         like = f"%{escaped}%"
-        filter_params = [like, like, like]
+        filter_params = [like, like, like, query]
 
     sort_columns = {
         "last_seen": "l.last_seen_at",
@@ -694,7 +727,7 @@ async def list_links(
         )
         count_row = await count_cursor.fetchone()
         cursor = await conn.execute(
-            f"""SELECT l.url, l.title, l.topic, l.description, l.seen_count, l.created_at, l.last_seen_at
+            f"""SELECT l.id, l.url, l.title, l.topic, l.description, l.seen_count, l.created_at, l.last_seen_at
                 FROM links l
                 LEFT JOIN jobs j ON j.id = l.source_job
                 WHERE {where}
@@ -704,9 +737,31 @@ async def list_links(
         )
         rows = [dict(r) for r in await cursor.fetchall()]
 
+        # Attached tags, batched on the same connection. Brain-only databases
+        # (tests, standalone) may lack the tags tables — treat as untagged.
+        link_ids = [row["id"] for row in rows]
+        tags_by_link: dict[str, list[dict]] = {lid: [] for lid in link_ids}
+        if link_ids:
+            placeholders = ",".join("?" * len(link_ids))
+            try:
+                tag_cursor = await conn.execute(
+                    f"""SELECT lt.link_id, t.id, t.name, t.color, t.meaning, t.icon
+                        FROM link_tags lt
+                        JOIN tags t ON t.id = lt.tag_id
+                        WHERE lt.link_id IN ({placeholders})
+                        ORDER BY t.name""",
+                    link_ids,
+                )
+                for tag_row in await tag_cursor.fetchall():
+                    tag = dict(tag_row)
+                    tags_by_link[tag.pop("link_id")].append(tag)
+            except aiosqlite.OperationalError:
+                pass
+
     return {
         "items": [
             {
+                "id": row["id"],
                 "url": row["url"],
                 "title": row.get("title"),
                 "topic": row.get("topic"),
@@ -714,6 +769,7 @@ async def list_links(
                 "seen_count": row.get("seen_count") or 1,
                 "first_seen": row["created_at"],
                 "last_seen": row["last_seen_at"],
+                "tags": tags_by_link.get(row["id"], []),
             }
             for row in rows
         ],
@@ -857,7 +913,7 @@ async def _select_refresh_batch(
     cursor2 = await conn.execute(
         """
         SELECT * FROM links
-        WHERE embedding IS NULL OR drive_file_id IS NULL
+        WHERE embedding IS NULL OR drive_file_id IS NULL OR description IS NULL
         ORDER BY updated_at ASC
         LIMIT ?
         """,
@@ -898,8 +954,21 @@ async def _refresh_one_link(
     is_repair = lnk_id in repair_ids
     repaired_delta = 0
 
+    if lnk.get('description') is None:
+        title, description = await _resolve_identity(lnk['url'])
+        if description:
+            lnk['title'] = title or lnk.get('title')
+            lnk['description'] = description
+            await conn.execute(
+                "UPDATE links SET title = ?, description = ? WHERE id = ?",
+                (lnk['title'], description, lnk_id),
+            )
+            embedding_blob = None
+        else:
+            log.info('brain.refresh_identity_unresolved', link_id=lnk_id, url=lnk['url'])
+
     if embedding_blob is None:
-        embed_doc = f"{lnk['url']} {lnk['title'] or ''} {lnk['topic'] or ''}"
+        embed_doc = _link_embedding_doc(lnk['url'], lnk.get('title'), lnk.get('description'))
         new_arr = await _embed(embed_doc)
         if new_arr is not None:
             embedding_blob = new_arr.tobytes()

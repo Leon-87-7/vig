@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import { Tooltip } from '@/components/ui/tooltip';
+import { TagMark, TagMenu } from '@/components/ui/tag-picker';
+import { useLinkTags } from '@/lib/hooks/useLinkTags';
 import {
   LINKS_PAGE_SIZES,
   type LinkRow,
@@ -77,6 +80,39 @@ function TruncatedDescription({
   );
 }
 
+function LinkTagCluster({ link }: { link: LinkRow }) {
+  const { linkTags, allTags, toggleTag, createTag } = useLinkTags(link.id, link.tags ?? []);
+  const trigger = (
+    <button
+      type="button"
+      aria-label={linkTags.length ? `Edit ${linkTags.length} link tags` : 'Add link tag'}
+      className="inline-flex min-h-7 min-w-7 items-center justify-center gap-1 rounded border border-line px-1.5 text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+    >
+      {linkTags.length === 0 ? (
+        <span className="text-sm leading-none opacity-70">+</span>
+      ) : (
+        linkTags.slice(0, 4).map((tag) => (
+          <Tooltip key={tag.id} content={[tag.name, tag.meaning].filter(Boolean).join(' — ')}>
+            <span className="inline-flex h-4 w-4 items-center justify-center">
+              <TagMark tag={tag} className="h-3 w-3" />
+            </span>
+          </Tooltip>
+        ))
+      )}
+    </button>
+  );
+
+  return (
+    <TagMenu
+      jobTags={linkTags}
+      allTags={allTags}
+      onToggle={toggleTag}
+      onCreate={createTag}
+      trigger={trigger}
+    />
+  );
+}
+
 function LinkUrl({ link }: { link: LinkRow }) {
   const href = safeUrl(link.url);
   return href ? (
@@ -118,8 +154,9 @@ function LinkDescription({ link }: { link: LinkRow }) {
 function TableCard({ link }: { link: LinkRow }) {
   return (
     <article className="rounded-lg border border-line bg-surface px-4 py-3">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <LinkUrl link={link} />
+        <LinkTagCluster link={link} />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tabular-nums text-muted">
         <span>
@@ -192,7 +229,7 @@ export function LinksSearchBar({
             }
           }
         }}
-        placeholder="Filter links by URL, title, or topic…"
+        placeholder="Filter links by URL, title, description, or exact tag…"
         aria-label="Filter extracted links"
         className="h-9 w-full min-w-0 rounded-md border border-line bg-canvas px-4 text-sm text-ink placeholder-muted transition-ui hover:border-line-strong focus:border-signal focus:outline-none sm:flex-1"
       />
@@ -387,7 +424,10 @@ export function LinksTable({
                   >
                     <td className="max-w-[36rem] px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        <LinkUrl link={link} />
+                        <div className="flex items-center gap-2">
+                          <LinkUrl link={link} />
+                          <LinkTagCluster link={link} />
+                        </div>
                         <LinkDescription link={link} />
                       </div>
                     </td>
