@@ -16,7 +16,7 @@ from src.telegram.sender import edit_message_text, send_document, send_inline_ke
 from src.utils.background_tasks import spawn_background
 from src.utils.logger import get_logger
 from src.utils.markdown import build_enriched_links_message
-from src.utils import job_dashboard_url, job_tag
+from src.utils import dashboard_button_row, job_tag
 from src.utils.validators import filter_vision_links
 
 log = get_logger(__name__)
@@ -356,8 +356,6 @@ async def _transcript_phase(
     if transcript_text:
         await _deliver_transcript_doc(job, job_id, chat_id, platform, video_id, transcript_text)
 
-    await send_inline_keyboard(
-        chat_id,
-        f"{tag}\nWhat's next?",
-        buttons=[[{"text": "🔗 Open in Dashboard", "url": job_dashboard_url(job_id)}]],
-    )
+    dashboard_row = dashboard_button_row(job_id)
+    if dashboard_row:
+        await send_inline_keyboard(chat_id, f"{tag}\nWhat's next?", buttons=dashboard_row)

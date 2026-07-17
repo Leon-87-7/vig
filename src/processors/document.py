@@ -17,7 +17,7 @@ from src.services import storage
 from src.services.parse import ParseError, parse_pdf
 from src.telegram.sender import send_document, send_inline_keyboard, send_message
 from src.services.gemini import extract_json
-from src.utils import job_dashboard_url, job_tag
+from src.utils import dashboard_button_row, job_tag
 from src.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -159,7 +159,7 @@ async def _deliver(job: dict, text: str, tools: list[dict], references: list[str
                     {"text": "📄 Get Markdown", "callback_data": f"document_md:{job['id']}"},
                     {"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job['id']}"},
                 ],
-                [{"text": "🔗 Open in Dashboard", "url": job_dashboard_url(job['id'])}],
+                *dashboard_button_row(job['id']),
             ],
         )
     except Exception:

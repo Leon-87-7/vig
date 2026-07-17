@@ -10,7 +10,7 @@ from src.templates import PROMPT_TEMPLATES
 from src.utils.logger import get_logger
 from src.services.github import enrich_github_links
 from src.utils.markdown import build_enriched_links_message, build_transcript_markdown
-from src.utils import job_dashboard_url, job_tag
+from src.utils import dashboard_button_row, job_tag
 from src.utils.validators import extract_description_links, slugify
 from src.services.repo_followup import offer_repo_followups
 
@@ -144,9 +144,7 @@ async def run(job: dict) -> None:
                 [
                     {"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"},
                 ],
-                [
-                    {"text": "🔗 Open in Dashboard", "url": job_dashboard_url(job_id)},
-                ],
+                *dashboard_button_row(job_id),
             ],
         )
 
