@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
-import struct
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
-import pytest_asyncio
 
 from src.brain import (
     EMBEDDING_DIM,
     _cosine_similarity,
     _load_embeddings,
     _rebuild_lock,
-    _resolve_title,
+    _resolve_identity,
     rebuild_graph,
     get_graph,
     ingest_links,
@@ -78,7 +75,6 @@ def test_load_embeddings_valid():
 
 
 def test_load_embeddings_bad_length_skipped(caplog):
-    import logging
 
     v_good = _rand_vec()
     bad_blob = b"\x00" * 10  # wrong length
@@ -100,33 +96,85 @@ def test_load_embeddings_bad_length_skipped(caplog):
 
 
 # ---------------------------------------------------------------------------
-# _resolve_title
+# _resolve_identity — (title, description) pair, tiered per docs/TASK.md task 32
 # ---------------------------------------------------------------------------
 
+GOOD_DESC = "A utility-first CSS framework for rapidly building modern user interfaces."
+
+
 @pytest.mark.asyncio
-async def test_resolve_title_github():
-    """GitHub URL should return the title from Gemini generate()."""
+async def test_resolve_identity_github_returns_pair():
+    """GitHub URLs: title is owner/repo, description is the repo description — separate fields."""
     url = "https://github.com/vercel/next.js"
-    topic = "web dev"
 
-    with patch("src.services.gemini.generate", new=AsyncMock(return_value="vercel/next.js")):
-        result = await _resolve_title(url, topic)
+    with patch(
+        "src.services.github.fetch_repo_description",
+        new=AsyncMock(return_value="The React Framework for the Web"),
+    ):
+        title, description = await _resolve_identity(url)
 
-    assert result == "vercel/next.js"
+    assert title == "vercel/next.js"
+    assert description == "The React Framework for the Web"
 
 
 @pytest.mark.asyncio
-async def test_resolve_title_strip_tld():
-    """Non-GitHub URL falls back to hint when GeminiUnavailableError is raised."""
-    from src.services.gemini import GeminiUnavailableError
+async def test_resolve_identity_github_missing_description():
+    url = "https://github.com/vercel/next.js"
 
+    with patch("src.services.github.fetch_repo_description", new=AsyncMock(return_value=None)):
+        title, description = await _resolve_identity(url)
+
+    assert title == "vercel/next.js"
+    assert description == ""
+
+
+@pytest.mark.asyncio
+async def test_resolve_identity_strong_meta_skips_jina():
+    """A normal-length page title with a solid description never touches Jina."""
     url = "https://docs.tailwindcss.com/getting-started"
-    topic = "css"
+    jina = AsyncMock()
 
-    with patch("src.services.gemini.generate", new=AsyncMock(side_effect=GeminiUnavailableError("both failed"))):
-        result = await _resolve_title(url, topic)
+    with patch(
+        "src.brain._fetch_meta",
+        new=AsyncMock(return_value=("Installation - Tailwind CSS", GOOD_DESC)),
+    ), patch("src.services.jina.fetch_markdown", new=jina):
+        title, description = await _resolve_identity(url)
 
-    assert result == "docs.tailwindcss"
+    assert title == "Installation - Tailwind CSS"
+    assert description == GOOD_DESC
+    jina.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_resolve_identity_vague_description_escalates_to_jina():
+    """Description under 40 chars escalates; Jina's first paragraph becomes the description."""
+    url = "https://example.com/article"
+    body = "First paragraph of the article, detailed enough to describe it.\n\nSecond paragraph."
+
+    with patch(
+        "src.brain._fetch_meta", new=AsyncMock(return_value=("A Fine Article", "Short."))
+    ), patch(
+        "src.services.jina.fetch_markdown",
+        new=AsyncMock(return_value=("A Fine Article — Full Title", body)),
+    ):
+        title, description = await _resolve_identity(url)
+
+    assert title == "A Fine Article — Full Title"
+    assert description == "First paragraph of the article, detailed enough to describe it."
+
+
+@pytest.mark.asyncio
+async def test_resolve_identity_falls_back_to_host_hint():
+    """Total fetch failure yields the deterministic host hint and an empty description."""
+    url = "https://docs.tailwindcss.com/getting-started"
+
+    with patch("src.brain._fetch_meta", new=AsyncMock(return_value=("", ""))), patch(
+        "src.services.jina.fetch_markdown", new=AsyncMock(side_effect=Exception("down"))
+    ):
+        title, description = await _resolve_identity(url)
+
+    assert title == "docs.tailwindcss"
+    assert description == ""
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +214,11 @@ async def test_soft_dedup_seen_count():
 
         with patch("src.brain.settings") as mock_settings, \
              patch("src.brain.upload_file", new_callable=AsyncMock) as mock_upload, \
-             patch("src.brain._embed", new_callable=AsyncMock) as mock_embed:
+             patch("src.brain._embed", new_callable=AsyncMock) as mock_embed, \
+             patch(
+                 "src.brain._resolve_identity",
+                 new=AsyncMock(return_value=("Example Tool — Official Site", GOOD_DESC)),
+             ):
 
             mock_settings.DB_PATH = db_path
             mock_settings.GOOGLE_DRIVE_FOLDER_BRAIN = "fake-folder-id"
@@ -182,13 +234,18 @@ async def test_soft_dedup_seen_count():
         async with aiosqlite.connect(db_path) as conn:
             conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
-                "SELECT COUNT(*) as cnt, MAX(seen_count) as max_seen FROM links WHERE url = ?",
+                "SELECT COUNT(*) as cnt, MAX(seen_count) as max_seen, MAX(title) as title, "
+                "MAX(description) as description FROM links WHERE url = ?",
                 (url,),
             )
             row = await cursor.fetchone()
 
         assert row["cnt"] == 1, "Expected exactly one row per URL"
         assert row["max_seen"] == 2, "seen_count should be 2 after two ingests"
+        # Standalone identity: the resolved page title beats the provided label,
+        # and the per-URL description is persisted.
+        assert row["title"] == "Example Tool — Official Site"
+        assert row["description"] == GOOD_DESC
 
     finally:
         os.unlink(db_path)
@@ -232,7 +289,7 @@ async def test_search_returns_empty_on_no_corpus():
     import tempfile
     import os
     import aiosqlite
-    from src.brain import ingest_links, SCHEMA_SQL
+    from src.brain import SCHEMA_SQL
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name
@@ -282,7 +339,8 @@ async def test_normalized_url_dedup_variants():
 
         with patch("src.brain.settings") as mock_settings, \
              patch("src.brain.upload_file", new_callable=AsyncMock) as mock_upload, \
-             patch("src.brain._embed", new_callable=AsyncMock) as mock_embed:
+             patch("src.brain._embed", new_callable=AsyncMock) as mock_embed, \
+             patch("src.brain._resolve_identity", new=AsyncMock(return_value=("Tool", ""))):
             mock_settings.DB_PATH = db_path
             mock_settings.GOOGLE_DRIVE_FOLDER_BRAIN = "fake-folder-id"
             mock_settings.BRAIN_MIN_SCORE = 0.5

@@ -6,6 +6,7 @@ import asyncio
 import re
 import time
 from datetime import datetime, timedelta, timezone
+from html import unescape
 from urllib.parse import urlsplit, urlunsplit
 from typing import Any
 
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS links (
     url           TEXT NOT NULL,
     title         TEXT,
     topic         TEXT,
+    description   TEXT,
     source_job    TEXT NOT NULL,
     embedding     BLOB,
     drive_file_id TEXT,
@@ -74,32 +76,163 @@ async def _embed(text: str) -> np.ndarray | None:
         return None
 
 
-async def _resolve_title(url: str, topic: str) -> str:
-    """Resolve a short human title for a URL via Gemini's generate(); fall back to URL hint on any error."""
-    from urllib.parse import urlparse
-    from src.services.gemini import generate, GeminiUnavailableError
+_TITLE_MAX_CHARS = 120
+_META_FETCH_LIMIT = 128_000
+_BOILERPLATE_TITLES = {
+    "just a moment",
+    "attention required",
+    "access denied",
+    "forbidden",
+    "not found",
+    "page not found",
+    "error",
+}
 
-    parsed = urlparse(url)
-    hostname = parsed.hostname or url
-    path = parsed.path or ""
 
-    # Compute hint for fallback
-    if "github.com" in hostname:
-        parts = [p for p in path.split("/") if p]
-        hint = f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else hostname
-    else:
-        bare = re.sub(r"^www\.", "", hostname)
-        bare = re.sub(r"\.[a-z]{2,}$", "", bare)
-        hint = bare
+def _fallback_title_hint(url: str) -> str:
+    parts = urlsplit(url)
+    hostname = parts.hostname or url
+    path = parts.path or ""
+    if hostname.lower() in {"github.com", "www.github.com"}:
+        segments = [p for p in path.split("/") if p]
+        return f"{segments[0]}/{segments[1]}" if len(segments) >= 2 else hostname
 
-    prompt = (
-        f"Give a short title (max 5 words) for a link to '{hint}' found in a video about '{topic}'."
+    bare = re.sub(r"^www\.", "", hostname, flags=re.IGNORECASE)
+    bare = re.sub(r"\.[a-z]{2,}$", "", bare, flags=re.IGNORECASE)
+    return bare or url
+
+
+def _clean_title(value: str | None) -> str:
+    title = unescape(value or "")
+    title = re.sub(r"\s+", " ", title).strip(" \t\r\n-|—–")
+    return title[:_TITLE_MAX_CHARS].strip()
+
+
+def _is_weak_title(title: str) -> bool:
+    # Titles are naturally short — only boilerplate or near-empty counts as weak.
+    # (The <40-char vagueness rule applies to *descriptions*, per docs/TASK.md task 32.)
+    cleaned = title.strip().lower()
+    return len(title.strip()) < 5 or cleaned in _BOILERPLATE_TITLES
+
+
+_DESCRIPTION_MIN_CHARS = 40
+_DESCRIPTION_MAX_CHARS = 300
+
+
+def _is_vague_description(description: str) -> bool:
+    cleaned = description.strip().lower()
+    return len(description.strip()) < _DESCRIPTION_MIN_CHARS or cleaned in _BOILERPLATE_TITLES
+
+
+def _extract_meta_content(html: str, patterns: tuple[str, ...]) -> str:
+    for pattern in patterns:
+        match = re.search(pattern, html, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            value = _clean_title(re.sub(r"<[^>]+>", "", match.group(1)))
+            if value:
+                return value
+    return ""
+
+
+def _extract_html_title(html: str) -> str:
+    return _extract_meta_content(
+        html,
+        (
+            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
+            r'<meta[^>]+name=["\']twitter:title["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:title["\']',
+            r"<title[^>]*>(.*?)</title>",
+        ),
     )
+
+
+def _extract_html_description(html: str) -> str:
+    return _extract_meta_content(
+        html,
+        (
+            r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:description["\']',
+            r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']description["\']',
+            r'<meta[^>]+name=["\']twitter:description["\'][^>]+content=["\']([^"\']+)["\']',
+        ),
+    )[:_DESCRIPTION_MAX_CHARS]
+
+
+async def _fetch_meta(url: str) -> tuple[str, str]:
+    """One capped GET returning the page's own (title, description) from meta tags."""
+    import httpx
+
     try:
-        result = await generate(prompt, model="gemini-2.5-flash-lite")
-        return result.strip()
-    except GeminiUnavailableError:
-        return hint
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(5.0),
+            follow_redirects=True,
+            headers={"User-Agent": "vig-title-resolver/1.0"},
+        ) as client:
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.aiter_bytes():
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= _META_FETCH_LIMIT:
+                        break
+        html = b"".join(chunks).decode("utf-8", errors="replace")
+        return _extract_html_title(html), _extract_html_description(html)
+    except Exception as exc:
+        log.info("brain.title_meta_fetch_failed", url=url, error=str(exc)[:120])
+        return "", ""
+
+
+def _first_paragraph(markdown: str) -> str:
+    for block in markdown.split("\n\n"):
+        text = _clean_title(re.sub(r"[#>*`\[\]()]", " ", block))
+        if len(text) >= _DESCRIPTION_MIN_CHARS:
+            return text[:_DESCRIPTION_MAX_CHARS].strip()
+    return ""
+
+
+async def _resolve_identity(url: str) -> tuple[str, str]:
+    """Resolve a link's standalone (title, description) from the URL itself.
+
+    Tiered per docs/TASK.md task 32: GitHub service → meta-tag parse → Jina
+    escalation when the description is vague (<40 chars) or the title is weak.
+    Never raises; falls back to (host hint, "").
+    """
+    fallback = _fallback_title_hint(url)
+
+    repo = _github_owner_repo(url)
+    if repo:
+        from src.services.github import fetch_repo_description
+
+        owner, name = repo
+        description = await fetch_repo_description(owner, name, settings.GITHUB_TOKEN)
+        return f"{owner}/{name}", _clean_title(description) if description else ""
+
+    title, description = await _fetch_meta(url)
+
+    if _is_weak_title(title) or _is_vague_description(description):
+        try:
+            from src.services.jina import fetch_markdown
+
+            jina_title, body = await fetch_markdown(url)
+            stronger = _clean_title(jina_title)
+            if stronger and not _is_weak_title(stronger):
+                title = stronger
+            paragraph = _first_paragraph(body)
+            if paragraph:
+                description = paragraph
+        except Exception as exc:
+            log.info("brain.title_jina_fetch_failed", url=url, error=str(exc)[:120])
+
+    if _is_weak_title(title):
+        title = fallback
+    if _is_vague_description(description):
+        description = description.strip()  # keep a short-but-real description over nothing
+
+    return title or fallback, description
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
@@ -306,13 +439,18 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                     continue
 
                 # --- First sighting ---
+                # Standalone identity (docs/TASK.md task 32): the page's own title
+                # wins; the extraction-provided label only beats a bare host hint.
                 provided_title = link.get("title") or link.get("label")
-                if provided_title:
+                title_str, description = await _resolve_identity(url)
+                if (
+                    provided_title
+                    and title_str == _fallback_title_hint(url)
+                    and not _github_owner_repo(url)
+                ):
                     title_str = provided_title
-                else:
-                    title_str = await _resolve_title(url, topic)
 
-                # Build embedding document
+                # Build embedding document (url+title+topic until the #384 cutover)
                 embed_doc = f"{url} {title_str} {topic}"
                 embedding_arr = await _embed(embed_doc)
                 embedding_blob = embedding_arr.tobytes() if embedding_arr is not None else None
@@ -321,15 +459,16 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                 await conn.execute(
                     """
                     INSERT INTO links
-                        (id, url, title, topic, source_job, embedding,
+                        (id, url, title, topic, description, source_job, embedding,
                          drive_file_id, seen_count, last_seen_at, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
                     """,
                     (
                         link_id,
                         url,
                         title_str,
                         topic,
+                        description or None,
                         source_job_id,
                         embedding_blob,
                         now_iso,
@@ -555,7 +694,7 @@ async def list_links(
         )
         count_row = await count_cursor.fetchone()
         cursor = await conn.execute(
-            f"""SELECT l.url, l.title, l.topic, l.seen_count, l.created_at, l.last_seen_at
+            f"""SELECT l.url, l.title, l.topic, l.description, l.seen_count, l.created_at, l.last_seen_at
                 FROM links l
                 LEFT JOIN jobs j ON j.id = l.source_job
                 WHERE {where}
@@ -571,6 +710,7 @@ async def list_links(
                 "url": row["url"],
                 "title": row.get("title"),
                 "topic": row.get("topic"),
+                "description": row.get("description"),
                 "seen_count": row.get("seen_count") or 1,
                 "first_seen": row["created_at"],
                 "last_seen": row["last_seen_at"],

@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS links (
     url           TEXT NOT NULL,
     title         TEXT,
     topic         TEXT,
+    description   TEXT,
     source_job    TEXT NOT NULL,
     embedding     BLOB,
     drive_file_id TEXT,
@@ -1060,6 +1061,11 @@ _MIGRATIONS.append([
         expires_at TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""",
+])
+
+# v26 → v27: standalone link identity — per-URL description (#381 / docs/TASK.md task 32).
+_MIGRATIONS.append([
+    "ALTER TABLE links ADD COLUMN description TEXT",
 ])
 
 

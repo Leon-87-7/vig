@@ -38,7 +38,13 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function TruncatedDescription({ text }: { text: string }) {
+function TruncatedDescription({
+  text,
+  provenance,
+}: {
+  text: string;
+  provenance?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   return (
     <span className="inline-flex max-w-full items-center gap-2">
@@ -51,6 +57,13 @@ function TruncatedDescription({ text }: { text: string }) {
         }`}
       >
         {text}
+        {/* Provenance ("seen in a video about X") only in the expanded panel —
+            the row itself carries link-own identity only (task 32). */}
+        {expanded && provenance && (
+          <span className="mt-1 block text-[11px] text-muted">
+            From: {provenance}
+          </span>
+        )}
       </span>
       <button
         type="button"
@@ -87,11 +100,18 @@ function LinkUrl({ link }: { link: LinkRow }) {
 }
 
 function LinkDescription({ link }: { link: LinkRow }) {
-  const description = [link.title, link.topic]
+  // Standalone identity: the row shows the link's own description; the video
+  // topic is only a fallback while description is unset (pre-backfill rows).
+  const description = [link.title, link.description ?? link.topic]
     .filter(Boolean)
     .join(' · ');
   return description ? (
-    <TruncatedDescription text={description} />
+    <TruncatedDescription
+      text={description}
+      provenance={
+        link.description && link.topic ? link.topic : undefined
+      }
+    />
   ) : null;
 }
 

@@ -6,6 +6,7 @@ export type LinkRow = {
   url: string;
   title?: string | null;
   topic?: string | null;
+  description?: string | null;
   seen_count: number;
   first_seen: string;
   last_seen?: string | null;
