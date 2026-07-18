@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-REPO = "github.com/Leon-87-7/vig"
+REPO = "github.com/Leon-87-7/ownix"
 
 
 def load(path: str) -> list[str]:

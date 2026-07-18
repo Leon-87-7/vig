@@ -1,6 +1,8 @@
-# vig — Video Intelligence Gateway
+# Ownix — Your internet, indexed
 
-Telegram bot that processes short videos, long videos, Github URLs, dev articles, and PDF documents into structured AI analysis, stores everything in Google Drive + Sheets + GCS, and builds a searchable semantic Second Brain — with a Next.js web dashboard ("The Operator's Console") for browsing the results.
+![Ownix — You watched it. You liked it. You lost it.](docs/assets/og-image.png)
+
+Telegram bot that processes short videos, long videos, Github URLs, dev articles, and PDF documents into structured AI analysis, stores everything in Google Drive + Sheets + GCS, and builds a searchable semantic Second Brain — with a Next.js web dashboard for browsing the results. (Backend codename: `vig` — Video Intelligence Gateway.)
 
 ---
 
@@ -35,8 +37,8 @@ Optional: `BRAVE_API_KEY` (link verification), `GITHUB_TOKEN` (repo pipeline + h
 ### 1. Clone and configure
 
 ```Shell
-git clone https://github.com/Leon-87-7/vig
-cd vig
+git clone https://github.com/Leon-87-7/ownix
+cd ownix
 cp .env.example .env
 ```
 

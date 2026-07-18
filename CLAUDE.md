@@ -123,7 +123,7 @@ Files are kebab-case; a component's `.test.tsx` sits beside it. No barrel
 
 ### Issue tracker
 
-Issues live on GitHub at `Leon-87-7/vig`. Use the `gh` CLI for all operations. See `docs/agents/issue-tracker.md`.
+Issues live on GitHub at `Leon-87-7/ownix` (renamed from `Leon-87-7/vig` 2026-07-18; old URLs redirect). Use the `gh` CLI for all operations. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

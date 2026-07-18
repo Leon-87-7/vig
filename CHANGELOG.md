@@ -131,6 +131,6 @@ The pre-release baseline: bot accepts Telegram URLs, classifies short vs long, r
 
 - `.dockerignore` added to keep `.env`, local `data/`, and `docs/` out of built images.
 
-[Unreleased]: https://github.com/Leon-87-7/vig/compare/v0.2.0...main
-[0.2.0]: https://github.com/Leon-87-7/vig/compare/v0.1.0-pre...v0.2.0
-[0.1.0-pre]: https://github.com/Leon-87-7/vig/commits/main
+[Unreleased]: https://github.com/Leon-87-7/ownix/compare/v0.2.0...main
+[0.2.0]: https://github.com/Leon-87-7/ownix/compare/v0.1.0-pre...v0.2.0
+[0.1.0-pre]: https://github.com/Leon-87-7/ownix/commits/main
