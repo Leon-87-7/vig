@@ -1,6 +1,6 @@
 # Video Intelligence Gateway
 
-> Telegram bot that turns YouTube videos, Instagram Reels, TikToks, and dev articles into structured intelligence — frame analysis, transcripts, Gemini enrichment, a searchable Second Brain, and AI-generated product specs — all delivered inside chat.
+> Telegram bot that turns YouTube videos, Instagram Reels, TikToks, dev articles, GitHub repos, and PDF documents into structured intelligence — frame analysis, transcripts, Gemini enrichment, a searchable Second Brain, and AI-generated product specs — delivered in chat and browsable in a Next.js web dashboard ("The Operator's Console").
 
 ---
 
@@ -26,9 +26,11 @@ Send a URL to the Telegram bot. Get back structured intelligence.
 | YouTube Short / Reel / TikTok | Frame analysis + extracted tool links, verified via Brave Search |
 | Full YouTube video | Transcript `.md` → Gemini enrichment (topic, action points, tools) → Drive → optional Mini-PRD |
 | Substack / Medium / dev.to / Ghost article | Clean Markdown doc + structured analysis (topic, objective, action points, tools, promise-gap) |
-| Screenshot | Verbatim-grounded link extraction — only URLs literally visible in the image |
+| `github.com/<owner>/<repo>` | GitHub API bundle → structured analysis (tagline, tech stack, use-cases, curriculum hooks with file pointers) |
+| PDF (upload or `.pdf` URL) | liteparse text extraction → GCS content-addressed cache → Gemini enrichment (title, author, key points, references) |
+| Screenshot(s) | Verbatim-grounded link extraction — only URLs literally visible in the image; multi-image sends auto-batched |
 
-Everything feeds a **Second Brain**: a semantic link graph (Gemini embeddings, cosine similarity) that surfaces related content via `/find <query>`.
+Everything feeds a **Second Brain**: a semantic link graph (Gemini embeddings, cosine similarity) that surfaces related content via `/find <query>` — and everything lands in the **web dashboard** ("The Operator's Console", Ownix design system): feed with per-type tabs and server-resolved thumbnails, brain graph, curated Spaces with export, custom prompt templates, a Doc Parser page, and dashboard job submission. Telegram Login + invite gate; a second "Ops" bot handles user/invite administration.
 
 ---
 
@@ -93,11 +95,14 @@ Telegram User
 │    ├─ "video" short   → frames → Gemini Vision          │
 │    ├─ "video" long    → transcript → Drive → Phase 2    │
 │    ├─ "article"       → Jina → paywall → Gemini Flash   │
+│    ├─ "repo"          → GitHub bundle → Gemini Flash    │
+│    ├─ "document"      → liteparse → GCS cache → Gemini  │
 │    ├─ "enrichment"    → Gemini text enrichment          │
 │    └─ "prd_*"         → Gemini PRD (Flash / Pro)        │
 └─────────────────────────────────────────────────────────┘
 
-State: SQLite (WAL) — jobs, links, chat_state, markdown_cache, allowed_domains
+Web:   Next.js 14 dashboard (Vercel) → /api/* (session cookie) → FastAPI src/api/
+State: SQLite (WAL) — jobs, links, spaces, tags, templates, users, chat_state, caches
 Queue: Redis FIFO — survives worker restarts, supports N workers
 Brain: Gemini text-embedding-004 + NumPy cosine similarity + Drive Obsidian vault
 ```
@@ -136,7 +141,7 @@ Every link I extract from a video is useless unless I can find it again. Cosine 
 
 ---
 
-## The Article Pipeline (newest feature)
+## The Article Pipeline
 
 Most "read later" workflows are where articles go to die. This pipeline makes articles as actionable as videos:
 
@@ -186,15 +191,17 @@ The intent slot has a 15-second cooldown enforced the same way — `prd_intent_c
 ## Tech Stack
 
 ```
-Web:          FastAPI + uvicorn
+Backend:      FastAPI + uvicorn
+Frontend:     Next.js 14 App Router (web/, Vercel) — Tailwind, Milkdown Crepe, react-force-graph
 State:        SQLite (aiosqlite, WAL mode) + Redis
-AI:           Gemini 2.5 Flash (vision, text, article), 2.5 Pro (PRD intent), text-embedding-004
-Content:      yt-dlp (download), youtube-transcript-api (captions), ffmpeg (frames), Jina Reader (articles)
-Storage:      Google Drive API v3, Google Sheets API v4
+AI:           Gemini 2.5 Flash (vision, text, article, repo, document), 2.5 Pro (PRD intent), text-embedding-004
+Content:      yt-dlp (download), youtube-transcript-api (captions), ffmpeg (frames), Jina Reader (articles),
+              GitHub REST API (repos), liteparse (PDF)
+Storage:      Google Drive API v3, Google Sheets API v4, Google Cloud Storage (content-addressed PDFs)
 Search:       Brave Search API (link verification), NumPy (cosine similarity)
-Bot:          Telegram Bot API (raw httpx, no wrapper library)
-Deploy:       Docker Compose (api + worker + redis; transcript sidecar on host)
-Tests:        pytest + pytest-asyncio (159 passing)
+Bots:         Telegram Bot API (raw httpx, no wrapper library) — main bot + Ops bot
+Deploy:       Docker Compose (api + worker + transcript-service + redis + cloudflared); frontend on Vercel
+Tests:        pytest + pytest-asyncio (backend), Vitest + RTL + MSW (web)
 ```
 
 ---
@@ -229,7 +236,8 @@ Optional: `GEMINI_PAID_API_KEY`, `BRAVE_API_KEY`, `GITHUB_TOKEN`, `JINA_API_KEY`
 | `/freestyle <url>` | Process any URL with a custom Gemini prompt |
 | `/force <url>` | Bypass dedup + invalidate markdown cache, reprocess from scratch |
 | `/spec <suffix> [intent]` | Generate or regenerate Mini-PRD for a job (last 4 chars of job ID) |
-| `/allowlist <domain>` | Add a domain to the article pipeline for this chat |
+| `/allowlist <domain>` | Add a domain to the article pipeline for this chat (`/unallowlist`, `/allowlist_list` to manage) |
+| `/ignore <domain>` | Block a domain from short-video link extraction |
 | `/download_md <url>` | Fetch any URL as clean Markdown via Jina (no job, no Brain ingest) |
 | `/rebuild-graph` | Recompute all Second Brain `.md` nodes |
 | `/cancel` | Clear any armed chat state (awaiting_freestyle / awaiting_intent) |
@@ -244,18 +252,26 @@ src/
 ├── worker.py                # asyncio dispatch loop + boot-time reapers
 ├── database.py              # SQLite schema, PRAGMA migrations, all CRUD
 ├── brain.py                 # Second Brain: ingest, search, rebuild, refresh
+├── api/                     # Dashboard JSON API — jobs, brain, spaces, templates,
+│                            # controls, parsed (Doc Parser), preview, auth, google_oauth
+├── auth/                    # Login-Widget HMAC verify, Redis sessions, /api/* middleware
 ├── processors/
 │   ├── short_video.py       # Frames → Gemini Vision → Brave → Drive
 │   ├── long_video.py        # Transcript → Drive → Phase 1 delivery
 │   ├── enrichment.py        # Gemini text enrichment (Phase 2)
 │   ├── prd.py               # Mini-PRD: run_auto + run_intent (Phase 3)
-│   └── article.py           # Jina → paywall → Gemini → Sheets → Brain
+│   ├── article.py           # Jina → paywall → Gemini → Sheets → Brain
+│   ├── repo.py              # GitHub bundle → Gemini structured analysis
+│   └── document.py          # liteparse PDF → GCS cache → Gemini enrichment
 ├── services/
 │   ├── gemini_client.py     # free→paid fallback loop, GeminiUnavailableError
+│   ├── jobs.py              # create_and_enqueue_job() shared core (ADR-0033)
+│   ├── ops_bot.py           # Ops bot: user/invite administration (ADR-0036)
 │   ├── jina.py              # Jina Reader API client
 │   ├── drive.py             # Drive upload + in-place update
-│   ├── sheets.py            # Sheets append (4 tabs) + article row update
+│   ├── sheets.py            # Sheets append (5 tabs) + article row update
 │   ├── github.py            # GitHub metadata + Redis cache (24h TTL)
+│   ├── storage.py           # GCS content-addressed blob store
 │   └── brave.py             # Brave Search link verification
 ├── telegram/
 │   ├── webhook.py           # Dispatch tables, URL routing, chat_state FSM
@@ -264,6 +280,8 @@ src/
     ├── validators.py        # detect_pipeline, ARTICLE_DEFAULT_DOMAINS
     └── logger.py            # structlog JSON
 
-tests/                       # 159 tests, pytest-asyncio
+web/                         # Next.js 14 dashboard — feed, brain, spaces, prompts,
+                             # controls, jobs/[id], doc-parser + landing/login/restricted
+tests/                       # pytest + pytest-asyncio
 transcript_server.py         # Flask+Waitress sidecar :5151 (yt-dlp + ffmpeg)
 ```

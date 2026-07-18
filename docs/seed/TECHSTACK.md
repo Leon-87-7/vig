@@ -1,6 +1,6 @@
 # Video Intelligence Gateway — Tech Stack
 
-**Last Updated:** 2026-06-18  
+**Last Updated:** 2026-07-18  
 **Rule:** Every technology earns its place. This document records what's here, why it was chosen over the alternatives, and the concrete signal that should trigger a replacement.
 
 ---
@@ -20,6 +20,7 @@
 | AI — Embeddings                 | text-embedding-004      | —                         |
 | AI enrichment fallback          | Gemini Paid API key     | —                         |
 | Article markdown fetch          | Jina Reader API         | —                         |
+| Repo metadata                   | GitHub REST API         | —                         |
 | Link verification               | Brave Search API        | —                         |
 | File storage                    | Google Drive API v3     | —                         |
 | Reporting                       | Google Sheets API v4    | —                         |
@@ -33,14 +34,18 @@
 | Object storage (documents)      | Google Cloud Storage    | S3 / R2                   |
 | JSON repair (LLM output)       | json-repair             | —                         |
 | Vector math                     | NumPy                   | pgvector / Qdrant         |
-| Deployment                      | Docker Compose          | —                         |
-| Testing                         | pytest + pytest-asyncio | —                         |
+| Deployment (backend)            | Docker Compose + cloudflared | —                    |
+| Testing (backend)               | pytest + pytest-asyncio | —                         |
+| Web frontend                    | Next.js 14 (App Router) | —                         |
+| Web hosting                     | Vercel                  | —                         |
+| Web markdown editing            | Milkdown Crepe          | —                         |
+| Web testing                     | Vitest + RTL + MSW      | —                         |
 
 ---
 
 ## 1. Web Framework — FastAPI
 
-**What:** Async Python web framework. Handles the `/webhook`, `/callback`, `/health`, `/links/search`, and `/links/rebuild` endpoints.
+**What:** Async Python web framework. Hosts the Telegram webhook (`/webhook`), the ops-bot webhook (`/webhook/ops`), `/health`, and the session-gated dashboard JSON API under `/api/*` (jobs, brain, spaces, templates, controls, parsed, preview, auth, google_oauth).
 
 **Why here:**
 
@@ -53,7 +58,7 @@
 
 **Why not Django:** Too heavy. Django's ORM, admin, migrations, and settings system are all overhead for a bot with five endpoints.
 
-**Switch when:** Never for this project's scope. If the bot grew into a multi-tenant SaaS with a web dashboard, session management, and server-side rendering, Django REST Framework or a full Next.js backend would be a better fit.
+**Switch when:** Never for this project's scope. The web dashboard arrived as a separate Next.js frontend (see §24) talking to this same FastAPI service — session management is Redis-backed middleware (ADR-0016), so FastAPI stays the single backend.
 
 ---
 
@@ -388,13 +393,14 @@ Files are shared "anyone with link" (reader). The shareable URL is sent to the u
 
 ## 19. Deployment — Docker Compose
 
-**What:** Three-container setup: `api` (FastAPI + APScheduler), `worker` (background job processor), `redis`. All share a `video-bot-network` bridge network and mount `./data` and `./logs` volumes.
+**What:** Compose runs `api` (FastAPI + APScheduler), `worker` (background job processor), `transcript-service` (containerised sidecar, built from source), `redis`, and `cloudflared` (Cloudflare Tunnel exposing the webhook without opening ports). The production web frontend is **not** in Compose — it's served by Vercel (the local `web` service is commented out).
 
 **Why here:**
 
-- `docker-compose up -d` is the entire deployment. No systemd units, no manual process management.
+- `docker-compose up -d` is the entire backend deployment. No systemd units, no manual process management.
 - Worker can be scaled independently of the API: `docker-compose up --scale worker=3`.
-- `transcript_server.py` runs outside Docker (on the host machine), accessed via `host.docker.internal:5151` from inside containers.
+- `transcript_server.py` can alternatively run on the host, accessed via `host.docker.internal:5151` from inside containers.
+- cloudflared gives a stable public HTTPS hostname for the Telegram webhook with zero inbound firewall rules.
 
 **Switch when:** Moving to a cloud provider. At that point: push images to a container registry, replace Compose with ECS Task Definitions or a Kubernetes Deployment. The Docker images themselves don't change — only the orchestration layer.
 
@@ -469,6 +475,40 @@ Objects are keyed by SHA-256 of the PDF bytes. The parse cache is shared across 
 **Why not manual regex cleanup:** The existing `_extract_json` function already strips markdown fences and finds the JSON object boundary. But structural errors (mismatched brackets, trailing commas inside arrays) need a real parser — regex can't handle nested structures reliably.
 
 **Switch when:** Never likely at this scale. If Gemini's structured output mode becomes fully reliable (zero parse failures over 30 days), the `repair_json` fallback becomes dead code and can be removed — but it costs nothing to keep.
+
+---
+
+## 24. Web Frontend — Next.js 14 + Vercel
+
+**What:** The dashboard ("The Operator's Console", Ownix design system — ADR-0034) is a Next.js 14 App Router app under `web/`. Vercel serves it in production; it talks to FastAPI through relative `/api/*` paths so the session cookie stays first-party (ADR-0016). Styling is Tailwind against the `DESIGN.md` token system; `@milkdown/crepe` provides the WYSIWYG markdown editor for notes and context blobs (ADR-0018); `react-force-graph-2d` renders the brain graph.
+
+**Why here:**
+
+- App Router gives server components for the read-heavy pages and route handlers for the thin proxy layer — no second backend.
+- Vercel removed the self-hosted `web` container: preview deploys per PR, zero ops. The `docker-compose.yml` `web` service remains commented out for local full-stack runs.
+- `NEXT_PUBLIC_API_MOCK=1` runs the whole dashboard against MSW mock handlers (`web/lib/mocks/`) — demo mode without a backend.
+
+**Switch when:** Vercel pricing or vendor coupling becomes a problem — the app is a standard Next.js build, `next build` output can move to any Node host or back into Compose.
+
+---
+
+## 25. Web Testing — Vitest + React Testing Library + MSW
+
+**What:** Colocated `.test.tsx` beside each component; Vitest as runner, RTL for behavioral assertions, MSW for network-level API mocking (same handlers double as demo mode).
+
+**Why here:** Vitest shares the Vite pipeline Next uses in dev (fast, ESM-native); MSW mocks at the fetch boundary so tests exercise real data-fetching code paths instead of stubbing hooks.
+
+**Switch when:** Never likely — this is the standard React testing stack.
+
+---
+
+## 26. Repo Metadata — GitHub REST API
+
+**What:** `services/github.py` — repo pipeline bundle (README + prioritized file tree + package manifests + stars/forks/language) and photo-pipeline repo enrichment, Redis-cached 24h. Optional `GITHUB_TOKEN` raises rate limits.
+
+**Why here:** The REST API returns clean structured data where Jina-scraping github.com returns rendered-page noise (ADR-0014). Works unauthenticated for public repos.
+
+**Switch when:** Never for public-repo analysis. GraphQL only if bundle assembly needs to collapse N REST calls into one.
 
 ---
 

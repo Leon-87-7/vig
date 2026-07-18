@@ -1,8 +1,8 @@
 # Video Intelligence Gateway — Architecture
 
-**Version:** 2.2  
-**Last Updated:** 2026-05-28  
-**Status:** Updated to match PRD v2.2 (adds Article pipeline, Jina/allowlist layer, Sheets consolidation)
+**Version:** 2.3  
+**Last Updated:** 2026-07-18  
+**Status:** Updated for repo + document pipelines, the web dashboard ("The Operator's Console", Ownix design system), dashboard job submission, the ops bot, and link identity/tags. Diagrams in §1–§8 describe the Telegram pipelines and remain accurate for that scope; §6b–§6d cover the newer surfaces.
 
 ---
 
@@ -34,7 +34,7 @@ graph TB
         SP_GEMINI[Gemini 2.5 Flash\nVision API]
         SP_BRAVE[Brave Search API\noptional link verify]
         SP_DRIVE[Drive upload\nDRIVE_FOLDER_SHORT]
-        SP_SHEETS[Sheets append\nSHEETS_ID_SHORT]
+        SP_SHEETS[Sheets append\nShort Video Analysis tab]
     end
 
     subgraph "Long Pipeline — Phase 1"
@@ -42,7 +42,7 @@ graph TB
         LP_META[GET /metadata\ntranscript_server.py :5151]
         LP_LINKS[Description link\nextraction]
         LP_DRIVE[Drive upload\nDRIVE_FOLDER_LONG]
-        LP_SHEETS[Sheets append\nSHEETS_ID_LONG]
+        LP_SHEETS[Sheets append\nYouTube Transcript Index tab]
     end
 
     subgraph "Long Pipeline — Phase 2 \n user-gated"
@@ -54,7 +54,7 @@ graph TB
         PRD_AUTO[prd_auto slot\nGemini 2.5 Flash\nfree → paid fallback]
         PRD_INTENT[prd_intent slot\nGemini 2.5 Pro\nfree → paid fallback]
         PRD_DRIVE[Drive upload\nDRIVE_FOLDER_PRD]
-        PRD_SHEETS[Sheets append\nSHEETS_ID_PRD]
+        PRD_SHEETS[Sheets append\nmini PRD tab]
         PRD_CHAT[chat_state\nawaiting_intent\n10-min window]
     end
 
@@ -133,9 +133,13 @@ flowchart TD
     R4 -->|yes| LONG[long pipeline]
     R4 -->|no| R5{youtu.be/ ?}
     R5 -->|yes| LONG
-    R5 -->|no| R6{host in ARTICLE_DEFAULT_DOMAINS\nor allowed_domains for this chat?}
-    R6 -->|yes| ART[article pipeline]
-    R6 -->|no| REJ[rejected\nno job created\nbot replies unsupported]
+    R5 -->|no| R6{github.com/owner/repo ?}
+    R6 -->|yes| REPO[repo pipeline]
+    R6 -->|no| R7{path ends .pdf ?}
+    R7 -->|yes| DOC[document pipeline]
+    R7 -->|no| R8{host in ARTICLE_DEFAULT_DOMAINS\nor allowed_domains for this chat?}
+    R8 -->|yes| ART[article pipeline]
+    R8 -->|no| REJ[rejected\nno job created\nbot replies unsupported]
 ```
 
 | Pattern                         | Pipeline | Notes                 |
@@ -145,6 +149,8 @@ flowchart TD
 | `tiktok.com/@{user}/video/{id}` | short    | TikTok video          |
 | `youtube.com/watch?v={id}`      | long     | Standard YouTube      |
 | `youtu.be/{id}`                 | long     | YouTube short-link    |
+| `github.com/{owner}/{repo}`     | repo     | Gists / enterprise hosts rejected (ADR-0014) |
+| any URL with path ending `.pdf` | document | Also PDF file uploads (ADR-0023) |
 | domain in `ARTICLE_DEFAULT_DOMAINS` or per-chat `allowed_domains` | article | Substack, Medium, dev.to, etc. |
 | `instagram.com/p/{id}`          | rejected | Carousel / photo post |
 | anything else                   | rejected | No job created        |
@@ -159,14 +165,15 @@ stateDiagram-v2
     pending --> processing: worker picks up
     processing --> transcript_done: long video only\nPhase 1 complete\ntranscript uploaded to Drive
     transcript_done --> enriching: user clicks ✨ Run Gemini
-    transcript_done --> complete: user clicks 👎 No Thanks
-    enriching --> complete: enrichment message sent
+    transcript_done --> done: user clicks 👎 No Thanks
+    enriching --> done: enrichment message sent
     enriching --> error: both Gemini keys failed
-    processing --> complete: short video done
+    processing --> done: short / article / repo / document done\n(no intermediate states)
     processing --> error: unrecoverable failure
+    processing --> cancelled: user / recovery cancel
     error --> pending: user clicks 🔄 Retry\n(attempt < 3)
     error --> [*]: max retries reached
-    complete --> [*]
+    done --> [*]
 ```
 
 **Job ID format:** `YYYYMMDD_HHMMSS_XXXX` (e.g. `20260516_143022_A3F9`)
@@ -503,6 +510,38 @@ sequenceDiagram
 
 ---
 
+## 6b. Repo Pipeline (ADR-0014, ADR-0021)
+
+`github.com/<owner>/<repo>` URLs route to `processors/repo.py`:
+
+1. `services/github.py` builds a REST bundle — README + prioritized file tree + package manifests + stars/forks/language (Redis-cached 24h, `github_meta:{owner}/{repo}`).
+2. Gemini 2.5 Flash structured analysis: tagline, tech stack, developer use-cases, educational concepts with file-pointed curriculum hooks.
+3. Output: `.md` document → Drive, row → `Repo Analysis` Sheets tab, links → Brain, Telegram delivery.
+
+Archived and missing-README repos are handled; gists and enterprise hosts are rejected at routing. Repos extracted from *other* results (photo OCR, short-video links) are offered as follow-up repo jobs via `services/repo_followup.py`, which calls the shared `create_and_enqueue_job()` core (ADR-0033).
+
+---
+
+## 6c. Document Pipeline (ADR-0023)
+
+PDF documents arrive as file uploads or `.pdf` URLs (`services/pdf_intake.py` owns the trust boundary: magic-byte/size validation, SSRF guard, capped fetch):
+
+1. liteparse text extraction (`services/parse.py`), content-addressed GCS cache — `documents/<sha256>.pdf` source, `parsed/<sha256>.txt` extraction cache shared across tenants.
+2. Gemini enrichment: title, author, document type, key points, references, tools.
+3. Telegram delivery: parsed `.txt` document + enrichment summary. No Drive upload.
+
+The same parse machinery backs the dashboard **Doc Parser** page via `src/api/parsed.py` (ADR-0029), with outputs in the `document_outputs` table.
+
+---
+
+## 6d. Web Dashboard & Ops Bot
+
+The **web dashboard** ("The Operator's Console", Ownix design system — ADR-0034) is a Next.js 14 App Router app under `web/`, served by Vercel in production, talking to the FastAPI dashboard API (`src/api/`) through the session-cookie middleware (`src/auth/`, ADR-0016). Pages: feed (server-resolved thumbnails, ADR-0025), job detail, brain graph, spaces, prompts, controls, doc-parser (ADR-0029), plus a public landing funnel, restricted-mode read-only preview (ADR-0035), and invite-gated onboarding (ADR-0031). The dashboard also **submits** jobs (`POST /api/jobs`, ADR-0032) through the shared job-creation core (ADR-0033) — it is no longer read-only. Full spec: `WEB-PRD.md`.
+
+The **ops bot** (ADR-0036) is a second Telegram bot on `/webhook/ops` (`services/ops_bot.py`) giving the operator user/invite administration — approving invite requests surfaced by `services/invite_notifications.py` — without touching the main bot.
+
+---
+
 ## 7. Description Link Extraction
 
 Runs during Long Pipeline Phase 1 on the video description field. Ported from `scripts/extract-description-links.js`.
@@ -633,49 +672,61 @@ Both are env-var configurable. The discrepancy (LAN IP vs Docker alias) is inher
 
 ```
 src/
-├── main.py                  # FastAPI app, startup hooks, APScheduler registration
-├── config.py                # pydantic-settings BaseSettings, all env vars
-├── database.py              # SQLite schema (jobs + links), CRUD, aiosqlite
-├── queue.py                 # Redis brpop/lpush wrapper; asyncio.Queue fallback
-├── worker.py                # job dispatch loop; routes to short/long pipeline
-├── telegram/
-│   ├── webhook.py           # POST /webhook — chat_state check first, then slash commands, then URL routing
-│   ├── callback.py          # POST /callback — Run Gemini / No Thanks / Retry / Build Spec / sub-menu
-│   ├── commands.py          # /spec, /cancel, /start, /help handlers
-│   └── sender.py            # sendMessage, sendPhoto, sendDocument, ForceReply helpers
+├── main.py              # FastAPI app, APScheduler (brain refresh Sun/Wed 09:00 UTC)
+├── worker.py            # Task dispatch loop, boot-time reapers
+├── database.py          # SQLite schema + PRAGMA user_version migrations + all CRUD
+├── brain.py             # Second Brain: ingest / search / rebuild / refresh
+├── queue.py             # Redis brpop/lpush wrapper
+├── config.py            # pydantic-settings, all env vars
+├── api/                 # Dashboard JSON API (session-gated)
+│   ├── jobs.py          # List / stats / detail / annotations / tags + POST /api/jobs (ADR-0032)
+│   ├── brain.py         # /api/brain/search + /api/brain/rebuild
+│   ├── spaces.py        # Spaces CRUD + URLs + context blobs + export
+│   ├── templates.py     # User-defined enrichment templates (ADR-0019)
+│   ├── controls.py      # Allowed/ignored domains + tags CRUD
+│   ├── parsed.py        # Doc Parser page API (ADR-0029)
+│   ├── preview.py       # Restricted-mode read-only preview (ADR-0035)
+│   ├── auth.py          # Telegram Login Widget → session cookie
+│   └── google_oauth.py  # Per-user Google OAuth connect (ADR-0030)
+├── auth/
+│   ├── hmac_verify.py   # Pure Login-Widget HMAC verifier
+│   ├── session.py       # Redis opaque session store (ADR-0016)
+│   ├── middleware.py    # /api/* session gate
+│   └── telegram_miniapp.py  # Mini App initData verification
 ├── processors/
-│   ├── short_video.py       # frame extraction → Gemini Vision → Brave → Drive
-│   ├── long_video.py        # transcript+metadata → link extract → Drive → Phase 1 messages
-│   ├── enrichment.py        # Gemini Text enrichment (Phase 2); free→paid fallback;
-│   │                        # tail-call enqueues prd_auto if Technical Tutorial; fire-and-forget brain ingest
-│   ├── prd.py               # Mini-PRD generator (Phase 3): run_auto() + run_intent(intent_text);
-│   │                        # builds prompt with optional enrichment scaffolding, samples transcript at 60k cap,
-│   │                        # calls Flash (auto) or Pro (intent), renders markdown, writes Drive, appends Sheet,
-│   │                        # fires brain.ingest_links(tech_stack[])
-│   ├── article.py           # Article pipeline: Jina/cache → paywall heuristic → sendDocument → Gemini Flash
-│   │                        # → Sheets append/update → Telegram enrichment + Freestyle button → brain ingest
-│   └── gemini.py            # Gemini SDK client (Vision, Text, Embedding) — exposes responseSchema mode
-├── services/
-│   ├── frames.py            # GET /short_frames client
-│   ├── transcript.py        # GET /transcript + /metadata clients
-│   ├── drive.py             # Google Drive upload/update helpers (cached drive_file_id per slot)
-│   ├── sheets.py            # Google Sheets append (short + long + prd + article); _append_sync returns row index;
-│   │                        # _update_sync for in-place article row overwrite
-│   ├── jina.py              # Jina Reader API client — fetch_markdown(url) → (title, body); optional Bearer auth
-│   └── brave.py             # Brave Search API client
-├── brain.py                 # Second Brain: ingest, search, rebuild, refresh
-└── utils/
-    ├── logger.py            # structlog JSON config
-    ├── validators.py        # detect_pipeline(), is_valid_url()
-    └── markdown.py          # build_transcript_markdown(), build_prd_markdown(), slugify()
+│   ├── short_video.py   # Frames → Vision → Brave → Drive + guaranteed transcript tail (ADR-0020)
+│   ├── long_video.py    # Transcript + metadata → Drive → Phase 1
+│   ├── enrichment.py    # Gemini text enrichment, Phase 2
+│   ├── prd.py           # Mini-PRD: run_auto / run_intent / run_auto_resend
+│   ├── article.py       # Jina → cache → paywall → Gemini → Sheets → Brain
+│   ├── repo.py          # GitHub bundle → Gemini structured analysis → Sheets → Brain
+│   └── document.py      # PDF parse (liteparse) → GCS cache → Gemini enrichment
+├── services/            # One module per external surface — see MODULE_MAP.md for the full table
+│   ├── gemini_client.py # free→paid fallback, GeminiUnavailableError
+│   ├── jobs.py          # create_and_enqueue_job() shared core (ADR-0033)
+│   ├── ops_bot.py       # Ops bot command handlers (ADR-0036)
+│   ├── github.py        # GitHub metadata + Redis cache
+│   ├── storage.py       # GCS content-addressed blob store
+│   └── …                # drive, sheets, jina, brave, transcript, frames, gemini, gemini_photo,
+│                        # google_auth/tokens/workspace, pdf_intake, parse, space_export,
+│                        # job_recovery, repo_followup, invite_notifications
+├── telegram/
+│   ├── webhook.py       # POST /webhook — URL routing, chat_state FSM, dispatch tables
+│   └── sender.py        # sendMessage, sendDocument, sendPhoto, ForceReply, inline keyboards
+├── utils/               # validators (detect_pipeline), markdown, logger
+├── templates.py         # PROMPT_TEMPLATES registry
+├── analysis.py          # extract_key_phrases
+└── validation.py        # validate_template_choice
 
-transcript_server.py         # Existing sidecar — Flask+Waitress :5151
-scripts/
-├── extract-description-links.js    # Logic reference (ported to utils/validators.py)
-├── parse-python-response.js        # Transcript .md format reference
-├── update-workflow-add-topic.js    # Gemini prompt reference (ported to enrichment.py)
-├── update-workflow-anthropic-fallback.js  # n8n-only; NOT ported
-└── apps-script-in-sheet.js        # Google Sheets Apps Script; manual maintenance tool
+tests/                   # pytest + pytest-asyncio
+transcript_server.py     # Flask+Waitress sidecar :5151 (yt-dlp + ffmpeg + youtube-transcript-api)
+
+web/                     # Next.js 14 dashboard — "The Operator's Console" (Ownix design system)
+├── app/(dashboard)/     # feed, brain, spaces, prompts, controls, jobs/[id], doc-parser
+├── app/                 # landing, login, privacy, terms, restricted, mini
+├── middleware.ts        # Session gate
+├── components/<area>/   # shell / ui / feed / doc-parser / brain / spaces / landing / svg
+└── lib/                 # data hooks, mocks (MSW), utilities
 ```
 
 ---
@@ -721,11 +772,11 @@ Enrichment tries `GEMINI_FREE_API_KEY` first, then `GEMINI_PAID_API_KEY`. Double
 - **Why:** Free tier handles most traffic; paid key is a safety net for rate-limited bursts.
 - **Note:** The n8n workflow had an Anthropic fallback (`update-workflow-anthropic-fallback.js`). This is **not ported** — the Python replacement uses a second Gemini key instead.
 
-### D6 — Separate Drive folders and Sheets per pipeline
+### D6 — Separate Drive folders per pipeline, one Sheets workbook with named tabs
 
-`DRIVE_FOLDER_SHORT` / `DRIVE_FOLDER_LONG` and `SHEETS_ID_SHORT` / `SHEETS_ID_LONG`.
+`DRIVE_FOLDER_SHORT` / `DRIVE_FOLDER_LONG` / `DRIVE_FOLDER_BRAIN` / `DRIVE_FOLDER_PRD`, and a single `GOOGLE_SHEETS_ID` workbook with five tabs (`YouTube Transcript Index`, `Short Video Analysis`, `Article Analysis`, `Repo Analysis`, `mini PRD`) — tab routing enforced in `services/sheets.py` (ADR-0013).
 
-- **Why:** Preserves the existing n8n folder/sheet structure. Short and long outputs have different schemas (short has platform/frame data; long has transcript + AI enrichment fields).
+- **Why:** Drive folders preserve the existing n8n structure; consolidating Sheets into one workbook replaced three `SHEETS_ID_*` env vars with named tabs, so adding a pipeline no longer adds config.
 - **Switch when:** Merging pipelines into a unified output schema.
 
 ### D7 — Second Brain as fire-and-forget
@@ -760,7 +811,7 @@ Adds a third AI call that produces a structured implementable spec (Project / Go
 
 | Aspect             | n8n Workflow                   | Python Service                                      |
 | ------------------ | ------------------------------ | --------------------------------------------------- |
-| Component count    | 60+ visual nodes               | ~15 Python modules                                  |
+| Component count    | 60+ visual nodes               | ~45 Python modules + Next.js dashboard              |
 | State management   | Google Sheets                  | SQLite (`jobs` + `links`)                           |
 | Gemini fallback    | Anthropic `claude-sonnet-4-5`  | Paid Gemini API key                                 |
 | Transcript service | `host.docker.internal:5151`    | `TRANSCRIPT_SERVICE_URL` env var                    |
@@ -771,6 +822,9 @@ Adds a third AI call that produces a structured implementable spec (Project / Go
 | Testing            | Manual                         | Unit + integration                                  |
 | Second Brain       | Not present                    | `brain.py` module                                   |
 | Mini-PRD           | Not present                    | `processors/prd.py` — two-slot, auto-fire + `/spec` |
+| Repo / PDF pipelines | Not present                  | `processors/repo.py` + `processors/document.py`     |
+| Web dashboard      | Not present                    | Next.js 14 under `web/` (Vercel) + `src/api/`       |
+| User administration | Not present                   | Ops bot (`/webhook/ops`, ADR-0036) + invite gate    |
 
 ---
 
@@ -799,5 +853,5 @@ Stage 4: managed Redis + PostgreSQL RDS + containerised transcript_server.py fle
 
 ---
 
-**Diagram Version:** 2.1  
-**Last Updated:** 2026-05-17
+**Diagram Version:** 2.3  
+**Last Updated:** 2026-07-18

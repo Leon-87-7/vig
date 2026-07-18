@@ -2,16 +2,16 @@
 
 ## Document Information
 
-- **Version:** 1.0
-- **Last Updated:** May 11, 2026
+- **Version:** 1.1
+- **Last Updated:** July 18, 2026
 - **Author:** Leon Eidelman (Technical Architecture)
-- **Status:** Draft for Implementation
+- **Status:** Implemented (core bot spec — §1–§16)
 - **Project Type:** Portfolio + Personal Tool
 
-- **Relevant Files:**
-- "C:\Users\leone\Desktop\codeKitchen\yt_scrap\The Video Intelligence Gateway \_\_prod.json"
-- "C:\Users\leone\Desktop\codeKitchen\yt_scrap\transcript_server.py"
-- "C:\Users\leone\n8n-local\docker-compose.yml"
+- **Scope note:** This PRD covers the Telegram bot core (video/article pipelines, Second Brain,
+  Mini-PRD, photo link extraction). Later features are specced elsewhere: the web dashboard in
+  `WEB-PRD.md`; repo/document pipelines, photo batching, ops bot, restricted preview, invite
+  gate, and link identity/tags in `docs/adr/` (0014/0021, 0023, 0024, 0036, 0035, 0031) + `CONTEXT.md`.
 
 ---
 

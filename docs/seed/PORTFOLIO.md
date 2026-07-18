@@ -1,5 +1,10 @@
 # Portfolio Project Guide: Video Intelligence Gateway
 
+> **Snapshot note (2026-07-18):** This guide was written 2026-05-22, before the web
+> dashboard, repo/document pipelines, ops bot, and Ownix rebrand. Its advice register
+> is unchanged, but for current system facts use `README.md`, `ARCHITECTURE.md`, and
+> `MODULE_MAP.md` in this folder.
+
 ## What Hiring Managers Actually Look For
 
 This document answers the question: **"What should I be asking if this is a portfolio project?"**

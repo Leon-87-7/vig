@@ -9,6 +9,36 @@
 
 ---
 
+## Implementation Status (2026-07-18)
+
+✅ **All phases 0–12 shipped.** This document is the original MVP spec and is kept
+as the requirements baseline; the built dashboard has since evolved past it in
+these ways (each governed by its own ADR):
+
+- **No longer read-mostly** — the dashboard submits new jobs via `POST /api/jobs`
+  (ADR-0032) through the shared job-creation core (ADR-0033).
+- **Design system** — shadcn/ui defaults were replaced by the **Ownix** design
+  system, "The Operator's Console" (ADR-0034; normative tokens in root `DESIGN.md`).
+- **Hosting** — production frontend is served by **Vercel**, not the
+  docker-compose `web` service (which is commented out, kept for local runs).
+- **New pages beyond the original eight** — public landing funnel, **Doc Parser**
+  (ADR-0029), **Restricted-mode** read-only preview (ADR-0035), Telegram Mini App
+  route (`/mini`), privacy/terms.
+- **Onboarding** — invite gate + one-click invite approvals (ADR-0031), with
+  operator-side administration moved to the **Ops bot** (ADR-0036).
+- **Per-user Google OAuth** — exports use each user's own Drive credentials via an
+  encrypted token store + export gate (ADR-0030), superseding the single
+  `GOOGLE_DRIVE_FOLDER_EXPORTS` assumption below.
+- **Feed** — server-resolved thumbnails (ADR-0025), Links/Commands inventory IA,
+  command launcher (Ctrl+Shift+K).
+- **Brain** — links gained standalone identity and link-level tags (#381–#387);
+  graph shows derived edges + topic clusters (ADR-0028).
+
+The user stories, seams, schema, and testing decisions below remain the accurate
+record of the MVP contract.
+
+---
+
 ## Problem Statement
 
 Today every interaction with vig happens through Telegram. A user submits a URL,
