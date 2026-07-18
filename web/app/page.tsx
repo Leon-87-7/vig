@@ -102,7 +102,7 @@ export default function LandingPage() {
             widens the fade since the 960px wrap keeps text in the dark zone. */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-10 bg-[linear-gradient(115deg,rgba(13,14,16,0.95)_0%,rgba(13,14,16,0.86)_50%,rgba(13,14,16,0)_100%)] lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
+            className="absolute inset-0 -z-10 bg-[linear-gradient(115deg,rgba(13,14,16,0.75)_0%,rgba(13,14,16,0)_100%)] lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
           />
           <div className="mx-auto max-w-[960px] px-6">
             <p className="text-pretty hero-rise mb-4 text-sm font-medium text-muted">
