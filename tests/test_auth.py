@@ -185,6 +185,21 @@ class TestSessionStore:
 
         assert await session.redeem_handoff("no-such-token") is None
 
+    async def test_dashboard_handoff_redeems_chat_id_once(self, fake_redis: FakeRedis) -> None:
+        from src.auth import session
+
+        token = await session.mint_dashboard_handoff(42, ttl=3600)
+
+        assert await session.redeem_dashboard_handoff(token) == 42
+        assert await session.redeem_dashboard_handoff(token) is None
+
+    async def test_dashboard_handoff_rejects_corrupt_value(self, fake_redis: FakeRedis) -> None:
+        from src.auth import session
+
+        fake_redis._store["dashboard_handoff:bad-token"] = "not-a-chat-id"
+
+        assert await session.redeem_dashboard_handoff("bad-token") is None
+
 
 # ---------------------------------------------------------------------------
 # Session middleware + auth router (integration via TestClient)
@@ -342,6 +357,76 @@ class TestSessionMiddleware:
         resp = auth_client.post("/api/auth/telegram", json={"bad": "data"})
         # 422 = FastAPI schema validation (missing fields) — middleware did not block it
         assert resp.status_code == 422
+
+    def test_dashboard_handoff_mints_session_on_redeem(self, auth_client: TestClient) -> None:
+        import src.auth.session as session_module
+        from src import database
+
+        asyncio.run(
+            database.upsert_user(
+                tg_id=4242,
+                username="dashboard_user",
+                first_name="Dash",
+                last_name=None,
+                photo_url="https://example.test/avatar.png",
+            )
+        )
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["dashboard_handoff:dash-token"] = "4242"
+
+        resp = auth_client.get(
+            "/api/auth/handoff",
+            params={"token": "dash-token", "job_id": "20260718_123456_AB12CD34"},
+            follow_redirects=False,
+        )
+
+        assert resp.status_code == 303, f"Unexpected: {resp.text}"
+        assert resp.headers["location"] == "/jobs/20260718_123456_AB12CD34"
+        assert "vig_session=" in resp.headers["set-cookie"]
+        assert "dashboard_handoff:dash-token" not in fr._store
+        session_values = [
+            json.loads(value) for key, value in fr._store.items() if key.startswith("session:")
+        ]
+        assert session_values == [
+            {
+                "id": 4242,
+                "first_name": "Dash",
+                "username": "dashboard_user",
+                "photo_url": "https://example.test/avatar.png",
+            }
+        ]
+
+    def test_dashboard_handoff_rejects_invalid_job_id_without_consuming_token(
+        self, auth_client: TestClient
+    ) -> None:
+        import src.auth.session as session_module
+
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["dashboard_handoff:dash-token"] = "4242"
+
+        resp = auth_client.get(
+            "/api/auth/handoff",
+            params={"token": "dash-token", "job_id": "../secret"},
+            follow_redirects=False,
+        )
+
+        assert resp.status_code == 400
+        assert fr._store["dashboard_handoff:dash-token"] == "4242"
+
+    def test_dashboard_button_row_mints_only_handoff_token(
+        self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.auth.session as session_module
+        from src.utils import dashboard_button_row
+
+        monkeypatch.setattr("src.config.settings.DASHBOARD_URL", "https://dash.example.test")
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+
+        row = asyncio.run(dashboard_button_row("20260718_123456_AB12CD34", 4242))
+
+        assert row[0][0]["url"].startswith("https://dash.example.test/api/auth/handoff?")
+        assert not any(key.startswith("session:") for key in fr._store)
+        assert len([key for key in fr._store if key.startswith("dashboard_handoff:")]) == 1
 
     def test_new_user_telegram_login_creates_pending_user(
         self, auth_client: TestClient, monkeypatch: pytest.MonkeyPatch
