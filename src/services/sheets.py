@@ -131,7 +131,7 @@ def _append_sync(tab_name: str, values: list, chat_id: int | None = None) -> int
     service = _build_service(chat_id)
     result = service.spreadsheets().values().append(
         spreadsheetId=user_sheet_id(chat_id) or settings.GOOGLE_SHEETS_ID,
-        range=f"{tab_name}!A1",
+        range=f"'{tab_name}'!A1",
         valueInputOption="USER_ENTERED",
         insertDataOption="INSERT_ROWS",
         body={"values": [values]},
@@ -146,7 +146,7 @@ def _update_sync(tab_name: str, row_idx: int, values: list, chat_id: int | None 
     service = _build_service(chat_id)
     service.spreadsheets().values().update(
         spreadsheetId=user_sheet_id(chat_id) or settings.GOOGLE_SHEETS_ID,
-        range=f"{tab_name}!A{row_idx}",
+        range=f"'{tab_name}'!A{row_idx}",
         valueInputOption="USER_ENTERED",
         body={"values": [values]},
     ).execute()
