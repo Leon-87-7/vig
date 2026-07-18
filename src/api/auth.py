@@ -133,6 +133,33 @@ async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
     return await _login_telegram_user(payload, response)
 
 
+@auth_router.get("/handoff")
+async def handoff_login(token: str, job_id: str, response: Response) -> RedirectResponse:
+    """Redeem a job-link handoff token and land the user straight on their job page.
+
+    Bypasses the Telegram Login Widget: it can't complete inside Telegram's own
+    in-app browser, so "Open in Dashboard" bot buttons carry this token instead
+    (minted in src/utils/dashboard_button_row). This route is same-origin-proxied
+    to the frontend (see web/next.config.js rewrites), so the Set-Cookie below
+    lands as first-party for the dashboard domain, exactly like /api/auth/telegram.
+    """
+    session_id = await session_store.redeem_handoff(token)
+    if session_id is None:
+        raise HTTPException(status_code=401, detail="This link has expired or was already used")
+
+    redirect = RedirectResponse(url=f"/jobs/{job_id}", status_code=303)
+    redirect.set_cookie(
+        key=COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite="lax",
+        max_age=_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return redirect
+
+
 @auth_router.post("/dev-login")
 async def dev_login(response: Response) -> dict:
     if not settings.DEV_LOGIN_ENABLED:

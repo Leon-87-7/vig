@@ -356,6 +356,6 @@ async def _transcript_phase(
     if transcript_text:
         await _deliver_transcript_doc(job, job_id, chat_id, platform, video_id, transcript_text)
 
-    dashboard_row = dashboard_button_row(job_id)
+    dashboard_row = await dashboard_button_row(job_id, chat_id)
     if dashboard_row:
         await send_inline_keyboard(chat_id, f"{tag}\nWhat's next?", buttons=dashboard_row)

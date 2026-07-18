@@ -94,20 +94,22 @@ async def revoke(session_id: str) -> None:
     log.info("session_revoked")
 
 
-async def mint_handoff(session_id: str) -> str:
+async def mint_handoff(session_id: str, ttl: int = _HANDOFF_TTL_SECONDS) -> str:
     """Create a short-lived, single-use token that redeems to session_id.
 
     Used when a session must cross into a context with no cookie access — Mini App
     openLink hands off to the system browser, a separate cookie jar. Putting the real
     session id in that URL would leak a long-lived, reusable credential via browser
-    history and server access logs; this token is single-use and expires in 60s.
+    history and server access logs; this token is single-use and expires after `ttl`
+    seconds (default 60s; job dashboard links use a longer ttl since they can sit
+    unread in chat history).
     """
     token = secrets.token_urlsafe(24)
     key = f"{_HANDOFF_PREFIX}{token}"
     if _use_memory():
-        _memory_set(key, session_id, ex=_HANDOFF_TTL_SECONDS)
+        _memory_set(key, session_id, ex=ttl)
     else:
-        await _client().set(key, session_id, ex=_HANDOFF_TTL_SECONDS)
+        await _client().set(key, session_id, ex=ttl)
     return token
 
 

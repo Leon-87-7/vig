@@ -523,7 +523,7 @@ async def run(job: dict) -> None:
     summary = f"{tag}\n{prefix}" + _format_summary_message(owner, repo, analysis, bundle)
     buttons = [
         [{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}],
-        *dashboard_button_row(job_id),
+        *await dashboard_button_row(job_id, chat_id),
     ]
     await send_inline_keyboard(chat_id, summary, buttons)
 

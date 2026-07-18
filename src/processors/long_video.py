@@ -133,6 +133,7 @@ async def run(job: dict) -> None:
     if bot_message_id:
         await database.update_job_status(job_id, "transcript_done", bot_message_id=bot_message_id)
     if job.get("template_detection_method") != "explicit_command":
+        dashboard_row = await dashboard_button_row(job_id, chat_id)
         await send_inline_keyboard(
             chat_id,
             f"{tag}\nRun Gemini analysis on this video?",
@@ -144,7 +145,7 @@ async def run(job: dict) -> None:
                 [
                     {"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"},
                 ],
-                *dashboard_button_row(job_id),
+                *dashboard_row,
             ],
         )
 

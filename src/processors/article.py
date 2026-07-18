@@ -335,12 +335,13 @@ async def run(job: dict, *, skip_document: bool = False) -> None:
     # 8. Telegram enrichment message + Freestyle button
     msg = _build_enrichment_message(refreshed or job, tools, promise_gap, paywall_warning)
     await send_message(chat_id, msg, parse_mode="HTML")
+    dashboard_row = await dashboard_button_row(job_id, chat_id)
     await send_inline_keyboard(
         chat_id,
         f"{tag}\nWhat's next?",
         buttons=[
             [{"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job_id}"}],
-            *dashboard_button_row(job_id),
+            *dashboard_row,
         ],
     )
     # Best-effort UX add-on — a follow-up failure must not block Brain ingest.
