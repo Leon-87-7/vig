@@ -79,7 +79,7 @@ export function PlatformGlyph({
     );
   }
 
-  const favicon = platform === "article" ? faviconUrl(url) : null;
+  const favicon = faviconUrl(url);
   if (favicon && !faviconFailed) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={favicon} alt="" width={size} height={size} onError={() => setFaviconFailed(true)} />;

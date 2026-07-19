@@ -291,7 +291,9 @@ describe('FeedPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /links/i }));
 
     await waitFor(() => {
-      expect(screen.getAllByText('https://example.com/canonical').length).toBeGreaterThan(0);
+      // Link rows show the trimmed URL (path only); the full URL lives in
+      // tooltip + expanded More panel.
+      expect(screen.getAllByText('/canonical').length).toBeGreaterThan(0);
     });
     expect(navigationMock.replace).toHaveBeenCalledWith('/feed?view=links', { scroll: false });
     expect(screen.queryByText('Jobs')).toBeNull();

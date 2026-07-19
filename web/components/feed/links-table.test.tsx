@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { render, screen } from '@/test/render';
 import { LinksTable } from '@/components/feed/links-table';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import type { UseLinksTableResult } from '@/lib/hooks/useLinksTable';
 
 const baseLink = {
@@ -41,6 +40,63 @@ function makeLinksData(link: typeof baseLink): UseLinksTableResult {
     hasNext: false,
   } as unknown as UseLinksTableResult;
 }
+
+describe('LinksTable trimmed URL row', () => {
+  it('shows pathname + query instead of the full URL', () => {
+    render(
+      <LinksTable
+        linksData={makeLinksData({
+          ...baseLink,
+          url: 'https://github.com/vercel-labs/skills?tab=readme',
+        })}
+      />,
+    );
+    expect(screen.getAllByText('/vercel-labs/skills?tab=readme').length).toBeGreaterThan(0);
+    // The full URL never renders as collapsed row text.
+    expect(
+      screen.queryByText('https://github.com/vercel-labs/skills?tab=readme'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to the hostname for bare-domain links', () => {
+    render(<LinksTable linksData={makeLinksData(baseLink)} />);
+    expect(screen.getAllByText('thenounproject.com').length).toBeGreaterThan(0);
+  });
+
+  it('renders a separate open-in-new-tab button alongside the URL anchor', () => {
+    render(<LinksTable linksData={makeLinksData(baseLink)} />);
+    expect(
+      screen.getAllByRole('link', {
+        name: 'Open https://thenounproject.com in a new tab',
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('reveals the full URL in the expanded More panel', async () => {
+    const user = userEvent.setup();
+    render(
+      <LinksTable
+        linksData={makeLinksData({
+          ...baseLink,
+          url: 'https://github.com/vercel-labs/skills',
+        })}
+      />,
+    );
+    await user.click(screen.getAllByRole('button', { name: 'More' })[0]);
+    expect(
+      screen.getAllByText('https://github.com/vercel-labs/skills').length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('renders a More button even when the link has no title or description', () => {
+    render(
+      <LinksTable
+        linksData={makeLinksData({ ...baseLink, title: null as unknown as string })}
+      />,
+    );
+    expect(screen.getAllByRole('button', { name: 'More' }).length).toBeGreaterThan(0);
+  });
+});
 
 describe('LinksTable standalone identity line', () => {
   it('shows title · description when the link has its own description', () => {
@@ -102,17 +158,15 @@ describe('LinkTagCluster', () => {
 
   it('renders name-less dots for attached tags, names only in the tooltip', () => {
     render(
-      <TooltipProvider>
-        <LinksTable
-          linksData={makeLinksData({
-            ...baseLink,
-            tags: [
-              { id: 't1', name: 'svg', color: '#f87171', meaning: 'vector art' },
-              { id: 't2', name: 'ui', color: '#60a5fa', meaning: '' },
-            ],
-          })}
-        />
-      </TooltipProvider>,
+      <LinksTable
+        linksData={makeLinksData({
+          ...baseLink,
+          tags: [
+            { id: 't1', name: 'svg', color: '#f87171', meaning: 'vector art' },
+            { id: 't2', name: 'ui', color: '#60a5fa', meaning: '' },
+          ],
+        })}
+      />,
     );
     const clusters = screen.getAllByRole('button', { name: 'Edit 2 link tags' });
     expect(clusters.length).toBeGreaterThan(0);
