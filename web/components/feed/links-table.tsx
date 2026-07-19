@@ -34,16 +34,15 @@ function safeUrl(url: string): string | undefined {
   }
 }
 /** Trimmed URL (CONTEXT.md): pathname + query, scheme and host dropped — the
- * favicon carries the domain. Bare-domain links show the hostname instead,
+ * favicon carries the domain. Root-domain links show the hostname and query,
  * since a favicon alone can't identify an unknown site. */
 function trimUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    const path = `${parsed.pathname}${parsed.search}`;
-    if (path === '' || path === '/') {
-      return parsed.hostname.replace(/^www\./, '');
+    if (parsed.pathname === '' || parsed.pathname === '/') {
+      return `${parsed.hostname.replace(/^www\./, '')}${parsed.search}`;
     }
-    return path;
+    return `${parsed.pathname}${parsed.search}`;
   } catch {
     return url;
   }
@@ -174,15 +173,12 @@ function LinkUrl({ link }: { link: LinkRow }) {
           <span className="min-w-0 truncate">{display}</span>
         </a>
       </Tooltip>
-      {/* Absorb leftover row width here so the open button sits flush against
-          the tag cluster instead of drifting mid-row on short URLs. */}
-      <span className="flex-1" />
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Open ${link.url} in a new tab`}
-        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-line text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-signal focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+        className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-line text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-signal focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
@@ -206,7 +202,7 @@ function TableCard({ link }: { link: LinkRow }) {
           {link.seen_count === 1 ? '' : 's'}
         </span>
       </div>
-      <div className="mt-2 font-mono">
+      <div className="mt-2">
         <LinkDetails link={link} />
       </div>
     </article>

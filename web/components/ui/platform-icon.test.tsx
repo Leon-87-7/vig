@@ -24,4 +24,13 @@ describe("platform icon helpers", () => {
 
     expect(document.querySelector("img,svg")).toBeTruthy();
   });
+
+  it("renders a favicon for an unknown non-article link", () => {
+    render(<PlatformGlyph url="https://example.com/resource" contentType="document" />);
+
+    expect(document.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://www.google.com/s2/favicons?domain=example.com&sz=32",
+    );
+  });
 });

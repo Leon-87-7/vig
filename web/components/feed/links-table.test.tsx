@@ -63,6 +63,38 @@ describe('LinksTable trimmed URL row', () => {
     expect(screen.getAllByText('thenounproject.com').length).toBeGreaterThan(0);
   });
 
+  it('keeps the hostname for root-domain links with a query string', () => {
+    render(
+      <LinksTable
+        linksData={makeLinksData({
+          ...baseLink,
+          url: 'https://example.com/?u=1',
+        })}
+      />,
+    );
+    expect(screen.getAllByText('example.com?u=1').length).toBeGreaterThan(0);
+    expect(screen.queryByText('/?u=1')).not.toBeInTheDocument();
+  });
+
+  it('provides the full URL in a tooltip for the trimmed URL', async () => {
+    const user = userEvent.setup();
+    render(
+      <LinksTable
+        linksData={makeLinksData({
+          ...baseLink,
+          url: 'https://github.com/vercel-labs/skills?tab=readme',
+        })}
+      />,
+    );
+
+    await user.hover(
+      screen.getAllByRole('link', { name: '/vercel-labs/skills?tab=readme' })[0],
+    );
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'https://github.com/vercel-labs/skills?tab=readme',
+    );
+  });
+
   it('renders a separate open-in-new-tab button alongside the URL anchor', () => {
     render(<LinksTable linksData={makeLinksData(baseLink)} />);
     expect(
