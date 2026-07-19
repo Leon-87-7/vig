@@ -1,7 +1,7 @@
 ---
 adr: "0037"
 title: Mobile onboarding storyboard via Rive scenes in Next.js
-status: accepted
+status: superseded by ADR-0038
 date: 2026-07-17
 ---
 
