@@ -525,12 +525,13 @@ async def run(job_id: str) -> None:
     for chunk in _split_message(msg):
         await send_message(chat_id, chunk, parse_mode="HTML")
 
+    dashboard_row = await dashboard_button_row(job_id, chat_id)
     await send_inline_keyboard(
         chat_id,
         f"{tag}\nWhat's next?",
         buttons=[
             [{"text": "📐 Build Spec", "callback_data": f"prd_build_spec:{job_id}"}],
-            *dashboard_button_row(job_id),
+            *dashboard_row,
         ],
     )
     # Best-effort UX add-on — a follow-up failure must not block completion.

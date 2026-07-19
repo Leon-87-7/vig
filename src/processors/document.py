@@ -151,6 +151,7 @@ async def _deliver(job: dict, text: str, tools: list[dict], references: list[str
     except Exception:
         log.exception("document.summary_delivery_failed", job_id=job["id"])
     try:
+        dashboard_row = await dashboard_button_row(job['id'], chat_id)
         await send_inline_keyboard(
             chat_id,
             f"{job_tag(job['id'])}\nWhat's next?",
@@ -159,7 +160,7 @@ async def _deliver(job: dict, text: str, tools: list[dict], references: list[str
                     {"text": "📄 Get Markdown", "callback_data": f"document_md:{job['id']}"},
                     {"text": "✍️ Freestyle", "callback_data": f"template_freestyle:{job['id']}"},
                 ],
-                *dashboard_button_row(job['id']),
+                *dashboard_row,
             ],
         )
     except Exception:

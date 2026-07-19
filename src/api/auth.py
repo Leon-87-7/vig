@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 import time
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -22,6 +23,7 @@ from src.utils.validators import normalize_email
 log = get_logger(__name__)
 
 _COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days
+_JOB_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 
 auth_router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -131,6 +133,48 @@ async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
         raise HTTPException(status_code=401, detail="Invalid Telegram auth payload")
 
     return await _login_telegram_user(payload, response)
+
+
+@auth_router.get("/handoff")
+async def handoff_login(token: str, job_id: str, response: Response) -> RedirectResponse:
+    """Redeem a job-link handoff token and land the user straight on their job page.
+
+    Bypasses the Telegram Login Widget: it can't complete inside Telegram's own
+    in-app browser, so "Open in Dashboard" bot buttons carry this token instead
+    (minted in src/utils/dashboard_button_row). This route is same-origin-proxied
+    to the frontend (see web/next.config.js rewrites), so the Set-Cookie below
+    lands as first-party for the dashboard domain, exactly like /api/auth/telegram.
+    """
+    if not _JOB_ID_RE.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id")
+
+    chat_id = await session_store.redeem_dashboard_handoff(token)
+    if chat_id is None:
+        raise HTTPException(status_code=401, detail="This link has expired or was already used")
+
+    user = await database.get_user(chat_id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Dashboard access is unavailable")
+
+    session_id = await session_store.mint(
+        {
+            "id": chat_id,
+            "first_name": user.get("first_name"),
+            "username": user.get("username"),
+            "photo_url": user.get("photo_url"),
+        }
+    )
+    redirect = RedirectResponse(url=f"/jobs/{job_id}", status_code=303)
+    redirect.set_cookie(
+        key=COOKIE_NAME,
+        value=session_id,
+        httponly=True,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite="lax",
+        max_age=_COOKIE_MAX_AGE,
+        path="/",
+    )
+    return redirect
 
 
 @auth_router.post("/dev-login")

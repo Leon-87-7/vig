@@ -20,6 +20,8 @@ _TTL_SECONDS = 30 * 24 * 3600  # 30 days
 _HANDOFF_PREFIX = "connect_handoff:"
 _HANDOFF_TTL_SECONDS = 60
 
+_DASHBOARD_HANDOFF_PREFIX = "dashboard_handoff:"
+
 _redis: redis.Redis | None = None
 _memory: dict[str, tuple[str, float | None]] = {}
 
@@ -94,20 +96,22 @@ async def revoke(session_id: str) -> None:
     log.info("session_revoked")
 
 
-async def mint_handoff(session_id: str) -> str:
+async def mint_handoff(session_id: str, ttl: int = _HANDOFF_TTL_SECONDS) -> str:
     """Create a short-lived, single-use token that redeems to session_id.
 
     Used when a session must cross into a context with no cookie access — Mini App
     openLink hands off to the system browser, a separate cookie jar. Putting the real
     session id in that URL would leak a long-lived, reusable credential via browser
-    history and server access logs; this token is single-use and expires in 60s.
+    history and server access logs; this token is single-use and expires after `ttl`
+    seconds (default 60s; job dashboard links use a longer ttl since they can sit
+    unread in chat history).
     """
     token = secrets.token_urlsafe(24)
     key = f"{_HANDOFF_PREFIX}{token}"
     if _use_memory():
-        _memory_set(key, session_id, ex=_HANDOFF_TTL_SECONDS)
+        _memory_set(key, session_id, ex=ttl)
     else:
-        await _client().set(key, session_id, ex=_HANDOFF_TTL_SECONDS)
+        await _client().set(key, session_id, ex=ttl)
     return token
 
 
@@ -123,3 +127,31 @@ async def redeem_handoff(token: str) -> str | None:
         _memory.pop(key, None)
         return value
     return await _client().getdel(key)
+
+
+async def mint_dashboard_handoff(chat_id: int, ttl: int) -> str:
+    """Create a single-use dashboard handoff token for a Telegram chat id."""
+    token = secrets.token_urlsafe(24)
+    key = f"{_DASHBOARD_HANDOFF_PREFIX}{token}"
+    if _use_memory():
+        _memory_set(key, str(chat_id), ex=ttl)
+    else:
+        await _client().set(key, str(chat_id), ex=ttl)
+    return token
+
+
+async def redeem_dashboard_handoff(token: str) -> int | None:
+    """Atomically fetch-and-delete the chat id for a dashboard handoff token."""
+    key = f"{_DASHBOARD_HANDOFF_PREFIX}{token}"
+    if _use_memory():
+        value = _memory_get(key)
+        _memory.pop(key, None)
+    else:
+        value = await _client().getdel(key)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        log.error("dashboard_handoff_decode_error")
+        return None
