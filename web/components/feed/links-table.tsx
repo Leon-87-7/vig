@@ -174,6 +174,9 @@ function LinkUrl({ link }: { link: LinkRow }) {
           <span className="min-w-0 truncate">{display}</span>
         </a>
       </Tooltip>
+      {/* Absorb leftover row width here so the open button sits flush against
+          the tag cluster instead of drifting mid-row on short URLs. */}
+      <span className="flex-1" />
       <a
         href={href}
         target="_blank"
