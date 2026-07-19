@@ -60,3 +60,4 @@ logs/*.txt
 error.log
 
 *.instructions.md
+.vercel
