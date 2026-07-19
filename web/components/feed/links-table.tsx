@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import { PlatformGlyph } from '@/components/ui/platform-icon';
 import { Tooltip } from '@/components/ui/tooltip';
 import { TagMark, TagMenu } from '@/components/ui/tag-picker';
 import { useLinkTags } from '@/lib/hooks/useLinkTags';
@@ -32,6 +33,21 @@ function safeUrl(url: string): string | undefined {
     return undefined;
   }
 }
+/** Trimmed URL (CONTEXT.md): pathname + query, scheme and host dropped — the
+ * favicon carries the domain. Root-domain links show the hostname and query,
+ * since a favicon alone can't identify an unknown site. */
+function trimUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname === '' || parsed.pathname === '/') {
+      return `${parsed.hostname.replace(/^www\./, '')}${parsed.search}`;
+    }
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -41,30 +57,44 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
-function TruncatedDescription({
-  text,
-  provenance,
-}: {
-  text: string;
-  provenance?: string;
-}) {
+/** The always-present More panel of a Link row. Expanded order: full URL
+ * (the only place it renders on touch) → title · description → provenance
+ * ("seen in a video about X" — never row identity, task 32). */
+function LinkDetails({ link }: { link: LinkRow }) {
   const [expanded, setExpanded] = useState(false);
+  const description = [link.title, link.description]
+    .filter(Boolean)
+    .join(' · ');
+  const href = safeUrl(link.url);
   return (
     <span className="inline-flex max-w-full items-center gap-2">
       <span
-        title={text}
+        title={description || undefined}
         className={`min-w-0 text-xs text-body ${
           expanded
             ? 'whitespace-normal break-words'
             : 'max-w-[40ch] truncate sm:max-w-[60ch]'
         }`}
       >
-        {text}
-        {/* Provenance ("seen in a video about X") only in the expanded panel —
-            the row itself carries link-own identity only (task 32). */}
-        {expanded && provenance && (
+        {expanded &&
+          (href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-1 block break-all font-mono text-[11px] text-ink transition-ui hover:text-signal hover:underline"
+            >
+              {link.url}
+            </a>
+          ) : (
+            <span className="mb-1 block break-all font-mono text-[11px] text-muted">
+              {link.url}
+            </span>
+          ))}
+        {description}
+        {expanded && link.topic && (
           <span className="mt-1 block text-[11px] text-muted">
-            From: {provenance}
+            From: {link.topic}
           </span>
         )}
       </span>
@@ -113,47 +143,53 @@ function LinkTagCluster({ link }: { link: LinkRow }) {
   );
 }
 
+/** Link row identity (CONTEXT.md): favicon → trimmed URL → open button.
+ * Favicon + trimmed URL form one anchor; the external-link icon is a second,
+ * separate button to the same URL. The full URL renders only in the anchor's
+ * tooltip and the expanded More panel. */
 function LinkUrl({ link }: { link: LinkRow }) {
   const href = safeUrl(link.url);
-  return href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group inline-flex max-w-full items-center gap-2 font-mono text-xs text-ink transition-ui hover:text-signal hover:underline"
-    >
-      <span className="truncate">{link.url}</span>
-      <ExternalLink
-        className="h-3.5 w-3.5 shrink-0 text-muted transition-ui group-hover:text-signal"
-        aria-hidden="true"
-      />
-    </a>
-  ) : (
-    <span className="block truncate font-mono text-xs text-muted">
-      {link.url}
+  const display = trimUrl(link.url);
+  if (!href) {
+    return (
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <PlatformGlyph url={link.url} size={16} className="shrink-0 text-muted" />
+        <span className="min-w-0 truncate font-mono text-xs text-muted" title={link.url}>
+          {display}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <Tooltip content={link.url} mono>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-w-0 items-center gap-2 font-mono text-xs text-ink transition-ui hover:text-signal hover:underline"
+        >
+          <PlatformGlyph url={link.url} size={16} className="shrink-0 text-muted" />
+          <span className="min-w-0 truncate">{display}</span>
+        </a>
+      </Tooltip>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open ${link.url} in a new tab`}
+        className="ml-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-line text-muted transition-ui hover:border-line-strong hover:bg-raised hover:text-signal focus:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+      >
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      </a>
     </span>
   );
-}
-
-function LinkDescription({ link }: { link: LinkRow }) {
-  // Standalone identity: the collapsed row shows only the link's own
-  // title · description. The source-video topic is provenance and appears
-  // exclusively inside the expanded panel — never as row identity.
-  const description = [link.title, link.description]
-    .filter(Boolean)
-    .join(' · ');
-  return description ? (
-    <TruncatedDescription
-      text={description}
-      provenance={link.topic || undefined}
-    />
-  ) : null;
 }
 
 function TableCard({ link }: { link: LinkRow }) {
   return (
     <article className="rounded-lg border border-line bg-surface px-4 py-3">
-      <div className="flex min-w-0 items-start justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
         <LinkUrl link={link} />
         <LinkTagCluster link={link} />
       </div>
@@ -166,11 +202,9 @@ function TableCard({ link }: { link: LinkRow }) {
           {link.seen_count === 1 ? '' : 's'}
         </span>
       </div>
-      {Boolean(link.title || link.description) && (
-        <div className="mt-2 font-mono">
-          <LinkDescription link={link} />
-        </div>
-      )}
+      <div className="mt-2">
+        <LinkDetails link={link} />
+      </div>
     </article>
   );
 }
@@ -423,11 +457,11 @@ export function LinksTable({
                   >
                     <td className="max-w-[36rem] px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           <LinkUrl link={link} />
                           <LinkTagCluster link={link} />
                         </div>
-                        <LinkDescription link={link} />
+                        <LinkDetails link={link} />
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs tabular-nums text-body">
