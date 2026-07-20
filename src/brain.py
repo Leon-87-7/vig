@@ -802,9 +802,10 @@ async def list_links(
 async def get_link_preview(link_id: str) -> dict[str, Any] | None:
     """Return a link's preview payload for the Links table's hover/arrow-key panel.
 
-    ``og_image_url`` is cached on the row lazily: NULL means never checked (this
-    call fetches it), '' means checked with none found, non-empty is the
-    resolved og:image URL. Either way, once checked it's never re-fetched.
+    ``og_image_url`` is cached on the row lazily: NULL means never checked, ''
+    means a previous lookup found none, and non-empty is the resolved og:image
+    URL. Empty results are retried on a later selection because OG markup and
+    crawler responses change over time.
     """
     import aiosqlite
 
@@ -820,7 +821,7 @@ async def get_link_preview(link_id: str) -> dict[str, Any] | None:
         link = dict(row)
 
     og_image_url = link["og_image_url"]
-    if og_image_url is None:
+    if not og_image_url:
         page = await fetch_public_html(link["url"])
         if page is not None:
             candidate = extract_og_image_url(page.html, page.final_url) or ""
@@ -828,7 +829,7 @@ async def get_link_preview(link_id: str) -> dict[str, Any] | None:
                 conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute(
                     """UPDATE links SET og_image_url = ?
-                       WHERE id = ? AND og_image_url IS NULL
+                       WHERE id = ? AND (og_image_url IS NULL OR og_image_url = '')
                        RETURNING og_image_url""",
                     (candidate, link_id),
                 )

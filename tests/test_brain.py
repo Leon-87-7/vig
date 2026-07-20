@@ -525,7 +525,7 @@ async def test_link_preview_keeps_transient_fetch_failure_retryable() -> None:
 
 
 @pytest.mark.asyncio
-async def test_link_preview_caches_successful_page_without_an_image() -> None:
+async def test_link_preview_rechecks_a_cached_empty_og_image() -> None:
     import aiosqlite
     import os
     import tempfile
@@ -545,10 +545,16 @@ async def test_link_preview_caches_successful_page_without_an_image() -> None:
             await conn.commit()
 
         fetch = AsyncMock(
-            return_value=PublicHtmlResult(
-                html="<html><title>No image here</title></html>",
-                final_url="https://example.com/page",
-            )
+            side_effect=[
+                PublicHtmlResult(
+                    html="<html><title>No image here</title></html>",
+                    final_url="https://example.com/page",
+                ),
+                PublicHtmlResult(
+                    html='<meta property="og:image" content="https://cdn.example.com/og.png">',
+                    final_url="https://example.com/page",
+                ),
+            ]
         )
         with patch("src.brain.settings") as mock_settings, patch(
             "src.brain.fetch_public_html", new=fetch
@@ -562,9 +568,10 @@ async def test_link_preview_caches_successful_page_without_an_image() -> None:
                 await conn.execute("SELECT og_image_url FROM links WHERE id = 'link-1'")
             ).fetchone()
 
-        assert first == second == {"id": "link-1", "og_image_url": None}
-        assert fetch.await_count == 1
-        assert stored[0] == ""
+        assert first == {"id": "link-1", "og_image_url": None}
+        assert second == {"id": "link-1", "og_image_url": "https://cdn.example.com/og.png"}
+        assert fetch.await_count == 2
+        assert stored[0] == "https://cdn.example.com/og.png"
     finally:
         os.unlink(db_path)
 
