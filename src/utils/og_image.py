@@ -15,7 +15,10 @@ _ATTR_RE = re.compile(r"""([:\w-]+)\s*=\s*(['"])(.*?)\2""", re.IGNORECASE | re.D
 def extract_og_image_url(markup: str, base_url: str | None = None) -> str | None:
     """Extract og:image from an HTML document."""
     for tag in _META_TAG_RE.findall(markup):
-        attrs = {name.lower(): html.unescape(value.strip()) for name, _quote, value in _ATTR_RE.findall(tag)}
+        attrs = {
+            name.lower(): html.unescape(value.strip())
+            for name, _quote, value in _ATTR_RE.findall(tag)
+        }
         key = (attrs.get("property") or attrs.get("name") or "").lower()
         content = attrs.get("content", "").strip()
         if key == "og:image" and content:

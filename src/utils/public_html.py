@@ -26,25 +26,36 @@ class PublicHtmlResult:
     final_url: str
 
 
-async def _is_safe_public_url(url: str) -> bool:
-    """Return whether an HTTP(S) URL resolves only to public addresses."""
+async def _resolve_safe_public_url(url: str) -> tuple[str, str] | None:
+    """Validate *url* and return ``(pinned_ip, hostname)`` or ``None``.
+
+    Resolves DNS with a finite 5-second timeout so a slow/attacker-controlled
+    nameserver cannot hang the caller indefinitely.  Returns the first globally-
+    routable address so the caller can pin the TCP connection to that IP while
+    preserving the original ``Host`` / SNI header — preventing DNS rebinding.
+    """
     try:
         parts = urlsplit(url)
         port = parts.port
     except ValueError:
-        return False
+        return None
     if parts.scheme not in {"http", "https"} or not parts.hostname:
-        return False
+        return None
     safe_ports = {"http": {None, 80}, "https": {None, 443}}
     if port not in safe_ports[parts.scheme]:
-        return False
+        return None
     try:
-        infos = await asyncio.get_running_loop().getaddrinfo(parts.hostname, None)
-        return bool(infos) and all(
-            ipaddress.ip_address(info[4][0]).is_global for info in infos
+        infos = await asyncio.wait_for(
+            asyncio.get_running_loop().getaddrinfo(parts.hostname, None),
+            timeout=5.0,
         )
-    except (OSError, ValueError):
-        return False
+        if not infos or not all(
+            ipaddress.ip_address(info[4][0]).is_global for info in infos
+        ):
+            return None
+        return infos[0][4][0], parts.hostname
+    except (OSError, ValueError, asyncio.TimeoutError):
+        return None
 
 
 async def fetch_public_html(
@@ -62,11 +73,27 @@ async def fetch_public_html(
     try:
         target = url
         for _ in range(_MAX_REDIRECTS + 1):
-            if not await _is_safe_public_url(target):
+            resolved = await _resolve_safe_public_url(target)
+            if resolved is None:
                 log.info("public_html.fetch_blocked", url=target[:200])
                 return None
+            pinned_ip, hostname = resolved
+            # Route the TCP connection to the pinned IP so a DNS rebind after
+            # our guard check cannot swap in a private address.  Preserve the
+            # original hostname in Host and (for HTTPS) SNI so that the remote
+            # server and TLS certificate validation use the right name.
+            parts = urlsplit(target)
+            pinned_url = parts._replace(netloc=pinned_ip).geturl()
+            extra_headers = {"Host": hostname}
+            extensions: dict = {}
+            if parts.scheme == "https":
+                extensions["sni_hostname"] = hostname.encode("ascii")
             async with active_client.stream(
-                "GET", target, follow_redirects=False
+                "GET",
+                pinned_url,
+                follow_redirects=False,
+                headers=extra_headers,
+                extensions=extensions,
             ) as response:
                 if response.is_redirect:
                     location = response.headers.get("location", "")
