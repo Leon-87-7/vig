@@ -63,7 +63,19 @@ function formatDateCompact(value: string): string {
 function OgPreviewImage({ src, className }: { src: string | null; className: string }) {
   const [failed, setFailed] = useState(false);
 
-  if (!src || failed) return null;
+  if (!src) return null;
+
+  if (failed) {
+    return (
+      <div
+        role="status"
+        aria-label="Preview image unavailable"
+        className={`${className} flex items-center justify-center bg-canvas px-3 font-mono text-[11px] text-muted`}
+      >
+        Preview unavailable
+      </div>
+    );
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -75,6 +87,10 @@ function OgPreviewImage({ src, className }: { src: string | null; className: str
       className={className}
     />
   );
+}
+
+function linkPreviewImageUrl(linkId: string): string {
+  return `/api/brain/links/${encodeURIComponent(linkId)}/preview/image`;
 }
 
 /** Mobile-only: the card's More panel. Expanded order: og:image preview
@@ -115,7 +131,7 @@ function LinkDetails({
         {expanded && ogImageUrl && (
           <OgPreviewImage
             key={ogImageUrl}
-            src={ogImageUrl}
+            src={linkPreviewImageUrl(link.id)}
             className="mb-2 h-32 w-full rounded-md border border-line object-cover"
           />
         )}
@@ -402,7 +418,7 @@ function LinkPreviewPanel({ linksData }: { linksData: UseLinksTableResult }) {
       {ogImageUrl && (
         <OgPreviewImage
           key={ogImageUrl}
-          src={ogImageUrl}
+          src={linkPreviewImageUrl(link.id)}
           className="aspect-video w-full rounded-lg border border-line object-cover"
         />
       )}

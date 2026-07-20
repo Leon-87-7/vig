@@ -15,7 +15,9 @@ log = get_logger(__name__)
 
 _MAX_REDIRECTS = 3
 _MAX_BYTES = 128_000
+_MAX_IMAGE_BYTES = 5_000_000
 _USER_AGENT = "vig-public-html/1.0 (+https://github.com/Leon-87-7/vig)"
+_ALLOWED_IMAGE_TYPES = {"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,14 @@ class PublicHtmlResult:
 
     html: str
     final_url: str
+
+
+@dataclass(frozen=True)
+class PublicImageResult:
+    """A safely fetched raster image for a same-origin preview response."""
+
+    content: bytes
+    content_type: str
 
 
 async def _resolve_safe_public_url(url: str) -> tuple[str, str] | None:
@@ -122,6 +132,77 @@ async def fetch_public_html(
         return None
     except Exception as exc:
         log.info("public_html.fetch_failed", url=url, error=str(exc)[:120])
+        return None
+    finally:
+        if owns_client:
+            await active_client.aclose()
+
+
+async def fetch_public_image(
+    url: str,
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> PublicImageResult | None:
+    """Fetch a public raster image, validating every redirect against SSRF.
+
+    Browser-side direct loads are routinely rejected by OG-image hosts. This
+    keeps that request same-origin without turning the endpoint into an open
+    proxy: only previously resolved public URLs and a small raster MIME allowlist
+    are accepted.
+    """
+    owns_client = client is None
+    active_client = client or httpx.AsyncClient(
+        timeout=httpx.Timeout(8.0),
+        follow_redirects=False,
+        headers={"User-Agent": _USER_AGENT},
+    )
+    try:
+        target = url
+        for _ in range(_MAX_REDIRECTS + 1):
+            resolved = await _resolve_safe_public_url(target)
+            if resolved is None:
+                log.info("public_image.fetch_blocked", url=target[:200])
+                return None
+            pinned_ip, hostname = resolved
+            parts = urlsplit(target)
+            pinned_url = parts._replace(netloc=pinned_ip).geturl()
+            extra_headers = {"Host": hostname}
+            extensions: dict = {}
+            if parts.scheme == "https":
+                extensions["sni_hostname"] = hostname.encode("ascii")
+            async with active_client.stream(
+                "GET",
+                pinned_url,
+                follow_redirects=False,
+                headers=extra_headers,
+                extensions=extensions,
+            ) as response:
+                if response.is_redirect:
+                    location = response.headers.get("location", "")
+                    if not location:
+                        return None
+                    target = urljoin(str(response.url), location)
+                    continue
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                if content_type not in _ALLOWED_IMAGE_TYPES:
+                    log.info(
+                        "public_image.content_type_rejected",
+                        url=str(response.url)[:200],
+                        content_type=content_type[:80],
+                    )
+                    return None
+                chunks: list[bytes] = []
+                remaining = _MAX_IMAGE_BYTES
+                async for chunk in response.aiter_bytes():
+                    if remaining <= 0:
+                        break
+                    chunks.append(chunk[:remaining])
+                    remaining -= len(chunks[-1])
+                return PublicImageResult(content=b"".join(chunks), content_type=content_type)
+        return None
+    except Exception as exc:
+        log.info("public_image.fetch_failed", url=url, error=str(exc)[:120])
         return None
     finally:
         if owns_client:

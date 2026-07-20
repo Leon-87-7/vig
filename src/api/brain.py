@@ -7,7 +7,7 @@ from __future__ import annotations
 # Second Brain is one operator-wide knowledge graph (see docs/seed/PRD.md §5).
 # Only /links/view (display preferences, not data) is scoped per-user.
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from src import brain, database
@@ -60,6 +60,31 @@ async def get_link_preview(link_id: str) -> dict:
     if preview is None:
         raise HTTPException(status_code=404, detail="Link not found")
     return preview
+
+
+@brain_router.get("/links/{link_id}/preview/image")
+async def get_link_preview_image(link_id: str) -> Response:
+    """Serve a resolved OG image from our origin so hostile CDNs cannot hotlink-block it."""
+    from src.utils.public_html import fetch_public_image
+
+    preview = await brain.get_link_preview(link_id)
+    if preview is None:
+        raise HTTPException(status_code=404, detail="Link not found")
+    image_url = preview.get("og_image_url")
+    if not isinstance(image_url, str) or not image_url:
+        raise HTTPException(status_code=404, detail="Preview image not found")
+    image = await fetch_public_image(image_url)
+    if image is None:
+        raise HTTPException(status_code=404, detail="Preview image unavailable")
+    return Response(
+        content=image.content,
+        media_type=image.content_type,
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

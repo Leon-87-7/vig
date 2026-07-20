@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import httpx
 
-from src.utils.public_html import fetch_public_html
+from src.utils.public_html import fetch_public_html, fetch_public_image
 
 
 @pytest.mark.asyncio
@@ -58,3 +58,21 @@ async def test_fetch_public_html_rejects_declared_non_html_content() -> None:
         result = await fetch_public_html("https://1.1.1.1/file", client=client)
 
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_public_image_returns_allowed_image_bytes() -> None:
+    def respond(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "image/png"},
+            content=b"\x89PNG\r\n\x1a\nimage-bytes",
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        result = await fetch_public_image("https://1.1.1.1/preview.png", client=client)
+
+    assert result is not None
+    assert result.content_type == "image/png"
+    assert result.content == b"\x89PNG\r\n\x1a\nimage-bytes"

@@ -570,6 +570,29 @@ async def test_link_preview_caches_successful_page_without_an_image() -> None:
 
 
 @pytest.mark.asyncio
+async def test_link_preview_image_is_served_from_the_same_origin_proxy() -> None:
+    from src.api import brain as brain_api
+    from src.utils.public_html import PublicImageResult
+
+    with patch.object(
+        brain_api.brain,
+        "get_link_preview",
+        new=AsyncMock(
+            return_value={"id": "link-1", "og_image_url": "https://cdn.example.com/og.png"}
+        ),
+    ), patch(
+        "src.utils.public_html.fetch_public_image",
+        new=AsyncMock(return_value=PublicImageResult(b"image", "image/png")),
+    ):
+        response = await brain_api.get_link_preview_image("link-1")
+
+    assert response.status_code == 200
+    assert response.media_type == "image/png"
+    assert response.body == b"image"
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+@pytest.mark.asyncio
 async def test_list_links_q_filters_by_substring_across_url_title_description():
     """Since #384, q matches url/title/description — never the shared video topic."""
     import aiosqlite

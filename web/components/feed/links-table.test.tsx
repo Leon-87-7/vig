@@ -193,7 +193,7 @@ describe('LinksTable trimmed URL row', () => {
     expect(linksData.selectLink).toHaveBeenLastCalledWith('lnk_2');
   });
 
-  it('removes a failed desktop OG preview image', () => {
+  it('loads desktop OG previews through the same-origin image route and keeps a stable fallback on failure', () => {
     HTMLElement.prototype.scrollIntoView = vi.fn();
     const linksData = makeLinksData(baseLink);
     linksData.selectedLinkId = 'lnk_1';
@@ -203,13 +203,11 @@ describe('LinksTable trimmed URL row', () => {
     };
     linksData.previewState = 'ready';
     const { container } = render(<LinksTable linksData={linksData} />);
-    const image = container.querySelector('img[src="https://cdn.example.com/og.jpg"]');
+    const image = container.querySelector('img[src="/api/brain/links/lnk_1/preview/image"]');
 
     expect(image).not.toBeNull();
     fireEvent.error(image!);
-    expect(
-      container.querySelector('img[src="https://cdn.example.com/og.jpg"]'),
-    ).toBeNull();
+    expect(screen.getByRole('status', { name: 'Preview image unavailable' })).toBeInTheDocument();
   });
 });
 
