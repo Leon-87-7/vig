@@ -78,6 +78,15 @@
 | [#393](https://github.com/Leon-87-7/vig/issues/393) | feat(landing): integrate Rive runtime with one test scene | Web / Landing | #392 |
 | [#394](https://github.com/Leon-87-7/vig/issues/394) | design(landing): author the seven onboarding Rive scenes (HITL) | Design / Landing | #393 |
 | [#395](https://github.com/Leon-87-7/vig/issues/395) | feat(landing): onboarding copy, timing polish, and verification pass (HITL) | Web / Landing | #394 |
+| [#402](https://github.com/Leon-87-7/ownix/issues/402) | fix(validators): require http/https scheme, exact host match, and stricter domain normalization | Security / Validators | — |
+| [#403](https://github.com/Leon-87-7/ownix/issues/403) | fix(telegram): enforce chat_id ownership check on job callback handlers (IDOR) | Security / Telegram | — |
+| [#404](https://github.com/Leon-87-7/ownix/issues/404) | fix(transcript-service): add SSRF guards, auth, and parameter bounds | Security / Transcript | — |
+| [#405](https://github.com/Leon-87-7/ownix/issues/405) | fix(api): add length/size bounds to unbounded user-supplied text fields | API / Validation | — |
+| [#406](https://github.com/Leon-87-7/ownix/issues/406) | fix(telegram): validate /download_md URL (https, public host, max length) | Security / Telegram | — |
+| [#407](https://github.com/Leon-87-7/ownix/issues/407) | fix(api): reject whitespace-only names for spaces/tags/contexts | API / Validation | — |
+| [#408](https://github.com/Leon-87-7/ownix/issues/408) | fix(api): validate sort_order bounds on reorder endpoints | API / Validation | — |
+| [#409](https://github.com/Leon-87-7/ownix/issues/409) | fix(api): constrain tag icon to the frontend's fixed icon set | API / Tags | — |
+| [#410](https://github.com/Leon-87-7/ownix/issues/410) | fix(ops-bot): escape SQL LIKE wildcards in /users email <domain> | Security / Ops | — |
 
 ---
 
@@ -471,6 +480,18 @@ Ownix mobile onboarding hero (source: docs/plans/2026-07-17-ownix-mobile-onboard
         └── #394 author the seven onboarding Rive scenes (HITL)
             └── #395 copy, timing polish, and verification pass (HITL)
 Critical path: #391 → #392 → #393 → #394 → #395 (fully linear)
+
+Security review — input validation & authz findings (source: pasted findings table, 2026-07-21)
+#402 validators: http/https scheme + exact host match + domain normalization — independent
+#403 telegram: chat_id ownership check on job callbacks (IDOR) — independent
+#404 transcript-service: SSRF guards + auth + parameter bounds — independent
+#405 api: length/size bounds on unbounded text fields — independent
+#406 telegram: /download_md URL validation — independent
+#407 api: reject whitespace-only names — independent
+#408 api: sort_order bounds on reorder — independent
+#409 api: constrain tag icon to fixed set — independent
+#410 ops-bot: escape SQL LIKE wildcards in /users email — independent
+Critical path: none — all nine are independent, no dependency between them
 ```
 
 ---
