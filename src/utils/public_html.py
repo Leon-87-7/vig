@@ -181,10 +181,15 @@ async def fetch_public_image(
                     location = response.headers.get("location", "")
                     if not location:
                         return None
-                    target = urljoin(str(response.url), location)
+                    target = urljoin(target, location)
                     continue
                 response.raise_for_status()
-                content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                content_type = (
+                    response.headers.get("content-type", "")
+                    .split(";", 1)[0]
+                    .strip()
+                    .lower()
+                )
                 if content_type not in _ALLOWED_IMAGE_TYPES:
                     log.info(
                         "public_image.content_type_rejected",

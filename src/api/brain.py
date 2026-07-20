@@ -64,7 +64,7 @@ async def get_link_preview(link_id: str) -> dict:
 
 @brain_router.get("/links/{link_id}/preview/image")
 async def get_link_preview_image(link_id: str) -> Response:
-    """Serve a resolved OG image from our origin so hostile CDNs cannot hotlink-block it."""
+    """Serve a resolved OG image from our origin when external hosts reject hotlinking."""
     from src.utils.public_html import fetch_public_image
 
     preview = await brain.get_link_preview(link_id)

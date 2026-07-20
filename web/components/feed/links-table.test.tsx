@@ -207,7 +207,8 @@ describe('LinksTable trimmed URL row', () => {
 
     expect(image).not.toBeNull();
     fireEvent.error(image!);
-    expect(screen.getByRole('status', { name: 'Preview image unavailable' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'NO PREVIEW' })).toBeInTheDocument();
+    expect(screen.getByText('◉ NO PREVIEW ◉ NO PREVIEW')).toBeInTheDocument();
   });
 });
 
