@@ -17,6 +17,7 @@ n8n HTTP Request node config:
 
 from flask import Flask, request, jsonify
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 import ipaddress
 import socket
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -40,6 +41,8 @@ INSTAGRAM_MAX_SLIDES = 10
 TRANSCRIPT_SERVICE_TOKEN = os.environ.get("TRANSCRIPT_SERVICE_TOKEN", "")
 _INTERNAL_AUTH_HEADER = "X-Ownix-Internal-Token"
 _MAX_URL_LENGTH = 2048
+_DNS_LOOKUP_TIMEOUT = 3.0
+_dns_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="dns-lookup")
 
 
 def _auth_failed():
@@ -60,13 +63,11 @@ def _validate_public_http_url(url: str):
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return "URL must be http(s) with a host"
     try:
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(3.0)
-        try:
-            infos = socket.getaddrinfo(parsed.hostname, None, type=socket.SOCK_STREAM)
-        finally:
-            socket.setdefaulttimeout(old_timeout)
-    except (socket.gaierror, socket.timeout):
+        future = _dns_executor.submit(
+            socket.getaddrinfo, parsed.hostname, None, type=socket.SOCK_STREAM
+        )
+        infos = future.result(timeout=_DNS_LOOKUP_TIMEOUT)
+    except (socket.gaierror, FutureTimeoutError):
         return "URL host could not be resolved"
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
