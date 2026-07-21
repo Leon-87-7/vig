@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import OwnixLogo from '@/app/ownix-logo.svg';
 
 export default function PreviewMotif({
@@ -7,6 +8,8 @@ export default function PreviewMotif({
   label: string;
   className: string;
 }) {
+  const ringId = useId();
+
   return (
     <div
       role="status"
@@ -26,13 +29,13 @@ export default function PreviewMotif({
         >
           <defs>
             <path
-              id="links-preview-state-ring"
+              id={ringId}
               d="M 88,88 m -66,0 a 66,66 0 1,1 132,0 a 66,66 0 1,1 -132,0"
             />
           </defs>
           <text className="fill-muted font-mono text-[10px] font-medium tracking-[0.18em]">
             <textPath
-              href="#links-preview-state-ring"
+              href={`#${ringId}`}
               startOffset="0"
               textLength="408"
               lengthAdjust="spacing"
