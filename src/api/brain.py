@@ -25,7 +25,7 @@ class BrainLinksViewIn(BaseModel):
 
 
 @brain_router.get("/search")
-async def search_links(q: str = Query(...), k: int = Query(default=5, le=20)) -> list[dict]:
+async def search_links(q: str = Query(..., max_length=300), k: int = Query(default=5, ge=1, le=20)) -> list[dict]:
     if not q.strip():
         raise HTTPException(status_code=400, detail="q must not be empty")
     return await brain.search_links(q.strip(), top_k=k)
@@ -41,7 +41,7 @@ async def list_links(
     request: Request,
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    q: str = Query(default=""),
+    q: str = Query(default="", max_length=300),
     order: str = Query(default="desc"),
 ) -> dict:
     # Link inventory stays operator-wide; tag matching/payload is viewer-private.

@@ -6,7 +6,7 @@ from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src import database
 from src.api.deps import get_owned_job
@@ -141,7 +141,7 @@ async def clear_recovery_failed(
 class JobCreateRequest(BaseModel):
     url: str
     template: str | None = None
-    freestyle_prompt: str | None = None
+    freestyle_prompt: str | None = Field(default=None, max_length=4_000)
 
 
 @jobs_router.post("")
@@ -346,7 +346,7 @@ async def list_jobs(
 
 
 class AnnotationIn(BaseModel):
-    notes: str
+    notes: str = Field(..., max_length=4_000)
 
 
 @jobs_router.get("/{job_id}/annotations")

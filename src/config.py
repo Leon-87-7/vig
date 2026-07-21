@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # Slices #2/#3 — sidecar
     FRAME_SERVICE_URL: str = "http://10.0.0.4:5151"
     TRANSCRIPT_SERVICE_URL: str = "http://host.docker.internal:5151"
+    TRANSCRIPT_SERVICE_TOKEN: str = ""
 
     # Slice #2 — Brave
     BRAVE_API_KEY: str = ""

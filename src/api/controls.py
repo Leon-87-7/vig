@@ -1,24 +1,36 @@
 """HTTP endpoints for user Controls (tags CRUD — issue #87; domain lists — issue #91)."""
 from __future__ import annotations
 
+from typing import Literal
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src import database
 from src.utils.logger import get_logger
+from src.utils.validators import is_valid_domain_name
 
 log = get_logger(__name__)
 
 controls_router = APIRouter(prefix="/api/controls", tags=["controls"])
 
 
+TagIcon = Literal["Brain", "Code2", "Database", "FileText", "Globe", "Lightbulb", "Link2"]
+
+
 class TagIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=80)
     meaning: str = Field(default="", max_length=500)
     color: str = Field(default="#8b5cf6", pattern=r"^#[0-9a-fA-F]{6}$")
-    icon: str | None = Field(default=None, max_length=80)
+    icon: TagIcon | None = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("name must not be blank")
+        return value
 
 
 class DomainIn(BaseModel):
@@ -35,7 +47,7 @@ def _normalize_domain(raw: str) -> str:
     if "://" not in s:
         s = "https://" + s
     host = urlparse(s).hostname or ""
-    return host.lower().removeprefix("www.")
+    return host.lower().removeprefix("www.").rstrip(".")
 
 
 @controls_router.get("/tags")
@@ -91,8 +103,8 @@ async def list_allowed_domains(request: Request) -> list[str]:
 async def add_allowed_domain(body: DomainIn, request: Request) -> dict:
     chat_id: int = request.state.user["id"]
     domain = _normalize_domain(body.domain)
-    if not domain:
-        raise HTTPException(status_code=422, detail="Invalid domain: normalization produced an empty string")
+    if not is_valid_domain_name(domain):
+        raise HTTPException(status_code=422, detail="Invalid domain")
     inserted = await database.add_allowed_domain(chat_id, domain)
     if not inserted:
         raise HTTPException(status_code=409, detail="Domain already exists")
@@ -123,8 +135,8 @@ async def list_ignored_domains(request: Request) -> list[str]:
 async def add_ignored_domain(body: DomainIn, request: Request) -> dict:
     chat_id: int = request.state.user["id"]
     domain = _normalize_domain(body.domain)
-    if not domain:
-        raise HTTPException(status_code=422, detail="Invalid domain: normalization produced an empty string")
+    if not is_valid_domain_name(domain):
+        raise HTTPException(status_code=422, detail="Invalid domain")
     inserted = await database.add_ignored_domain(chat_id, domain)
     if not inserted:
         raise HTTPException(status_code=409, detail="Domain already exists")

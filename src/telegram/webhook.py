@@ -50,12 +50,50 @@ from src.utils.validators import (
     normalize_repo_url,
     _ARTICLE_HINT,
     _REPO_HINT,
+    is_valid_domain_name,
 )
 
 log = get_logger(__name__)
 router = APIRouter()
 
 _BATCH_TASKS: dict[str, asyncio.Task] = {}
+
+_ALLOWED_TEMPLATE_CALLBACKS = frozenset(PROMPT_TEMPLATES) | {"freestyle"}
+_MAX_DOWNLOAD_MD_URL_LENGTH = 2048
+
+
+async def _get_callback_owned_job(ctx: CallbackCtx, job_id: str | None = None) -> dict | None:
+    actual_job_id = job_id or ctx.job_id
+    job = await database.get_job(actual_job_id)
+    if job is None or str(job.get("chat_id")) != str(ctx.chat_id):
+        log.warning("callback.foreign_or_missing_job", chat_id=ctx.chat_id, job_id=actual_job_id)
+        return None
+    return job
+
+
+async def _validate_public_https_url(url: str) -> str | None:
+    if len(url) > _MAX_DOWNLOAD_MD_URL_LENGTH:
+        return "URL is too long."
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname:
+        return "URL must be https with a host."
+    try:
+        loop = asyncio.get_running_loop()
+        infos = await loop.getaddrinfo(parsed.hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return "URL host could not be resolved."
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        ):
+            return "URL host resolves to a non-public address."
+    return None
 
 
 def _int_or_none(value: object) -> int | None:
@@ -172,7 +210,7 @@ async def _cb_gemini_no(ctx: CallbackCtx) -> None:
 
 
 async def _cb_gemini_yes(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job or job.get("status") != "transcript_done":
         await answer_callback_query(ctx.cq_id, text="This job is not ready for enrichment.")
         return
@@ -218,10 +256,10 @@ async def _cb_gemini_yes(ctx: CallbackCtx) -> None:
 async def _cb_template_pick(ctx: CallbackCtx) -> None:
     # ctx.job_id = "{template}:{actual_job_id}" (everything after first ":")
     template, _, actual_job_id = ctx.job_id.partition(":")
-    if not actual_job_id:
+    if not actual_job_id or template not in _ALLOWED_TEMPLATE_CALLBACKS:
         await answer_callback_query(ctx.cq_id, text="Invalid callback data.")
         return
-    job = await database.get_job(actual_job_id)
+    job = await _get_callback_owned_job(ctx, actual_job_id)
     if not job or job.get("status") != "transcript_done":
         await answer_callback_query(ctx.cq_id, text="Job not ready for enrichment.")
         return
@@ -244,7 +282,7 @@ async def _cb_template_pick(ctx: CallbackCtx) -> None:
 
 
 async def _cb_template_freestyle(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job:
         await answer_callback_query(ctx.cq_id, text="Job not found.")
         return
@@ -287,7 +325,7 @@ async def _cb_prd_build_spec(ctx: CallbackCtx) -> None:
 
 
 async def _cb_prd_auto(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job:
         await answer_callback_query(ctx.cq_id, text="Job not found.")
         return
@@ -305,6 +343,10 @@ async def _cb_prd_auto(ctx: CallbackCtx) -> None:
 
 
 async def _cb_prd_intent_prompt(ctx: CallbackCtx) -> None:
+    job = await _get_callback_owned_job(ctx)
+    if not job:
+        await answer_callback_query(ctx.cq_id, text="Job not found.")
+        return
     existing = await database.get_chat_state(ctx.chat_id)
     if existing and existing["job_id"] == ctx.job_id:
         await answer_callback_query(ctx.cq_id)
@@ -320,7 +362,7 @@ async def _cb_prd_intent_prompt(ctx: CallbackCtx) -> None:
 
 
 async def _cb_prd_retry_intent(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job or not (job.get("prd_intent_text") or "").strip():
         await answer_callback_query(ctx.cq_id, text="No prior intent to retry — use ✍️ New Intent.")
         return
@@ -330,7 +372,7 @@ async def _cb_prd_retry_intent(ctx: CallbackCtx) -> None:
 
 
 async def _cb_enrichment_retry(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job:
         await answer_callback_query(ctx.cq_id, text="Job not found.")
         return
@@ -347,7 +389,7 @@ async def _cb_enrichment_retry(ctx: CallbackCtx) -> None:
 
 
 async def _cb_article_retry(ctx: CallbackCtx) -> None:
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job:
         await answer_callback_query(ctx.cq_id, text="Job not found.")
         return
@@ -373,7 +415,7 @@ async def _cb_reprocess(ctx: CallbackCtx) -> None:
     Re-submits the stored URL as a brand-new job — identical to the user resending
     the link — so the orphaned row's Drive file / Sheets row are never re-touched.
     """
-    job = await database.get_job(ctx.job_id)
+    job = await _get_callback_owned_job(ctx)
     if not job:
         await answer_callback_query(ctx.cq_id, text="Job not found — please resend the link.")
         return
@@ -834,6 +876,10 @@ async def _cmd_download_md(ctx: SlashCtx) -> None:
         await send_message(ctx.chat_id, "Usage: /download_md <URL>")
         return
     url = ctx.parts[1]
+    validation_error = await _validate_public_https_url(url)
+    if validation_error:
+        await send_message(ctx.chat_id, f"❌ {validation_error}")
+        return
 
     # 1. Cache lookup
     cached = await database.get_markdown_cache(url)
@@ -878,7 +924,7 @@ _PROTECTED_DOMAINS = {"github.com"}
 def _normalize_domain(raw: str) -> str:
     """Strip to bare hostname, lowercase, drop 'www.' prefix."""
     host = urlparse(raw).hostname or raw
-    return host.lower().removeprefix("www.")
+    return host.lower().removeprefix("www.").rstrip(".")
 
 
 def _format_domain_report(*sections: tuple[str, list[str]]) -> str:
@@ -895,6 +941,8 @@ async def _cmd_ignore(ctx: SlashCtx) -> None:
     added, protected = [], []
     for raw in ctx.parts[1:]:
         domain = _normalize_domain(raw)
+        if not is_valid_domain_name(domain):
+            continue
         if domain in _PROTECTED_DOMAINS:
             protected.append(domain)
             continue
@@ -939,6 +987,8 @@ async def _cmd_allowlist(ctx: SlashCtx) -> None:
     added = []
     for raw in ctx.parts[1:]:
         domain = _normalize_domain(raw)
+        if not is_valid_domain_name(domain):
+            continue
         await database.add_allowed_domain(ctx.chat_id, domain)
         added.append(domain)
     await send_message(ctx.chat_id, "✅ Allowlisted: " + ", ".join(f"`{d}`" for d in added))
