@@ -16,6 +16,9 @@ n8n HTTP Request node config:
 """
 
 from flask import Flask, request, jsonify
+from urllib.parse import urlparse
+import ipaddress
+import socket
 from youtube_transcript_api import YouTubeTranscriptApi
 from waitress import serve
 import yt_dlp
@@ -33,6 +36,72 @@ INSTAGRAM_COOKIES = os.environ.get(
     r"C:\\Users\\leone\\Desktop\\codeKitchen\\vig\\credentials\\instagram_cookies.txt",
 )
 INSTAGRAM_MAX_SLIDES = 10
+
+TRANSCRIPT_SERVICE_TOKEN = os.environ.get("TRANSCRIPT_SERVICE_TOKEN", "")
+_INTERNAL_TOKEN_HEADER = "X-Ownix-Internal-Token"
+_MAX_URL_LENGTH = 2048
+
+
+def _auth_failed():
+    expected = TRANSCRIPT_SERVICE_TOKEN
+    if not expected:
+        return False
+    return request.headers.get(_INTERNAL_TOKEN_HEADER, "") != expected
+
+
+def _reject(error_type: str, message: str, status: int = 400):
+    return jsonify({"error": {"type": error_type, "message": message}}), status
+
+
+def _validate_public_http_url(url: str):
+    if len(url) > _MAX_URL_LENGTH:
+        return "URL too long"
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        return "URL must be http(s) with a host"
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return "URL host could not be resolved"
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            return "URL host resolves to a non-public address"
+    return None
+
+
+def _validate_request_url():
+    if _auth_failed():
+        return None, _reject("unauthorized", "Unauthorized", 401)
+    url = request.args.get("url")
+    if not url:
+        return None, _reject("missing_url", "No URL provided", 400)
+    error = _validate_public_http_url(url)
+    if error:
+        return None, _reject("invalid_url", error, 400)
+    return url, None
+
+
+def _bounded_float(name: str, default: float, minimum: float, maximum: float):
+    raw = request.args.get(name, default)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a number")
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
+
+
+def _bounded_int(name: str, default: int, minimum: int, maximum: int):
+    raw = request.args.get(name, default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be an integer")
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+    return value
 
 
 def _with_cookies(ydl_opts: dict, tmp_dir: str) -> dict:
@@ -198,9 +267,10 @@ def _generic_transcript(url: str):
 
 @app.route("/transcript", methods=["GET"])
 def get_transcript():
-    url = request.args.get("url")
-    if not url:
-        return jsonify([{"error": {"type": "missing_url", "message": "No URL provided"}}]), 400
+    url, error_response = _validate_request_url()
+    if error_response:
+        body, status = error_response
+        return jsonify([body.get_json()["error"] if False else {"error": body.get_json()["error"]}]), status
 
     # YouTube path: try YouTubeTranscriptApi first, fall back to yt-dlp subtitles
     video_id = extract_video_id(url)
@@ -212,9 +282,9 @@ def get_transcript():
 @app.route("/metadata", methods=["GET"])
 def get_metadata():
     try:
-        url = request.args.get("url")
-        if not url:
-            return jsonify({"error": "No URL provided"}), 400
+        url, error_response = _validate_request_url()
+        if error_response:
+            return error_response
 
         ydl_opts = {
             "quiet": True,
@@ -292,16 +362,16 @@ def _encode_frames(tmp_frame_dir: str, interval: float) -> list[dict]:
 
 @app.route("/short_frames", methods=["GET"])
 def get_short_frames():
-    url = request.args.get("url")
-    if not url:
-        return jsonify({"error": {"type": "missing_url", "message": "No URL provided"}})
+    url, error_response = _validate_request_url()
+    if error_response:
+        return error_response
 
     try:
-        interval = float(request.args.get("interval", 1.0))
-        max_frames = int(request.args.get("max_frames", 20))
-        max_width = int(request.args.get("max_width", 768))
+        interval = _bounded_float("interval", 1.0, 0.1, 10.0)
+        max_frames = _bounded_int("max_frames", 20, 1, 120)
+        max_width = _bounded_int("max_width", 768, 64, 1920)
     except ValueError as e:
-        return jsonify({"error": {"type": "invalid_param", "message": str(e)}})
+        return jsonify({"error": {"type": "invalid_param", "message": str(e)}}), 400
 
     NullLogger = type(
         "_NullLogger",

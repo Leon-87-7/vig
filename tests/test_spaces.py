@@ -294,3 +294,20 @@ def test_delete_space_cascades_to_context_blobs(spaces_client: TestClient) -> No
     assert del_r.status_code == 204
 
     assert asyncio.run(database.get_context_blob(blob_id)) is None
+
+
+def test_space_and_blob_inputs_reject_blank_names_and_large_values() -> None:
+    from pydantic import ValidationError
+    from src.api.spaces import BlobIn, ReorderIn, SpaceIn
+
+    with pytest.raises(ValidationError):
+        SpaceIn(name="   ")
+    with pytest.raises(ValidationError):
+        BlobIn(name="\t", content="ok")
+    with pytest.raises(ValidationError):
+        BlobIn(name="Context", content="x" * 20_001)
+    with pytest.raises(ValidationError):
+        ReorderIn(sort_order=-1)
+    with pytest.raises(ValidationError):
+        ReorderIn(sort_order=10_001)
+    assert ReorderIn(sort_order=10_000).sort_order == 10_000

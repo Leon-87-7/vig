@@ -31,7 +31,7 @@ async def dashboard_button_row(job_id: str, chat_id: int) -> list[list[dict]]:
     from src.utils.logger import get_logger
 
     try:
-        token = await session_store.mint_dashboard_handoff(chat_id, ttl=7 * 24 * 3600)
+        token = await session_store.mint_dashboard_handoff(chat_id, ttl=5 * 60)
     except Exception:
         get_logger(__name__).warning("dashboard_button.handoff_mint_failed", job_id=job_id, exc_info=True)
         return []

@@ -4,6 +4,7 @@ from src.utils.validators import (
     detect_pipeline,
     extract_description_links,
     is_video_url,
+    normalize_email,
     slugify,
 )
 
@@ -308,3 +309,15 @@ def test_repo_hint_constant() -> None:
 def test_github_reserved_paths_contains_blocklist() -> None:
     for path in ("pricing", "features", "marketplace", "login", "trending"):
         assert path in _GITHUB_RESERVED_PATHS
+
+
+def test_detect_pipeline_rejects_bad_scheme_and_lookalike_hosts() -> None:
+    assert detect_pipeline("ftp://youtube.com/watch?v=abc") == "rejected"
+    assert detect_pipeline("https://evilyoutube.com/watch?v=abc") == "rejected"
+    assert detect_pipeline("https://youtube.com.evil.test/watch?v=abc") == "rejected"
+    assert detect_pipeline("https://news.ycombinator.com/item?id=1", frozenset({"ycombinator.com"})) == "article"
+
+
+def test_normalize_email_rejects_oversized_input() -> None:
+    assert normalize_email("a" * 250 + "@x.co") is None
+    assert normalize_email("User@Example.COM") == "user@example.com"

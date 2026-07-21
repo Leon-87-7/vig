@@ -15,6 +15,8 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def normalize_email(email: str) -> str | None:
     """Return normalized email when it matches VIG's shared email policy."""
     normalized = email.strip().lower()
+    if len(normalized) > 254:  # RFC 5321 §4.5.3.1.3 max total length
+        return None
     return normalized if _EMAIL_RE.fullmatch(normalized) else None
 
 
@@ -66,6 +68,23 @@ _ARTICLE_HINT = (
     "If this is an article you'd like to track, try /allowlist <domain> first."
 )
 
+_DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$", re.IGNORECASE)
+
+
+def _host_matches(host: str, target: str) -> bool:
+    return host == target or host.endswith("." + target)
+
+
+def is_valid_domain_name(domain: str) -> bool:
+    normalized = domain.strip().lower().removeprefix("www.").rstrip(".")
+    labels = normalized.split(".")
+    return (
+        len(labels) >= 2
+        and len(normalized) <= 253
+        and all(_DNS_LABEL_RE.fullmatch(label) for label in labels)
+        and not labels[-1].isdigit()
+    )
+
 
 def detect_pipeline(
     url: str,
@@ -98,6 +117,9 @@ def detect_pipeline(
     except ValueError:
         return "rejected"
 
+    if parsed.scheme not in {"http", "https"}:
+        return "rejected"
+
     host = (parsed.hostname or "").lower().removeprefix("www.")
     path = parsed.path or ""
 
@@ -123,19 +145,19 @@ def detect_pipeline(
 def _match_short(host: str, path: str) -> bool:
     """YouTube Shorts, Instagram Reels (NOT /p/ carousels), TikTok user videos."""
     if (
-        host.endswith("youtube.com")
+        _host_matches(host, "youtube.com")
         and path.startswith("/shorts/")
         and len(path) > len("/shorts/")
     ):
         return True
-    if host.endswith("instagram.com") and path.startswith("/reel/"):
+    if _host_matches(host, "instagram.com") and path.startswith("/reel/"):
         return True
-    return bool(host.endswith("tiktok.com") and _TIKTOK_VIDEO_PATH.match(path))
+    return bool(_host_matches(host, "tiktok.com") and _TIKTOK_VIDEO_PATH.match(path))
 
 
 def _match_long(host: str, path: str, query: str) -> bool:
     """Standard YouTube watch (must include ?v=<id>) or youtu.be short links."""
-    if host.endswith("youtube.com") and path == "/watch":
+    if _host_matches(host, "youtube.com") and path == "/watch":
         return bool(parse_qs(query).get("v", [""])[0])
     return host == "youtu.be" and len(path) > 1
 
@@ -159,7 +181,7 @@ def _match_github(host: str, path: str) -> Pipeline | None:
 def _match_article(host: str, extra_domains: frozenset[str]) -> bool:
     """Default article domains plus the per-chat allowlist (subdomains included)."""
     all_article_domains = ARTICLE_DEFAULT_DOMAINS | extra_domains
-    return any(host == d or host.endswith("." + d) for d in all_article_domains)
+    return any(_host_matches(host, d) for d in all_article_domains)
 
 
 def normalize_repo_url(url: str) -> str:

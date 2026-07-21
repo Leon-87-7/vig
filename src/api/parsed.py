@@ -88,7 +88,7 @@ async def upload_pdf(request: Request) -> dict:
 
 
 class UrlIn(BaseModel):
-    url: str = Field(..., min_length=1)
+    url: str = Field(..., min_length=1, max_length=2048)
 
 
 @parsed_router.post("/url", status_code=201)

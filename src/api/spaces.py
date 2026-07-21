@@ -7,7 +7,11 @@ from typing import Literal
 
 import aiosqlite
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from src import database
+from src.config import settings
+from src.utils.logger import get_logger
 
 # Curated Lucide icon names a space may use (issue #189). Literal → 422 on anything else.
 SpaceIcon = Literal[
@@ -16,22 +20,27 @@ SpaceIcon = Literal[
     "anchor", "crown", "diamond", "shield", "lightbulb",
 ]
 
-from src import database
-from src.config import settings
-from src.utils.logger import get_logger
-
 log = get_logger(__name__)
 
 spaces_router = APIRouter(prefix="/api/spaces", tags=["spaces"])
 
 
-class SpaceIn(BaseModel):
+class _NameNotBlank(BaseModel):
+    @field_validator("name", check_fields=False)
+    @classmethod
+    def name_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("name must not be blank")
+        return value
+
+
+class SpaceIn(_NameNotBlank):
     name: str = Field(..., min_length=1, max_length=120)
     color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
     icon: SpaceIcon = "folder"
 
 
-class SpaceUpdateIn(BaseModel):
+class SpaceUpdateIn(_NameNotBlank):
     name: str = Field(..., min_length=1, max_length=120)
     color: str = Field(default="#6366f1", pattern=r"^#[0-9a-fA-F]{6}$")
     icon: SpaceIcon | None = None  # omit to leave the existing icon unchanged
@@ -42,17 +51,17 @@ class UrlIn(BaseModel):
 
 
 class ReorderIn(BaseModel):
-    sort_order: int
+    sort_order: int = Field(..., ge=0, le=10_000)
 
 
-class BlobIn(BaseModel):
+class BlobIn(_NameNotBlank):
     name: str = Field(..., min_length=1, max_length=200)
-    content: str = Field(default="")
+    content: str = Field(default="", max_length=20_000)
 
 
-class BlobContentIn(BaseModel):
+class BlobContentIn(_NameNotBlank):
     name: str = Field(..., min_length=1, max_length=200)
-    content: str
+    content: str = Field(..., max_length=20_000)
 
 
 class ExportIn(BaseModel):

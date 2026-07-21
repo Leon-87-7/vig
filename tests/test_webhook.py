@@ -2377,3 +2377,28 @@ async def test_ops_unknown_command_returns_command_list(client, monkeypatch) -> 
     assert response.status_code == 200
     messages = [call["json"].get("text", "") for call in fake_http.calls]
     assert any("/pending" in text and "/approve_pending" in text for text in messages)
+
+def test_callback_rejects_foreign_template_pick_sync(tmp_path, monkeypatch):
+    import asyncio
+    from unittest.mock import AsyncMock
+    from src.telegram import webhook
+    from src import queue as q
+
+    async def run() -> None:
+        db_path = tmp_path / "foreign_callback.db"
+        monkeypatch.setattr("src.config.settings.DB_PATH", str(db_path))
+        monkeypatch.setattr("src.database.settings.DB_PATH", str(db_path))
+        await database.init_db()
+        await _approve_user(200)
+        await _seed_job(str(db_path), "J_FOREIGN", chat_id=100, status="transcript_done")
+        enqueued = AsyncMock()
+        answered = AsyncMock()
+        monkeypatch.setattr(q, "enqueue", enqueued)
+        monkeypatch.setattr("src.telegram.webhook.answer_callback_query", answered)
+        await webhook._handle_callback(
+            {"id": "CB", "data": "template_pick:summary:J_FOREIGN", "message": {"chat": {"id": 200}}}
+        )
+        enqueued.assert_not_awaited()
+        answered.assert_awaited_once()
+
+    asyncio.run(run())

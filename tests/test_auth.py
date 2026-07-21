@@ -358,6 +358,23 @@ class TestSessionMiddleware:
         # 422 = FastAPI schema validation (missing fields) — middleware did not block it
         assert resp.status_code == 422
 
+    def test_dashboard_handoff_get_only_renders_confirmation(self, auth_client: TestClient) -> None:
+        import src.auth.session as session_module
+
+        fr: FakeRedis = session_module._redis  # type: ignore[assignment]
+        fr._store["dashboard_handoff:dash-token"] = "4242"
+
+        resp = auth_client.get(
+            "/api/auth/handoff",
+            params={"token": "dash-token", "job_id": "20260718_123456_AB12CD34"},
+            follow_redirects=False,
+        )
+
+        assert resp.status_code == 200
+        assert "Open your dashboard" in resp.text
+        assert "set-cookie" not in resp.headers
+        assert fr._store["dashboard_handoff:dash-token"] == "4242"
+
     def test_dashboard_handoff_mints_session_on_redeem(self, auth_client: TestClient) -> None:
         import src.auth.session as session_module
         from src import database
@@ -374,9 +391,9 @@ class TestSessionMiddleware:
         fr: FakeRedis = session_module._redis  # type: ignore[assignment]
         fr._store["dashboard_handoff:dash-token"] = "4242"
 
-        resp = auth_client.get(
+        resp = auth_client.post(
             "/api/auth/handoff",
-            params={"token": "dash-token", "job_id": "20260718_123456_AB12CD34"},
+            data={"token": "dash-token", "job_id": "20260718_123456_AB12CD34"},
             follow_redirects=False,
         )
 

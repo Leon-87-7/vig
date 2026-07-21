@@ -7,6 +7,10 @@ from src.utils.logger import get_logger
 
 log = get_logger(__name__)
 
+def _auth_headers() -> dict[str, str]:
+    return {"X-Ownix-Internal-Token": settings.TRANSCRIPT_SERVICE_TOKEN} if settings.TRANSCRIPT_SERVICE_TOKEN else {}
+
+
 _TIMEOUT = httpx.Timeout(90.0)
 
 
@@ -16,6 +20,7 @@ async def fetch_transcript(url: str) -> dict:
         resp = await client.get(
             f"{settings.TRANSCRIPT_SERVICE_URL}/transcript",
             params={"url": url},
+            headers=_auth_headers(),
         )
         resp.raise_for_status()
     data = resp.json()
@@ -34,6 +39,7 @@ async def fetch_metadata(url: str) -> dict:
         resp = await client.get(
             f"{settings.TRANSCRIPT_SERVICE_URL}/metadata",
             params={"url": url},
+            headers=_auth_headers(),
         )
         resp.raise_for_status()
     data = resp.json()

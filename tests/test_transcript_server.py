@@ -179,3 +179,24 @@ def test_youtube_url_uses_youtube_transcript_api(client):
     data = resp.get_json()
     assert data[0]["videoId"] == "abc123"
     assert data[0]["text"] == "hello youtube"
+
+
+def test_transcript_rejects_missing_internal_token(client, monkeypatch):
+    monkeypatch.setattr("transcript_server.TRANSCRIPT_SERVICE_TOKEN", "secret")
+    resp = client.get("/metadata?url=https://www.youtube.com/watch?v=abc123")
+    assert resp.status_code == 401
+
+
+def test_transcript_rejects_private_resolved_url(client, monkeypatch):
+    monkeypatch.setattr("transcript_server.TRANSCRIPT_SERVICE_TOKEN", "")
+    monkeypatch.setattr("transcript_server.socket.getaddrinfo", lambda *a, **k: [(None, None, None, None, ("127.0.0.1", 0))])
+    resp = client.get("/metadata?url=https://example.com/video")
+    assert resp.status_code == 400
+    assert resp.get_json()["error"]["type"] == "invalid_url"
+
+
+def test_short_frames_rejects_out_of_range_params(client, monkeypatch):
+    monkeypatch.setattr("transcript_server.TRANSCRIPT_SERVICE_TOKEN", "")
+    monkeypatch.setattr("transcript_server.socket.getaddrinfo", lambda *a, **k: [(None, None, None, None, ("8.8.8.8", 0))])
+    resp = client.get("/short_frames?url=https://example.com/video&max_frames=9999")
+    assert resp.status_code == 400

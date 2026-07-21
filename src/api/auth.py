@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import html
 import random
 import re
 import time
 
-from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Form, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from src import database
@@ -135,16 +136,25 @@ async def telegram_login(payload: TelegramPayload, response: Response) -> dict:
     return await _login_telegram_user(payload, response)
 
 
-@auth_router.get("/handoff")
-async def handoff_login(token: str, job_id: str, response: Response) -> RedirectResponse:
-    """Redeem a job-link handoff token and land the user straight on their job page.
+@auth_router.get("/handoff", response_class=HTMLResponse)
+async def handoff_login(token: str, job_id: str) -> HTMLResponse:
+    """Render a same-origin POST confirmation for Telegram dashboard handoff links."""
+    if not _JOB_ID_RE.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id")
+    return HTMLResponse(
+        f"""<!doctype html><html><head><title>Open your dashboard</title></head>
+        <body><main><h1>Open your dashboard</h1>
+        <form method="post" action="/api/auth/handoff">
+        <input type="hidden" name="token" value="{html.escape(token, quote=True)}">
+        <input type="hidden" name="job_id" value="{html.escape(job_id, quote=True)}">
+        <button type="submit">Open your dashboard</button></form>
+        <script>document.forms[0].submit()</script></main></body></html>"""
+    )
 
-    Bypasses the Telegram Login Widget: it can't complete inside Telegram's own
-    in-app browser, so "Open in Dashboard" bot buttons carry this token instead
-    (minted in src/utils/dashboard_button_row). This route is same-origin-proxied
-    to the frontend (see web/next.config.js rewrites), so the Set-Cookie below
-    lands as first-party for the dashboard domain, exactly like /api/auth/telegram.
-    """
+
+@auth_router.post("/handoff")
+async def redeem_handoff_login(token: str = Form(...), job_id: str = Form(...)) -> RedirectResponse:
+    """Redeem a job-link handoff token and land the user straight on their job page."""
     if not _JOB_ID_RE.fullmatch(job_id):
         raise HTTPException(status_code=400, detail="Invalid job_id")
 
@@ -254,4 +264,4 @@ async def set_email(payload: EmailPayload, request: Request) -> dict:
 
 
 # Compatibility aliases for older tests/callers; canonical routes live in src.api.google_oauth.
-from src.api.google_oauth import connect_google as google_connect  # noqa: E402
+from src.api.google_oauth import connect_google as google_connect  # noqa: E402,F401

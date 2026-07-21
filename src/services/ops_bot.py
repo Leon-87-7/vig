@@ -204,6 +204,10 @@ async def create_approval_batch(domain: str, rows: list[dict]) -> str:
     return batch_id
 
 
+def _escape_like(value: str, escape: str = "\\") -> str:
+    return value.replace(escape, escape + escape).replace("%", escape + "%").replace("_", escape + "_")
+
+
 async def list_users(
     status: str | None = None, *, email_domain: str | None = None, limit: int | None = 20
 ) -> list[dict]:
@@ -213,8 +217,8 @@ async def list_users(
         clauses.append("status = ?")
         params.append(status)
     if email_domain and email_domain != "all":
-        clauses.append("lower(coalesce(email, '')) LIKE ?")
-        params.append("%@" + email_domain.lower().lstrip("@"))
+        clauses.append("lower(coalesce(email, '')) LIKE ? ESCAPE '\\'")
+        params.append("%@" + _escape_like(email_domain.lower().lstrip("@")))
     sql_parts = [
         "SELECT tg_id, username, first_name, last_name, email, status, created_at, updated_at",
         "FROM users",
