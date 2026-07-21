@@ -38,7 +38,7 @@ INSTAGRAM_COOKIES = os.environ.get(
 INSTAGRAM_MAX_SLIDES = 10
 
 TRANSCRIPT_SERVICE_TOKEN = os.environ.get("TRANSCRIPT_SERVICE_TOKEN", "")
-_INTERNAL_TOKEN_HEADER = "X-Ownix-Internal-Token"
+_INTERNAL_AUTH_HEADER = "X-Ownix-Internal-Token"
 _MAX_URL_LENGTH = 2048
 
 
@@ -46,7 +46,7 @@ def _auth_failed():
     expected = TRANSCRIPT_SERVICE_TOKEN
     if not expected:
         return False
-    return request.headers.get(_INTERNAL_TOKEN_HEADER, "") != expected
+    return request.headers.get(_INTERNAL_AUTH_HEADER, "") != expected
 
 
 def _reject(error_type: str, message: str, status: int = 400):
@@ -87,9 +87,12 @@ def _validate_request_url():
     return url, None
 
 
+_DECIMAL_RE = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)$")
+
+
 def _bounded_float(name: str, default: float, minimum: float, maximum: float):
     raw = request.args.get(name, default)
-    if isinstance(raw, str) and raw.strip().lower() in ("nan", "+nan", "-nan"):
+    if isinstance(raw, str) and not _DECIMAL_RE.fullmatch(raw.strip()):
         raise ValueError(f"{name} must be a number")
     try:
         value = float(raw)
