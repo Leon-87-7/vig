@@ -798,21 +798,24 @@ async def _cmd_addlink(ctx: SlashCtx) -> None:
         await send_message(ctx.chat_id, "Usage: /addlink <url> — must be an absolute http(s) URL")
         return
     warning = "`/addlink` saves the link as-is; it does not process it through the pipeline-detection flow."
-    existing = await database.find_recent_job_by_url(ctx.chat_id, url)
-    if existing and existing.get("content_type") != "link":
+    # create_and_enqueue_job owns dedup (ADR-0033): a cache hit on any content_type
+    # returns the existing job instead of creating a duplicate link job.
+    job = await create_and_enqueue_job(ctx.chat_id, url, "link", message_id=ctx.message_id)
+    if job.get("content_type", "link") != "link":
         await send_message(
             ctx.chat_id,
-            f"⚠️ This URL already exists as a {existing.get('content_type')} job "
-            f"(job_{existing['id'][-4:]}) — no link entry was created.\n\n{warning}",
+            f"⚠️ This URL already exists as a {job.get('content_type')} job "
+            f"(job_{job['id'][-4:]}) — no link entry was created.\n\n{warning}",
             parse_mode="Markdown",
         )
         return
-    if existing:
-        await _reply_cached_job(ctx.chat_id, existing)
+    if job.get("_deduped"):
+        await _reply_cached_job(ctx.chat_id, job)
         await send_message(ctx.chat_id, warning, parse_mode="Markdown")
         return
-    job = await create_and_enqueue_job(ctx.chat_id, url, "link", message_id=ctx.message_id, skip_cache=True)
-    await send_message(ctx.chat_id, f"📥 Received\njob_{job['id'][-4:]}\n\n{warning}", parse_mode="Markdown")
+    await send_message(
+        ctx.chat_id, f"📥 Received\njob_{job['id'][-4:]}\n\n{warning}", parse_mode="Markdown"
+    )
 
 
 async def _cmd_force(ctx: SlashCtx) -> None:
@@ -1048,7 +1051,7 @@ async def _cmd_allowlist_list(ctx: SlashCtx) -> None:
 
 
 _START_TEXT = (
-    "👋 *Ownix — your internet, indexed.*\n\n"
+    "👋 *Ownix — your internet. own it.*\n\n"
     "Send me something worth keeping and I’ll turn it into a searchable entry:\n"
     "• YouTube video or Short\n"
     "• Instagram Reel\n"
@@ -1855,9 +1858,7 @@ async def ops_webhook(
     text = (message.get("text") or "").strip()
     if chat_id and sender_id and text.startswith("/"):
         parts: list[str] = text.split()
-        await ops_bot.handle_command(
-            ops_bot.OpsCtx(chat_id, sender_id, parts, message_id)
-        )
+        await ops_bot.handle_command(ops_bot.OpsCtx(chat_id, sender_id, parts, message_id))
     return {"ok": True}
 
 

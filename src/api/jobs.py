@@ -144,17 +144,19 @@ async def create_job(request: Request, body: JobCreateRequest) -> dict:
     if body.content_type == "link":
         if not is_fetchable_url(url):
             raise HTTPException(status_code=422, detail="Add Link needs an absolute http(s) URL")
-        existing = await database.find_recent_job_by_url(chat_id, url)
         warning = "Add Link saves the link as-is; it does not process it through the pipeline-detection flow."
-        if existing and existing.get("content_type") != "link":
+        # create_and_enqueue_job owns dedup (ADR-0033): a cache hit on any
+        # content_type returns the existing job instead of creating one, so a
+        # URL already tracked as another type never gains a duplicate link job.
+        job = await create_and_enqueue_job(chat_id, url, "link")
+        if job.get("content_type", "link") != "link":
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    f"⚠️ This URL already exists as a {existing.get('content_type')} job "
-                    f"(job_{existing['id'][-4:]}) — no link entry was created. {warning}"
+                    f"⚠️ This URL already exists as a {job.get('content_type')} job "
+                    f"(job_{job['id'][-4:]}) — no link entry was created. {warning}"
                 ),
             )
-        job = existing or await create_and_enqueue_job(chat_id, url, "link", skip_cache=True)
         return {
             "id": job["id"],
             "job_id": job["id"],

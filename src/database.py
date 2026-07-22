@@ -464,6 +464,9 @@ async def _rebuild_jobs_table(
         "CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at)"
     )
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_chat_id ON jobs(chat_id)")
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_jobs_chat_created ON jobs(chat_id, created_at, id)"
+    )
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_url ON jobs(url)")
 
 
@@ -1115,6 +1118,8 @@ _MIGRATIONS.append([
 
 # v32 → v33: widen content_type CHECK to include 'link' for the Link pipeline.
 # SQLite can't ALTER a CHECK, so rebuild the table via selective column copy.
+# Reusing the v23 schema is safe: none of v24–v32 touch the jobs table (they
+# alter users/links/tags and add OAuth tables), so _V23_CREATE is still current.
 _V33_CREATE = _V23_CREATE.replace("jobs_v23", "jobs_v33").replace(
     "CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document')),",
     "CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document', 'link')),")

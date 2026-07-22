@@ -519,13 +519,18 @@ export function SubmitJobProvider({
                 value={addLinkUrl}
                 onChange={(event) => setAddLinkUrl(event.target.value)}
                 placeholder="https://example.com"
+                aria-describedby={addLinkError ? 'add-link-error' : undefined}
                 className="mt-2 w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none transition-ui placeholder:text-muted focus:border-signal focus:ring-1 focus:ring-signal"
               />
             </label>
             <p className="text-xs text-muted">
               Add Link saves the link as-is; it does not process it through the pipeline-detection flow.
             </p>
-            {addLinkError && <p className="text-sm text-red-400">{addLinkError}</p>}
+            {addLinkError && (
+              <p id="add-link-error" role="alert" className="text-sm text-red-400">
+                {addLinkError}
+              </p>
+            )}
             <button
               type="submit"
               disabled={addLinkSubmitting || !addLinkUrl.trim()}
