@@ -51,6 +51,29 @@
 | [#385](https://github.com/Leon-87-7/vig/issues/385) | Backfill standalone link identity via refresh-loop repair (re-resolve + re-embed) | Brain | Merged; PR #390; closed on GH |
 | [#386](https://github.com/Leon-87-7/vig/issues/386) | Optional tag icons — nullable tags.icon + Lucide picker, icon-in-color rendering | Tags | Merged; PR #390; closed on GH |
 | [#387](https://github.com/Leon-87-7/vig/issues/387) | Links search box matches tag names exactly via link_tags join | Tags | Merged; PR #390; closed on GH |
+| [#399](https://github.com/Leon-87-7/ownix/issues/399) | security: GET-based /api/auth/handoff is a login-CSRF primitive (7-day cookie-installing link) | Security / Auth | Already fixed by PR #411 (commit cdb7c63); closed on GH |
+| [#402](https://github.com/Leon-87-7/ownix/issues/402) | fix(validators): require http/https scheme, exact host match, and stricter domain normalization | Security / Validators | closed on GH |
+| [#403](https://github.com/Leon-87-7/ownix/issues/403) | fix(telegram): enforce chat_id ownership check on job callback handlers (IDOR) | Security / Telegram | closed on GH |
+| [#404](https://github.com/Leon-87-7/ownix/issues/404) | fix(transcript-service): add SSRF guards, auth, and parameter bounds | Security / Transcript | closed on GH |
+| [#405](https://github.com/Leon-87-7/ownix/issues/405) | fix(api): add length/size bounds to unbounded user-supplied text fields | API / Validation | closed on GH |
+| [#406](https://github.com/Leon-87-7/ownix/issues/406) | fix(telegram): validate /download_md URL (https, public host, max length) | Security / Telegram | closed on GH |
+| [#407](https://github.com/Leon-87-7/ownix/issues/407) | fix(api): reject whitespace-only names for spaces/tags/contexts | API / Validation | closed on GH |
+| [#408](https://github.com/Leon-87-7/ownix/issues/408) | fix(api): validate sort_order bounds on reorder endpoints | API / Validation | closed on GH |
+| [#409](https://github.com/Leon-87-7/ownix/issues/409) | fix(api): constrain tag icon to the frontend's fixed icon set | API / Tags | closed on GH |
+| [#410](https://github.com/Leon-87-7/ownix/issues/410) | fix(ops-bot): escape SQL LIKE wildcards in /users email <domain> | Security / Ops | closed on GH |
+| [#117](https://github.com/Leon-87-7/ownix/issues/117) | ExportModal: restore PDF fallback when Google Drive is not configured | Web / Export | closed on GH |
+| [#234](https://github.com/Leon-87-7/ownix/issues/234) | Replace raw logout API response with dedicated logout page | Web / Auth | closed on GH |
+| [#255](https://github.com/Leon-87-7/ownix/issues/255) | feat(telegram): first-contact email capture + pending gate + one-tap approve | Telegram / Access | closed on GH |
+| [#256](https://github.com/Leon-87-7/ownix/issues/256) | feat(web): dashboard email modal + /api/* status gate + pending screen | Web / Access | closed on GH |
+| [#259](https://github.com/Leon-87-7/ownix/issues/259) | Security: nodeLabel is an XSS sink in Brain graph (external video titles) | Security / Brain | closed on GH |
+| [#266](https://github.com/Leon-87-7/ownix/issues/266) | chore(ops): deliver Google OAuth credentials to the server .env | Ops | closed on GH |
+| [#267](https://github.com/Leon-87-7/ownix/issues/267) | fix(config): fail fast on empty TELEGRAM_WEBHOOK_SECRET/TELEGRAM_BOT_TOKEN | Config | closed on GH |
+| [#268](https://github.com/Leon-87-7/ownix/issues/268) | chore: delete scripts/backfill_brain.py — crashes on removed GOOGLE_SHEETS_ID_SHORT/LONG | Scripts / Brain | closed on GH |
+| [#269](https://github.com/Leon-87-7/ownix/issues/269) | fix(gemini): bound genai.Client requests to a 90s timeout | Gemini | closed on GH |
+| [#270](https://github.com/Leon-87-7/ownix/issues/270) | fix(web): replace invalid Tailwind class names (WCAG contrast fix + dead classes) | Web / A11y | closed on GH |
+| [#271](https://github.com/Leon-87-7/ownix/issues/271) | fix(web): guard TelegramToggle against overlapping requests and unmount timer leak | Web / Telegram | closed on GH |
+| [#272](https://github.com/Leon-87-7/ownix/issues/272) | fix(web): guard doc-parser detail load() against stale-response races | Web / Doc Parser | closed on GH |
+| [#273](https://github.com/Leon-87-7/ownix/issues/273) | feat(web): add app-level error boundary styled to the design system | Web | closed on GH |
 
 ---
 
@@ -78,15 +101,10 @@
 | [#393](https://github.com/Leon-87-7/vig/issues/393) | feat(landing): integrate Rive runtime with one test scene | Web / Landing | #392 |
 | [#394](https://github.com/Leon-87-7/vig/issues/394) | design(landing): author the seven onboarding Rive scenes (HITL) | Design / Landing | #393 |
 | [#395](https://github.com/Leon-87-7/vig/issues/395) | feat(landing): onboarding copy, timing polish, and verification pass (HITL) | Web / Landing | #394 |
-| [#402](https://github.com/Leon-87-7/ownix/issues/402) | fix(validators): require http/https scheme, exact host match, and stricter domain normalization | Security / Validators | — |
-| [#403](https://github.com/Leon-87-7/ownix/issues/403) | fix(telegram): enforce chat_id ownership check on job callback handlers (IDOR) | Security / Telegram | — |
-| [#404](https://github.com/Leon-87-7/ownix/issues/404) | fix(transcript-service): add SSRF guards, auth, and parameter bounds | Security / Transcript | — |
-| [#405](https://github.com/Leon-87-7/ownix/issues/405) | fix(api): add length/size bounds to unbounded user-supplied text fields | API / Validation | — |
-| [#406](https://github.com/Leon-87-7/ownix/issues/406) | fix(telegram): validate /download_md URL (https, public host, max length) | Security / Telegram | — |
-| [#407](https://github.com/Leon-87-7/ownix/issues/407) | fix(api): reject whitespace-only names for spaces/tags/contexts | API / Validation | — |
-| [#408](https://github.com/Leon-87-7/ownix/issues/408) | fix(api): validate sort_order bounds on reorder endpoints | API / Validation | — |
-| [#409](https://github.com/Leon-87-7/ownix/issues/409) | fix(api): constrain tag icon to the frontend's fixed icon set | API / Tags | — |
-| [#410](https://github.com/Leon-87-7/ownix/issues/410) | fix(ops-bot): escape SQL LIKE wildcards in /users email <domain> | Security / Ops | — |
+| [#415](https://github.com/Leon-87-7/ownix/issues/415) | feat(telegram): link pipeline core + /addlink command | Telegram | — |
+| [#416](https://github.com/Leon-87-7/ownix/issues/416) | feat(web): Add Link modal (U shortcut) | Web | #415 |
+| [#417](https://github.com/Leon-87-7/ownix/issues/417) | feat(web): Feed content-type support for link jobs | Web | #415 |
+| [#398](https://github.com/Leon-87-7/ownix/issues/398) | feat: Freestyle button on job detail — run a custom prompt against any job | Web / Jobs | — |
 
 ---
 
@@ -98,6 +116,7 @@ Ordered by unblocked-first, then dependency chain.
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------------ | ------------------------ | ---------------- |
 | [#317](https://github.com/Leon-87-7/vig/issues/317) | fix(telegram): .md documents preview as mojibake (â€”) — UTF-8 BOM + strip Gemini em-dashes       | Telegram / Gemini        | —                |
 | [#365](https://github.com/Leon-87-7/vig/issues/365) | Next.js 16 core upgrade: deps + Turbopack SVGR config | Web / Next16 | — |
+| [#414](https://github.com/Leon-87-7/ownix/issues/414) | test_sheets_append_short_row fails: export_blocked() not mocked | Tests / Sheets | — |
 
 ---
 
@@ -105,6 +124,7 @@ Ordered by unblocked-first, then dependency chain.
 
 |                                                   # | Title                                                                                     | Area               | Notes                                                  |
 | --------------------------------------------------: | ------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------ |
+| [#413](https://github.com/Leon-87-7/ownix/issues/413) | SSRF: pin resolved IP / validate redirects for transcript_server.py fetch path | Security / Transcript | Agent brief posted; needs a human tradeoff call (disable redirects vs re-validate each hop) across yt-dlp + youtube-transcript-api before an agent implements |
 
 ---
 
@@ -482,16 +502,22 @@ Ownix mobile onboarding hero (source: docs/plans/2026-07-17-ownix-mobile-onboard
 Critical path: #391 → #392 → #393 → #394 → #395 (fully linear)
 
 Security review — input validation & authz findings (source: pasted findings table, 2026-07-21)
-#402 validators: http/https scheme + exact host match + domain normalization — independent
-#403 telegram: chat_id ownership check on job callbacks (IDOR) — independent
-#404 transcript-service: SSRF guards + auth + parameter bounds — independent
-#405 api: length/size bounds on unbounded text fields — independent
-#406 telegram: /download_md URL validation — independent
-#407 api: reject whitespace-only names — independent
-#408 api: sort_order bounds on reorder — independent
-#409 api: constrain tag icon to fixed set — independent
-#410 ops-bot: escape SQL LIKE wildcards in /users email — independent
+#402 validators: http/https scheme + exact host match + domain normalization — independent ✓
+#403 telegram: chat_id ownership check on job callbacks (IDOR) — independent ✓
+#404 transcript-service: SSRF guards + auth + parameter bounds — independent ✓
+#405 api: length/size bounds on unbounded text fields — independent ✓
+#406 telegram: /download_md URL validation — independent ✓
+#407 api: reject whitespace-only names — independent ✓
+#408 api: sort_order bounds on reorder — independent ✓
+#409 api: constrain tag icon to fixed set — independent ✓
+#410 ops-bot: escape SQL LIKE wildcards in /users email — independent ✓
 Critical path: none — all nine are independent, no dependency between them
+
+Link pipeline — direct-add URLs to the Second Brain (grill 2026-07-22 — ADR-0039; CONTEXT.md `Link pipeline`, `Essential OG collection`)
+#415 link pipeline core + /addlink command (root, unblocked)
+├── #416 Add Link modal (U shortcut) ◄── #415
+└── #417 Feed content-type support for link jobs ◄── #415
+Critical path: #415 → {#416, #417}
 ```
 
 ---
@@ -500,129 +526,135 @@ Critical path: none — all nine are independent, no dependency between them
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
-| [#349](https://github.com/Leon-87-7/vig/pull/349) | Add and harden ntfy operator alerts | claude/ntfy-vig-integration-7y8dw6→main | #339–#348 | 🔄 Open |
+| [#401](https://github.com/Leon-87-7/ownix/pull/401) | chore(web): configure ESLint | chore/web-eslint-setup→main | — | 🔄 Open |
+| [#349](https://github.com/Leon-87-7/ownix/pull/349) | Add and harden ntfy operator alerts | claude/ntfy-vig-integration-7y8dw6→main | #339–#348 | 🔄 Open |
 
 ## Closed PRs
 
 | # | Title | Branch→Base | Linked Issue | Status |
 | --: | ----- | ----------- | ------------ | ------ |
-| [#390](https://github.com/Leon-87-7/vig/pull/390) | feat: standalone link identity + link-level tags (#381–#387) | feat/standalone-link-identity-381→main | #381–#387 | ✅ Merged |
-| [#389](https://github.com/Leon-87-7/vig/pull/389) | test: align backfill limit assertion with bound SQL LIMIT param | fix/backfill-limit-test-params→main | — | ✅ Merged |
-| [#388](https://github.com/Leon-87-7/vig/pull/388) | feat(telegram): add Open in Dashboard button to job messages | feat/telegram-job-dashboard-button→main | — | ✅ Merged |
-| [#380](https://github.com/Leon-87-7/vig/pull/380) | feat(telegram): add Ops bot workflow | codex/ops-bot-workflow→main | — | ✅ Merged |
-| [#373](https://github.com/Leon-87-7/vig/pull/373) | fix(web): favicon, one-click invite widget, header home link, OG logo | feat/landing-invite-widget-and-header-link→main | — | ✅ Merged |
-| [#372](https://github.com/Leon-87-7/vig/pull/372) | fix(web): correct stale vig branding, clarify dashboard tool copy | copy/legal-and-dashboard-clarity→main | — | ✅ Merged |
-| [#371](https://github.com/Leon-87-7/vig/pull/371) | refactor(web): organize components into feature folders | refactor/web-components-layout→main | — | ✅ Merged |
-| [#370](https://github.com/Leon-87-7/vig/pull/370) | fix(web): redirect Google OAuth to feed, rename Drive folder to Ownix | fix/google-redirect-and-web-polish→main | — | ✅ Merged |
-| [#369](https://github.com/Leon-87-7/vig/pull/369) | chore(codacy): disable markdown analysis, prune tools to repo languages | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
-| [#364](https://github.com/Leon-87-7/vig/pull/364) | polish(web): landing funnel copy + floating dev persona switch | feat/ownix-landing-copy→main | — | ✅ Merged |
-| [#363](https://github.com/Leon-87-7/vig/pull/363) | Fix logout and restore Next 14 | codex/next14-logout-fix→main | — | ✅ Merged |
-| [#362](https://github.com/Leon-87-7/vig/pull/362) | fix(web): resolve Next 16 async route params breaking job/space detail pages | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
-| [#361](https://github.com/Leon-87-7/vig/pull/361) | fix(restricted): approved session outranks stale preview cookie | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
-| [#360](https://github.com/Leon-87-7/vig/pull/360) | Codex landing 329 331 | codex-landing-329-331→main | — | ✅ Merged |
-| [#359](https://github.com/Leon-87-7/vig/pull/359) | Restricted mode preview: preview API, routing, and read-only UI | codex/implement-issues-#353#358-for-restricted-mode→main | #353–#358 | ✅ Merged |
-| [#351](https://github.com/Leon-87-7/vig/pull/351) | Implement Ownix landing and Feed dashboard flow | codex-landing-329-331→main | — | ✅ Merged |
-| [#350](https://github.com/Leon-87-7/vig/pull/350) | feat(web): transition dashboard to Ownix design system | codex/ownix-design-system-shell→main | — | ✅ Merged |
-| [#338](https://github.com/Leon-87-7/vig/pull/338) | fix(doc-parser): shorten source document key | codex/doc-parser-source-chip→main | — | ✅ Merged |
-| [#337](https://github.com/Leon-87-7/vig/pull/337) | Feed inventory IA: Links and Commands | codex-IA-refactor→main | — | ✅ Merged |
-| [#328](https://github.com/Leon-87-7/vig/pull/328) | impeccable critiques and dialog placement | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
-| [#327](https://github.com/Leon-87-7/vig/pull/327) | Revert "feat: refactor components for improved readability and maintainability" | revert-326-ui/submit-url-dialog-desktop→main | — | ❌ Closed |
-| [#326](https://github.com/Leon-87-7/vig/pull/326) | feat: refactor components for improved readability and maintainability | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
-| [#325](https://github.com/Leon-87-7/vig/pull/325) | feat(web): collapse dashboard submit form behind a neutral trigger | feat/submit-collapse→main | — | ✅ Merged |
-| [#324](https://github.com/Leon-87-7/vig/pull/324) | feat: dashboard job submission + shared job service and repo follow-ups | codex/resolve-issues-318-to-323→main | — | ✅ Merged |
-| [#316](https://github.com/Leon-87-7/vig/pull/316) | feat: job prev/next navigation, links mobile cards, Docs tab, sidebar footer (#305-#310) | codex/resolve-305-310→main | — | ✅ Merged |
-| [#315](https://github.com/Leon-87-7/vig/pull/315) | feat(repo): more informational repo analysis — sub-READMEs, key_components, tighter prompt guidance + web JSON render fix | worktree-repo-informational-311-314→main | #311–#314 | ✅ Merged |
-| [#304](https://github.com/Leon-87-7/vig/pull/304) | Replace in-content spinners with skeletons; webhook callback & copy fixes | codex/resolve-issues-#300-to-#302→main | — | ✅ Merged |
-| [#303](https://github.com/Leon-87-7/vig/pull/303) | fix(web): sidebar rail tooltip omits Google status while it is still unknown | fix/sidebar-tooltip-null-status→main | — | ✅ Merged |
-| [#299](https://github.com/Leon-87-7/vig/pull/299) | Council fixes — chunk 4/5: background-task tracking, tabs hoisting, eyebrow sweep, scoping docs | worktree-codex-apply→main | — | ✅ Merged |
-| [#298](https://github.com/Leon-87-7/vig/pull/298) | polish: format pass, Jina timeout, operator-name config, dashboard copy fixes | worktree-codex-task→main | — | ✅ Merged |
-| [#297](https://github.com/Leon-87-7/vig/pull/297) | Council fixes — chunk 3/5: copy & hygiene (admin contact config, Jina timeout, repo-URL validation) | codex/admin-contact-and-hygiene→main | — | ❌ Closed |
-| [#296](https://github.com/Leon-87-7/vig/pull/296) | feat(web): persistent account affordance — session identity + Google connection state (#292–#295) | account-affordance-292-295→main | #292–#295 | ✅ Merged |
-| [#282](https://github.com/Leon-87-7/vig/pull/282) | Council fixes — chunk 2/5: event-loop fix, GeminiClient shim deletion, React race/cleanup batch | council-fixes-chunk2→main | — | ✅ Merged |
-| [#274](https://github.com/Leon-87-7/vig/pull/274) | Council fixes — chunk 1/5: critical (auth fail-fast, Gemini timeout, WCAG, React guards) | council-fixes-chunk1-critical→main | — | ✅ Merged |
-| [#264](https://github.com/Leon-87-7/vig/pull/264) | Per-user Google OAuth exports + encrypted token store and Telegram Mini App support | codex/resolve-issues-#204,-#205,-and-#206→main | — | ✅ Merged |
-| [#263](https://github.com/Leon-87-7/vig/pull/263) | Invite gate: council-review fixes (rounds 1-2) + council-review tooling updates | invite-gate-255-256→main | — | ✅ Merged |
-| [#262](https://github.com/Leon-87-7/vig/pull/262) | feat(db): add invite gate user status | feat/invite-gate-db→main | #254 | ✅ Merged |
-| [#261](https://github.com/Leon-87-7/vig/pull/261) | [codex] fix brain graph tooltip escaping | codex/fix-brain-graph-tooltip-xss→main | — | ✅ Merged |
-| [#260](https://github.com/Leon-87-7/vig/pull/260) | Resolve council review findings on Brain graph | codex-252→main | — | ✅ Merged |
-| [#258](https://github.com/Leon-87-7/vig/pull/258) | docs(access): ADR-0031 invite-only gate + onboarding (epic #253) | docs/invite-gate-adr→main | — | ✅ Merged |
-| [#257](https://github.com/Leon-87-7/vig/pull/257) | feat(web): Brain links sortable columns + persisted per-tenant view (#251) | codex-251→main | — | ✅ Merged |
-| [#250](https://github.com/Leon-87-7/vig/pull/250) | feat(skills): /pre-grill + TASK.md ideation workflow | feat/pre-grill-skill→main | — | ✅ Merged |
-| [#249](https://github.com/Leon-87-7/vig/pull/249) | feat(skills): /pre-grill — fatten one-line ideas into grill-ready briefs | feat/pre-grill-skill→main | — | ✅ Merged |
-| [#248](https://github.com/Leon-87-7/vig/pull/248) | Add Tooltip component (Radix) and integrate across UI | codex/resolve-issues-#243-to-#247→main | — | ✅ Merged |
-| [#242](https://github.com/Leon-87-7/vig/pull/242) | feat(doc-parser): relocate Telegram toggle + copy/download on output cards (#240) | 240-doc-detail-page-move-telegram-toggle-next-to-clean-add-downloadcopy-buttons-to-output-cards→main | #240 | ✅ Merged |
-| [#241](https://github.com/Leon-87-7/vig/pull/241) | fix(brain): sort extracted links by latest sighting | codex/resolve-issue-240→main | — | ✅ Merged |
-| [#239](https://github.com/Leon-87-7/vig/pull/239) | feat: Brain Links tab (+ search) and feed dashboard redesign | feat(brain)--link-table→main | — | ✅ Merged |
-| [#237](https://github.com/Leon-87-7/vig/pull/237) | fix(webhook): add /start + /help handlers, harden webhook against unhandled errors | claude/telegram-bot-diagnose-9d41p6→main | — | ✅ Merged |
-| [#236](https://github.com/Leon-87-7/vig/pull/236) | Consistent mobile page layout + doc-parser fixes | mobile-consistent-page-shell→main | — | ✅ Merged |
-| [#235](https://github.com/Leon-87-7/vig/pull/235) | feat(auth): add logout confirmation page | ui/logout-frontend→main | — | ✅ Merged |
-| [#233](https://github.com/Leon-87-7/vig/pull/233) | feat(web): redesign Telegram delivery toggle | feat/telegram-toggle-redesign→main | — | ✅ Merged |
-| [#232](https://github.com/Leon-87-7/vig/pull/232) | fix(db): make telegram_delivery a stored domain of {off,on} (#231) | pr/231-telegram-delivery-domain→main | #231 | ✅ Merged |
-| [#230](https://github.com/Leon-87-7/vig/pull/230) | fix: guard TelegramToggle against failed PUT | fix/telegram-toggle-failed-put→main | — | ✅ Merged |
-| [#229](https://github.com/Leon-87-7/vig/pull/229) | refactor: extract PDF intake into a deep module (#228) | refactor/228-pdf-intake→main | #228 | ✅ Merged |
-| [#227](https://github.com/Leon-87-7/vig/pull/227) | feat: Doc Parser dashboard page (ADR-0029) | feat/doc-parser-dashboard→main | #217 | ✅ Merged |
-| [#216](https://github.com/Leon-87-7/vig/pull/216) | fix(web): mobile responsiveness across the dashboard | fix/mobile-responsiveness→main | — | ✅ Merged |
-| [#215](https://github.com/Leon-87-7/vig/pull/215) | feat(short): vision titles, drop key_phrases, add clickable Links Found (#211 #212 #213) | feat/short-pipeline-cleanup→main | — | ✅ Merged |
-| [#214](https://github.com/Leon-87-7/vig/pull/214) | feat(web): segmented content-type tabs + login page design | ui/second-touchups→main | — | ✅ Merged |
-| [#210](https://github.com/Leon-87-7/vig/pull/210) | feat(web): job tag menu, controls accordion, denser feed cards | ui/job-tag-menu→main | — | ✅ Merged |
-| [#209](https://github.com/Leon-87-7/vig/pull/209) | feat(skills): add /spec-to-kanban wrapper | feat/spec-to-kanban-skill→main | — | ✅ Merged |
-| [#208](https://github.com/Leon-87-7/vig/pull/208) | feat(config): operator-only export gate — per-user isolation (#202) | feat/operator-export-gate→main | #202 | ✅ Merged |
-| [#207](https://github.com/Leon-87-7/vig/pull/207) | docs(multi-tenancy): export-isolation design — ADR-0027, Operator term, issue breakdown | docs/multi-tenancy-export-isolation→main | — | ✅ Merged |
-| [#200](https://github.com/Leon-87-7/vig/pull/200) | fix+feat(document): dispatch fallthrough fix + fast-follow (#156 #157 #158) | fix/document-dispatch-fallthrough→main | #156–#158 | ✅ Merged |
-| [#199](https://github.com/Leon-87-7/vig/pull/199) | docs(brain): graph map plan — ADR-0027/0028, CONTEXT, issues #194–#198 | feat/brain-graph-map→main | — | ✅ Merged |
-| [#193](https://github.com/Leon-87-7/vig/pull/193) | feat(web): mobile-first UI/UX makeover + per-space icons (#185–#192) | feat/ui-ux-makeover→main | — | ✅ Merged |
-| [#184](https://github.com/Leon-87-7/vig/pull/184) | fix: hide cancelled jobs from feed and brain search | fix/hide-cancelled-from-feed-and-brain→main | — | ✅ Merged |
-| [#183](https://github.com/Leon-87-7/vig/pull/183) | refactor: centralize extract_json and job_tag utilities | refactor/centralize-extract-json-and-job-tag→main | — | ✅ Merged |
-| [#182](https://github.com/Leon-87-7/vig/pull/182) | feat(document): PDF document pipeline MVP (#150–#155) | feat/document-pipeline-mvp→main | — | ✅ Merged |
-| [#181](https://github.com/Leon-87-7/vig/pull/181) | feat(web/feed): tighten stats + filter layout, merge recovery into a controls bar | feat/web-feed-layout→main | — | ✅ Merged |
-| [#180](https://github.com/Leon-87-7/vig/pull/180) | fix(web): localize dates, harden ExportModal, clear dead code + cover untested logic | feat/web-date-localization→main | — | ✅ Merged |
-| [#179](https://github.com/Leon-87-7/vig/pull/179) | chore: ponytail-audit cleanup — drop shims, dead flag, committed pyscn snapshots | chore/ponytail-cleanup→main | — | ✅ Merged |
-| [#178](https://github.com/Leon-87-7/vig/pull/178) | feat(web): instant feed filtering + silent freshness + keep-warm ping (#175–#177) | feat/175-177-feed-freshness→main | #175 | ✅ Merged |
-| [#174](https://github.com/Leon-87-7/vig/pull/174) | feat(web): add dashboard job recovery panel | codex-dashboard-recovery-panel→main | #167–#171 | ✅ Merged |
-| [#173](https://github.com/Leon-87-7/vig/pull/173) | fix(web/feed): guard feed fetch race so tabs only show their content type | fix/165-feed-race-guard→main | #165 | ✅ Merged |
-| [#172](https://github.com/Leon-87-7/vig/pull/172) | fix(web/jobs): populate short-pipeline job detail pages | fix/164-short-job-detail→main | #164 | ✅ Merged |
-| [#163](https://github.com/Leon-87-7/vig/pull/163) | fix(article/backfill): continue og:image scan on bad scheme; SQL LIMIT on short backfill | fix/greptile-149-followup→main | — | ✅ Merged |
-| [#149](https://github.com/Leon-87-7/vig/pull/149) | Resolve feed thumbnail issues #142-#148 | codex-issues-142-148-feed-thumbnails→main | — | ✅ Merged |
-| [#141](https://github.com/Leon-87-7/vig/pull/141) | feat(web): Operator's Console design system — spec, tokens, drawer nav, full migration | feat/operators-console-design→main | — | ✅ Merged |
-| [#140](https://github.com/Leon-87-7/vig/pull/140) | refactor: drive pyscn + fallow static-analysis gates to green | refactor/static-analysis-green→main | — | ✅ Merged |
-| [#139](https://github.com/Leon-87-7/vig/pull/139) | feat(photo): media_group_id debounce replaces photoBatch commands (#137) | worktree-agent-ab8d0c4a71e30b5f7→main | #137 | ❌ Closed |
-| [#138](https://github.com/Leon-87-7/vig/pull/138) | feat(photo): remove Quick Links footer + media_group_id debounce (#136 #137) | worktree-agent-aab29c4329161fb60→main | #136–#137 | ✅ Merged |
-| [#135](https://github.com/Leon-87-7/vig/pull/135) | refactor(hooks): extract custom hooks + add vitest test infrastructure | refactor/hooks-121-129→main | — | ✅ Merged |
-| [#134](https://github.com/Leon-87-7/vig/pull/134) | refactor(frontend): extract custom hooks across all dashboard pages (#121-129) | refactor/hooks-121-129→main | #121 | ✅ Merged |
-| [#120](https://github.com/Leon-87-7/vig/pull/120) | feat(github+repo): topics field, v2 cache key, _prioritize_tree, and _build_repo_prompt improvements | feat/118-119-repo-prompt-improvements→main | #118–#119 | ✅ Merged |
-| [#116](https://github.com/Leon-87-7/vig/pull/116) | fix(queue/api/db): brpop idle handling, OpenAPI schema, per-chat ignored domains | repo-pipeline→main | — | ❌ Closed |
-| [#115](https://github.com/Leon-87-7/vig/pull/115) | fix(spaces): ExportModal popup-block, controlled input, N+1 DB loop | pr/spaces-s7-s8→main | — | ✅ Merged |
-| [#114](https://github.com/Leon-87-7/vig/pull/114) | feat(web): S5/S6 job annotations + spaces CRUD, S11 brain semantic-search | pr/web-s2-s3-s4→main | — | ✅ Merged |
-| [#113](https://github.com/Leon-87-7/vig/pull/113) | feat(short-pipeline): transcript tail — closes #97 #98 #99 #100 | dev→main | #97–#100 | ✅ Merged |
-| [#112](https://github.com/Leon-87-7/vig/pull/112) | feat(web): S2/S3/S4 — feed, job detail, tags CRUD | pr/web-s2-s3-s4→main | — | ✅ Merged |
-| [#111](https://github.com/Leon-87-7/vig/pull/111) | feat(web): S7/S8 — space context blobs + export composer | pr/spaces-s7-s8→pr/spaces-s5-s6 | — | ❌ Closed |
-| [#110](https://github.com/Leon-87-7/vig/pull/110) | feat(short-pipeline): ADR-0020 — guaranteed transcript on every short job | pr/adr-0020-transcript→main | — | ✅ Merged |
-| [#109](https://github.com/Leon-87-7/vig/pull/109) | feat(web): S5/S6 — job annotations + spaces CRUD | pr/spaces-s5-s6→pr/web-s2-s3-s4 | — | ✅ Merged |
-| [#108](https://github.com/Leon-87-7/vig/pull/108) | feat(web): S11 — brain semantic-search page | pr/brain-search-s11→pr/web-s2-s3-s4 | — | ✅ Merged |
-| [#107](https://github.com/Leon-87-7/vig/pull/107) | feat(templates): user-defined templates CRUD + /templates command | pr/templates→pr/web-s2-s3-s4 | — | ✅ Merged |
-| [#106](https://github.com/Leon-87-7/vig/pull/106) | feat(controls): S10 — Allowed/Ignored Domains tabs | pr/web-controls-s10→main | — | ✅ Merged |
-| [#105](https://github.com/Leon-87-7/vig/pull/105) | feat(auth): S1 — auth hardening + cleanup | pr/auth-s1-fixes→main | — | ✅ Merged |
-| [#104](https://github.com/Leon-87-7/vig/pull/104) | 🐛 fix(enrichment): repair malformed Gemini JSON with json-repair fallback | dev→main | — | ✅ Merged |
-| [#80](https://github.com/Leon-87-7/vig/pull/80) | feat(repo): full repo pipeline #2-#8 (issues #67-#73) | repo-pipeline→main | #67 | ✅ Merged |
-| [#74](https://github.com/Leon-87-7/vig/pull/74) | feat(repo): GitHub repo URL routing + stub processor | feat/repo-pipeline-66→main | #66 | ✅ Merged |
-| [#65](https://github.com/Leon-87-7/vig/pull/65) | feat(jina): markdown_cache + /download_md + /force cache invalidation | feat/60-jina-markdown-cache→main | #60 | ✅ Merged |
-| [#64](https://github.com/Leon-87-7/vig/pull/64) | feat(allowlist): /allowlist family + allowed_domains table + ARTICLE_DEFAULT_DOMAINS (#61) | feat/61-allowlist-family→main | #61 | ✅ Merged |
-| [#63](https://github.com/Leon-87-7/vig/pull/63) | refactor(sheets): consolidate three GOOGLE_SHEETS_ID_* vars into one with named tabs (#59) | refactor/59-sheets-consolidate-tabs→main | #59 | ✅ Merged |
-| [#58](https://github.com/Leon-87-7/vig/pull/58) | feat(webhook): /freestyle slash command for short and long pipelines | feat/54-freestyle-slash-command→main | #54 | ✅ Merged |
-| [#57](https://github.com/Leon-87-7/vig/pull/57) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue | feat/53-template-picker-keyboard→main | #53 | ✅ Merged |
-| [#56](https://github.com/Leon-87-7/vig/pull/56) | feat(enrichment): substitute freestyle_prompt for extra_instructions | feat/52-enrichment-freestyle-prompt→main | #52 | ✅ Merged |
-| [#55](https://github.com/Leon-87-7/vig/pull/55) | feat(db): add jobs.freestyle_prompt column | feat/51-jobs-freestyle-prompt→main | #51 | ✅ Merged |
-| [#50](https://github.com/Leon-87-7/vig/pull/50) | fix(test_short_video): stub get_ignored_domains in _patch_pipeline | fix/stub-get-ignored-domains→main | #47 | ✅ Merged |
-| [#49](https://github.com/Leon-87-7/vig/pull/49) | refactor(gemini): collapse 4 fallback loops into one unified module (ADR-0011) | refactor/unify-gemini-call-paths→main | #39 | ✅ Merged |
-| [#48](https://github.com/Leon-87-7/vig/pull/48) | fix(gemini_photo): add _UI_CHROME_PATTERNS drop to _filter_grounded_links | fix/ui-chrome-followed-by-filter→main | #36 | ✅ Merged |
-| [#45](https://github.com/Leon-87-7/vig/pull/45) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration runner | refactor/user-version-migrations→main | #43 | ✅ Merged |
-| [#44](https://github.com/Leon-87-7/vig/pull/44) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch | refactor/prd-slot-status→main | #41 | ✅ Merged |
-| [#40](https://github.com/Leon-87-7/vig/pull/40) | refactor: unify template-matching tables into the Template module (#38) | refactor/38-unify-template-tables→main | #38 | ✅ Merged |
-| [#31](https://github.com/Leon-87-7/vig/pull/31) | refactor(#25): replace _handle_callback elif chain with dispatch table | worktree-agent-ad4befae6823a8cd3→main | #25 | ✅ Merged |
-| [#30](https://github.com/Leon-87-7/vig/pull/30) | refactor(#24): extract run_prd() skeleton from run_auto/run_intent | worktree-agent-a516f10e59bd7c633→main | #24 | ✅ Merged |
-| [#29](https://github.com/Leon-87-7/vig/pull/29) | feat(#23): GeminiClient core module + migrate enrichment.py | worktree-agent-a8b8a8dda45b0f1fb→main | #23 | ✅ Merged |
-| [#28](https://github.com/Leon-87-7/vig/pull/28) | feat(#21): GitHub service + Redis cache for repo enrichment | worktree-agent-a0fe5775b79547014→main | #21 | ✅ Merged |
-| [#20](https://github.com/Leon-87-7/vig/pull/20) | feat(#17/#18): template system — data layer + handler layer (Phases 1–8) | feat/template-system-17-18→main | #17–#18 | ✅ Merged |
-| [#19](https://github.com/Leon-87-7/vig/pull/19) | feat(#15): extend /transcript to support TikTok/Instagram via yt-dlp | feat/15-tiktok-instagram-transcript→main | #15 | ✅ Merged |
-| [#14](https://github.com/Leon-87-7/vig/pull/14) | feat(#7): Mini-PRD intent slot + /spec + chat_state routing | feat/issue-7-intent-slot→main | #7 | ✅ Merged |
-| [#12](https://github.com/Leon-87-7/vig/pull/12) | feat: brain backfill, photo OCR, and Mini-PRD auto slot (#6, #8, #9, #11) | feat/issues-6-8-9-11-brain-photo-prd→main | — | ✅ Merged |
+| [#412](https://github.com/Leon-87-7/ownix/pull/412) | refactor(web): extract shared PreviewMotif component | refactor/shared-preview-motif→main | — | ✅ Merged |
+| [#411](https://github.com/Leon-87-7/ownix/pull/411) | fix(security): input-validation hardening for #399, #402-#410 | security/input-validation-hardening-399-402-410→main | — | ✅ Merged |
+| [#400](https://github.com/Leon-87-7/ownix/pull/400) | feat(links): add hover/arrow-key preview panel with og:image | feat/links-preview-panel→main | — | ✅ Merged |
+| [#397](https://github.com/Leon-87-7/ownix/pull/397) | Fix Links rows: trimmed URL + favicon, buttons stay in place | claude/url-button-layout-fix-flvx57→main | — | ✅ Merged |
+| [#396](https://github.com/Leon-87-7/ownix/pull/396) | fix(dashboard): skip Telegram Login Widget on job dashboard links | fix/dashboard-link-skip-telegram-login→main | — | ✅ Merged |
+| [#390](https://github.com/Leon-87-7/ownix/pull/390) | feat: standalone link identity + link-level tags (#381–#387) | feat/standalone-link-identity-381→main | #381–#387 | ✅ Merged |
+| [#389](https://github.com/Leon-87-7/ownix/pull/389) | test: align backfill limit assertion with bound SQL LIMIT param | fix/backfill-limit-test-params→main | — | ✅ Merged |
+| [#388](https://github.com/Leon-87-7/ownix/pull/388) | feat(telegram): add Open in Dashboard button to job messages | feat/telegram-job-dashboard-button→main | — | ✅ Merged |
+| [#380](https://github.com/Leon-87-7/ownix/pull/380) | feat(telegram): add Ops bot workflow | codex/ops-bot-workflow→main | — | ✅ Merged |
+| [#373](https://github.com/Leon-87-7/ownix/pull/373) | fix(web): favicon, one-click invite widget, header home link, OG logo | feat/landing-invite-widget-and-header-link→main | — | ✅ Merged |
+| [#372](https://github.com/Leon-87-7/ownix/pull/372) | fix(web): correct stale vig branding, clarify dashboard tool copy | copy/legal-and-dashboard-clarity→main | — | ✅ Merged |
+| [#371](https://github.com/Leon-87-7/ownix/pull/371) | refactor(web): organize components into feature folders | refactor/web-components-layout→main | — | ✅ Merged |
+| [#370](https://github.com/Leon-87-7/ownix/pull/370) | fix(web): redirect Google OAuth to feed, rename Drive folder to Ownix | fix/google-redirect-and-web-polish→main | — | ✅ Merged |
+| [#369](https://github.com/Leon-87-7/ownix/pull/369) | chore(codacy): disable markdown analysis, prune tools to repo languages | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
+| [#364](https://github.com/Leon-87-7/ownix/pull/364) | polish(web): landing funnel copy + floating dev persona switch | feat/ownix-landing-copy→main | — | ✅ Merged |
+| [#363](https://github.com/Leon-87-7/ownix/pull/363) | Fix logout and restore Next 14 | codex/next14-logout-fix→main | — | ✅ Merged |
+| [#362](https://github.com/Leon-87-7/ownix/pull/362) | fix(web): resolve Next 16 async route params breaking job/space detail pages | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
+| [#361](https://github.com/Leon-87-7/ownix/pull/361) | fix(restricted): approved session outranks stale preview cookie | claude/feed-jobs-not-found-oetr0t→main | — | ✅ Merged |
+| [#360](https://github.com/Leon-87-7/ownix/pull/360) | Codex landing 329 331 | codex-landing-329-331→main | — | ✅ Merged |
+| [#359](https://github.com/Leon-87-7/ownix/pull/359) | Restricted mode preview: preview API, routing, and read-only UI | codex/implement-issues-#353#358-for-restricted-mode→main | #353–#358 | ✅ Merged |
+| [#351](https://github.com/Leon-87-7/ownix/pull/351) | Implement Ownix landing and Feed dashboard flow | codex-landing-329-331→main | — | ✅ Merged |
+| [#350](https://github.com/Leon-87-7/ownix/pull/350) | feat(web): transition dashboard to Ownix design system | codex/ownix-design-system-shell→main | — | ✅ Merged |
+| [#338](https://github.com/Leon-87-7/ownix/pull/338) | fix(doc-parser): shorten source document key | codex/doc-parser-source-chip→main | — | ✅ Merged |
+| [#337](https://github.com/Leon-87-7/ownix/pull/337) | Feed inventory IA: Links and Commands | codex-IA-refactor→main | — | ✅ Merged |
+| [#328](https://github.com/Leon-87-7/ownix/pull/328) | impeccable critiques and dialog placement | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
+| [#327](https://github.com/Leon-87-7/ownix/pull/327) | Revert "feat: refactor components for improved readability and maintainability" | revert-326-ui/submit-url-dialog-desktop→main | — | ❌ Closed |
+| [#326](https://github.com/Leon-87-7/ownix/pull/326) | feat: refactor components for improved readability and maintainability | ui/submit-url-dialog-desktop→main | — | ✅ Merged |
+| [#325](https://github.com/Leon-87-7/ownix/pull/325) | feat(web): collapse dashboard submit form behind a neutral trigger | feat/submit-collapse→main | — | ✅ Merged |
+| [#324](https://github.com/Leon-87-7/ownix/pull/324) | feat: dashboard job submission + shared job service and repo follow-ups | codex/resolve-issues-318-to-323→main | — | ✅ Merged |
+| [#316](https://github.com/Leon-87-7/ownix/pull/316) | feat: job prev/next navigation, links mobile cards, Docs tab, sidebar footer (#305-#310) | codex/resolve-305-310→main | — | ✅ Merged |
+| [#315](https://github.com/Leon-87-7/ownix/pull/315) | feat(repo): more informational repo analysis — sub-READMEs, key_components, tighter prompt guidance + web JSON render fix | worktree-repo-informational-311-314→main | #311–#314 | ✅ Merged |
+| [#304](https://github.com/Leon-87-7/ownix/pull/304) | Replace in-content spinners with skeletons; webhook callback & copy fixes | codex/resolve-issues-#300-to-#302→main | — | ✅ Merged |
+| [#303](https://github.com/Leon-87-7/ownix/pull/303) | fix(web): sidebar rail tooltip omits Google status while it is still unknown | fix/sidebar-tooltip-null-status→main | #297 | ✅ Merged |
+| [#299](https://github.com/Leon-87-7/ownix/pull/299) | Council fixes — chunk 4/5: background-task tracking, tabs hoisting, eyebrow sweep, scoping docs | worktree-codex-apply→main | — | ✅ Merged |
+| [#298](https://github.com/Leon-87-7/ownix/pull/298) | polish: format pass, Jina timeout, operator-name config, dashboard copy fixes | worktree-codex-task→main | — | ✅ Merged |
+| [#297](https://github.com/Leon-87-7/ownix/pull/297) | Council fixes — chunk 3/5: copy & hygiene (admin contact config, Jina timeout, repo-URL validation) | codex/admin-contact-and-hygiene→main | — | ❌ Closed |
+| [#296](https://github.com/Leon-87-7/ownix/pull/296) | feat(web): persistent account affordance — session identity + Google connection state (#292–#295) | account-affordance-292-295→main | #292–#295 | ✅ Merged |
+| [#282](https://github.com/Leon-87-7/ownix/pull/282) | Council fixes — chunk 2/5: event-loop fix, GeminiClient shim deletion, React race/cleanup batch | council-fixes-chunk2→main | — | ✅ Merged |
+| [#274](https://github.com/Leon-87-7/ownix/pull/274) | Council fixes — chunk 1/5: critical (auth fail-fast, Gemini timeout, WCAG, React guards) | council-fixes-chunk1-critical→main | — | ✅ Merged |
+| [#264](https://github.com/Leon-87-7/ownix/pull/264) | Per-user Google OAuth exports + encrypted token store and Telegram Mini App support | codex/resolve-issues-#204,-#205,-and-#206→main | — | ✅ Merged |
+| [#263](https://github.com/Leon-87-7/ownix/pull/263) | Invite gate: council-review fixes (rounds 1-2) + council-review tooling updates | invite-gate-255-256→main | — | ✅ Merged |
+| [#262](https://github.com/Leon-87-7/ownix/pull/262) | feat(db): add invite gate user status | feat/invite-gate-db→main | #254 | ✅ Merged |
+| [#261](https://github.com/Leon-87-7/ownix/pull/261) | [codex] fix brain graph tooltip escaping | codex/fix-brain-graph-tooltip-xss→main | — | ✅ Merged |
+| [#260](https://github.com/Leon-87-7/ownix/pull/260) | Resolve council review findings on Brain graph | codex-252→main | — | ✅ Merged |
+| [#258](https://github.com/Leon-87-7/ownix/pull/258) | docs(access): ADR-0031 invite-only gate + onboarding (epic #253) | docs/invite-gate-adr→main | — | ✅ Merged |
+| [#257](https://github.com/Leon-87-7/ownix/pull/257) | feat(web): Brain links sortable columns + persisted per-tenant view (#251) | codex-251→main | — | ✅ Merged |
+| [#250](https://github.com/Leon-87-7/ownix/pull/250) | feat(skills): /pre-grill + TASK.md ideation workflow | feat/pre-grill-skill→main | — | ✅ Merged |
+| [#249](https://github.com/Leon-87-7/ownix/pull/249) | feat(skills): /pre-grill — fatten one-line ideas into grill-ready briefs | feat/pre-grill-skill→main | — | ✅ Merged |
+| [#248](https://github.com/Leon-87-7/ownix/pull/248) | Add Tooltip component (Radix) and integrate across UI | codex/resolve-issues-#243-to-#247→main | — | ✅ Merged |
+| [#242](https://github.com/Leon-87-7/ownix/pull/242) | feat(doc-parser): relocate Telegram toggle + copy/download on output cards (#240) | 240-doc-detail-page-move-telegram-toggle-next-to-clean-add-downloadcopy-buttons-to-output-cards→main | #240 | ✅ Merged |
+| [#241](https://github.com/Leon-87-7/ownix/pull/241) | fix(brain): sort extracted links by latest sighting | codex/resolve-issue-240→main | — | ✅ Merged |
+| [#239](https://github.com/Leon-87-7/ownix/pull/239) | feat: Brain Links tab (+ search) and feed dashboard redesign | feat(brain)--link-table→main | — | ✅ Merged |
+| [#237](https://github.com/Leon-87-7/ownix/pull/237) | fix(webhook): add /start + /help handlers, harden webhook against unhandled errors | claude/telegram-bot-diagnose-9d41p6→main | — | ✅ Merged |
+| [#236](https://github.com/Leon-87-7/ownix/pull/236) | Consistent mobile page layout + doc-parser fixes | mobile-consistent-page-shell→main | — | ✅ Merged |
+| [#235](https://github.com/Leon-87-7/ownix/pull/235) | feat(auth): add logout confirmation page | ui/logout-frontend→main | — | ✅ Merged |
+| [#233](https://github.com/Leon-87-7/ownix/pull/233) | feat(web): redesign Telegram delivery toggle | feat/telegram-toggle-redesign→main | — | ✅ Merged |
+| [#232](https://github.com/Leon-87-7/ownix/pull/232) | fix(db): make telegram_delivery a stored domain of {off,on} (#231) | pr/231-telegram-delivery-domain→main | #231 | ✅ Merged |
+| [#230](https://github.com/Leon-87-7/ownix/pull/230) | fix: guard TelegramToggle against failed PUT | fix/telegram-toggle-failed-put→main | — | ✅ Merged |
+| [#229](https://github.com/Leon-87-7/ownix/pull/229) | refactor: extract PDF intake into a deep module (#228) | refactor/228-pdf-intake→main | #228 | ✅ Merged |
+| [#227](https://github.com/Leon-87-7/ownix/pull/227) | feat: Doc Parser dashboard page (ADR-0029) | feat/doc-parser-dashboard→main | #217 | ✅ Merged |
+| [#216](https://github.com/Leon-87-7/ownix/pull/216) | fix(web): mobile responsiveness across the dashboard | fix/mobile-responsiveness→main | — | ✅ Merged |
+| [#215](https://github.com/Leon-87-7/ownix/pull/215) | feat(short): vision titles, drop key_phrases, add clickable Links Found (#211 #212 #213) | feat/short-pipeline-cleanup→main | — | ✅ Merged |
+| [#214](https://github.com/Leon-87-7/ownix/pull/214) | feat(web): segmented content-type tabs + login page design | ui/second-touchups→main | — | ✅ Merged |
+| [#210](https://github.com/Leon-87-7/ownix/pull/210) | feat(web): job tag menu, controls accordion, denser feed cards | ui/job-tag-menu→main | — | ✅ Merged |
+| [#209](https://github.com/Leon-87-7/ownix/pull/209) | feat(skills): add /spec-to-kanban wrapper | feat/spec-to-kanban-skill→main | — | ✅ Merged |
+| [#208](https://github.com/Leon-87-7/ownix/pull/208) | feat(config): operator-only export gate — per-user isolation (#202) | feat/operator-export-gate→main | #202 | ✅ Merged |
+| [#207](https://github.com/Leon-87-7/ownix/pull/207) | docs(multi-tenancy): export-isolation design — ADR-0027, Operator term, issue breakdown | docs/multi-tenancy-export-isolation→main | — | ✅ Merged |
+| [#200](https://github.com/Leon-87-7/ownix/pull/200) | fix+feat(document): dispatch fallthrough fix + fast-follow (#156 #157 #158) | fix/document-dispatch-fallthrough→main | #156–#158 | ✅ Merged |
+| [#199](https://github.com/Leon-87-7/ownix/pull/199) | docs(brain): graph map plan — ADR-0027/0028, CONTEXT, issues #194–#198 | feat/brain-graph-map→main | — | ✅ Merged |
+| [#193](https://github.com/Leon-87-7/ownix/pull/193) | feat(web): mobile-first UI/UX makeover + per-space icons (#185–#192) | feat/ui-ux-makeover→main | — | ✅ Merged |
+| [#184](https://github.com/Leon-87-7/ownix/pull/184) | fix: hide cancelled jobs from feed and brain search | fix/hide-cancelled-from-feed-and-brain→main | — | ✅ Merged |
+| [#183](https://github.com/Leon-87-7/ownix/pull/183) | refactor: centralize extract_json and job_tag utilities | refactor/centralize-extract-json-and-job-tag→main | — | ✅ Merged |
+| [#182](https://github.com/Leon-87-7/ownix/pull/182) | feat(document): PDF document pipeline MVP (#150–#155) | feat/document-pipeline-mvp→main | — | ✅ Merged |
+| [#181](https://github.com/Leon-87-7/ownix/pull/181) | feat(web/feed): tighten stats + filter layout, merge recovery into a controls bar | feat/web-feed-layout→main | — | ✅ Merged |
+| [#180](https://github.com/Leon-87-7/ownix/pull/180) | fix(web): localize dates, harden ExportModal, clear dead code + cover untested logic | feat/web-date-localization→main | — | ✅ Merged |
+| [#179](https://github.com/Leon-87-7/ownix/pull/179) | chore: ponytail-audit cleanup — drop shims, dead flag, committed pyscn snapshots | chore/ponytail-cleanup→main | — | ✅ Merged |
+| [#178](https://github.com/Leon-87-7/ownix/pull/178) | feat(web): instant feed filtering + silent freshness + keep-warm ping (#175–#177) | feat/175-177-feed-freshness→main | #175 | ✅ Merged |
+| [#174](https://github.com/Leon-87-7/ownix/pull/174) | feat(web): add dashboard job recovery panel | codex-dashboard-recovery-panel→main | #167–#171 | ✅ Merged |
+| [#173](https://github.com/Leon-87-7/ownix/pull/173) | fix(web/feed): guard feed fetch race so tabs only show their content type | fix/165-feed-race-guard→main | #165 | ✅ Merged |
+| [#172](https://github.com/Leon-87-7/ownix/pull/172) | fix(web/jobs): populate short-pipeline job detail pages | fix/164-short-job-detail→main | #164 | ✅ Merged |
+| [#163](https://github.com/Leon-87-7/ownix/pull/163) | fix(article/backfill): continue og:image scan on bad scheme; SQL LIMIT on short backfill | fix/greptile-149-followup→main | — | ✅ Merged |
+| [#149](https://github.com/Leon-87-7/ownix/pull/149) | Resolve feed thumbnail issues #142-#148 | codex-issues-142-148-feed-thumbnails→main | — | ✅ Merged |
+| [#141](https://github.com/Leon-87-7/ownix/pull/141) | feat(web): Operator's Console design system — spec, tokens, drawer nav, full migration | feat/operators-console-design→main | — | ✅ Merged |
+| [#140](https://github.com/Leon-87-7/ownix/pull/140) | refactor: drive pyscn + fallow static-analysis gates to green | refactor/static-analysis-green→main | — | ✅ Merged |
+| [#139](https://github.com/Leon-87-7/ownix/pull/139) | feat(photo): media_group_id debounce replaces photoBatch commands (#137) | worktree-agent-ab8d0c4a71e30b5f7→main | #137 | ❌ Closed |
+| [#138](https://github.com/Leon-87-7/ownix/pull/138) | feat(photo): remove Quick Links footer + media_group_id debounce (#136 #137) | worktree-agent-aab29c4329161fb60→main | #136–#137 | ✅ Merged |
+| [#135](https://github.com/Leon-87-7/ownix/pull/135) | refactor(hooks): extract custom hooks + add vitest test infrastructure | refactor/hooks-121-129→main | — | ✅ Merged |
+| [#134](https://github.com/Leon-87-7/ownix/pull/134) | refactor(frontend): extract custom hooks across all dashboard pages (#121-129) | refactor/hooks-121-129→main | #121 | ✅ Merged |
+| [#120](https://github.com/Leon-87-7/ownix/pull/120) | feat(github+repo): topics field, v2 cache key, _prioritize_tree, and _build_repo_prompt improvements | feat/118-119-repo-prompt-improvements→main | #118–#119 | ✅ Merged |
+| [#116](https://github.com/Leon-87-7/ownix/pull/116) | fix(queue/api/db): brpop idle handling, OpenAPI schema, per-chat ignored domains | repo-pipeline→main | — | ❌ Closed |
+| [#115](https://github.com/Leon-87-7/ownix/pull/115) | fix(spaces): ExportModal popup-block, controlled input, N+1 DB loop | pr/spaces-s7-s8→main | — | ✅ Merged |
+| [#114](https://github.com/Leon-87-7/ownix/pull/114) | feat(web): S5/S6 job annotations + spaces CRUD, S11 brain semantic-search | pr/web-s2-s3-s4→main | — | ✅ Merged |
+| [#113](https://github.com/Leon-87-7/ownix/pull/113) | feat(short-pipeline): transcript tail — closes #97 #98 #99 #100 | dev→main | #97–#100 | ✅ Merged |
+| [#112](https://github.com/Leon-87-7/ownix/pull/112) | feat(web): S2/S3/S4 — feed, job detail, tags CRUD | pr/web-s2-s3-s4→main | — | ✅ Merged |
+| [#111](https://github.com/Leon-87-7/ownix/pull/111) | feat(web): S7/S8 — space context blobs + export composer | pr/spaces-s7-s8→pr/spaces-s5-s6 | — | ❌ Closed |
+| [#110](https://github.com/Leon-87-7/ownix/pull/110) | feat(short-pipeline): ADR-0020 — guaranteed transcript on every short job | pr/adr-0020-transcript→main | — | ✅ Merged |
+| [#109](https://github.com/Leon-87-7/ownix/pull/109) | feat(web): S5/S6 — job annotations + spaces CRUD | pr/spaces-s5-s6→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#108](https://github.com/Leon-87-7/ownix/pull/108) | feat(web): S11 — brain semantic-search page | pr/brain-search-s11→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#107](https://github.com/Leon-87-7/ownix/pull/107) | feat(templates): user-defined templates CRUD + /templates command | pr/templates→pr/web-s2-s3-s4 | — | ✅ Merged |
+| [#106](https://github.com/Leon-87-7/ownix/pull/106) | feat(controls): S10 — Allowed/Ignored Domains tabs | pr/web-controls-s10→main | — | ✅ Merged |
+| [#105](https://github.com/Leon-87-7/ownix/pull/105) | feat(auth): S1 — auth hardening + cleanup | pr/auth-s1-fixes→main | — | ✅ Merged |
+| [#104](https://github.com/Leon-87-7/ownix/pull/104) | 🐛 fix(enrichment): repair malformed Gemini JSON with json-repair fallback | dev→main | — | ✅ Merged |
+| [#80](https://github.com/Leon-87-7/ownix/pull/80) | feat(repo): full repo pipeline #2-#8 (issues #67-#73) | repo-pipeline→main | #67 | ✅ Merged |
+| [#74](https://github.com/Leon-87-7/ownix/pull/74) | feat(repo): GitHub repo URL routing + stub processor | feat/repo-pipeline-66→main | #66 | ✅ Merged |
+| [#65](https://github.com/Leon-87-7/ownix/pull/65) | feat(jina): markdown_cache + /download_md + /force cache invalidation | feat/60-jina-markdown-cache→main | #60 | ✅ Merged |
+| [#64](https://github.com/Leon-87-7/ownix/pull/64) | feat(allowlist): /allowlist family + allowed_domains table + ARTICLE_DEFAULT_DOMAINS (#61) | feat/61-allowlist-family→main | #61 | ✅ Merged |
+| [#63](https://github.com/Leon-87-7/ownix/pull/63) | refactor(sheets): consolidate three GOOGLE_SHEETS_ID_* vars into one with named tabs (#59) | refactor/59-sheets-consolidate-tabs→main | #59 | ✅ Merged |
+| [#58](https://github.com/Leon-87-7/ownix/pull/58) | feat(webhook): /freestyle slash command for short and long pipelines | feat/54-freestyle-slash-command→main | #54 | ✅ Merged |
+| [#57](https://github.com/Leon-87-7/ownix/pull/57) | feat(webhook): template picker keyboard replaces direct gemini_yes enqueue | feat/53-template-picker-keyboard→main | #53 | ✅ Merged |
+| [#56](https://github.com/Leon-87-7/ownix/pull/56) | feat(enrichment): substitute freestyle_prompt for extra_instructions | feat/52-enrichment-freestyle-prompt→main | #52 | ✅ Merged |
+| [#55](https://github.com/Leon-87-7/ownix/pull/55) | feat(db): add jobs.freestyle_prompt column | feat/51-jobs-freestyle-prompt→main | #51 | ✅ Merged |
+| [#50](https://github.com/Leon-87-7/ownix/pull/50) | fix(test_short_video): stub get_ignored_domains in _patch_pipeline | fix/stub-get-ignored-domains→main | #47 | ✅ Merged |
+| [#49](https://github.com/Leon-87-7/ownix/pull/49) | refactor(gemini): collapse 4 fallback loops into one unified module (ADR-0011) | refactor/unify-gemini-call-paths→main | #39 | ✅ Merged |
+| [#48](https://github.com/Leon-87-7/ownix/pull/48) | fix(gemini_photo): add _UI_CHROME_PATTERNS drop to _filter_grounded_links | fix/ui-chrome-followed-by-filter→main | #36 | ✅ Merged |
+| [#45](https://github.com/Leon-87-7/ownix/pull/45) | refactor(database): replace silent ALTER TABLE blocks with PRAGMA user_version migration runner | refactor/user-version-migrations→main | #43 | ✅ Merged |
+| [#44](https://github.com/Leon-87-7/ownix/pull/44) | refactor(database): add set_prd_slot_status — narrow the update_job_status escape hatch | refactor/prd-slot-status→main | #41 | ✅ Merged |
+| [#40](https://github.com/Leon-87-7/ownix/pull/40) | refactor: unify template-matching tables into the Template module (#38) | refactor/38-unify-template-tables→main | #38 | ✅ Merged |
+| [#31](https://github.com/Leon-87-7/ownix/pull/31) | refactor(#25): replace _handle_callback elif chain with dispatch table | worktree-agent-ad4befae6823a8cd3→main | #25 | ✅ Merged |
+| [#30](https://github.com/Leon-87-7/ownix/pull/30) | refactor(#24): extract run_prd() skeleton from run_auto/run_intent | worktree-agent-a516f10e59bd7c633→main | #24 | ✅ Merged |
+| [#29](https://github.com/Leon-87-7/ownix/pull/29) | feat(#23): GeminiClient core module + migrate enrichment.py | worktree-agent-a8b8a8dda45b0f1fb→main | #23 | ✅ Merged |
+| [#28](https://github.com/Leon-87-7/ownix/pull/28) | feat(#21): GitHub service + Redis cache for repo enrichment | worktree-agent-a0fe5775b79547014→main | #21 | ✅ Merged |
+| [#20](https://github.com/Leon-87-7/ownix/pull/20) | feat(#17/#18): template system — data layer + handler layer (Phases 1–8) | feat/template-system-17-18→main | #17–#18 | ✅ Merged |
+| [#19](https://github.com/Leon-87-7/ownix/pull/19) | feat(#15): extend /transcript to support TikTok/Instagram via yt-dlp | feat/15-tiktok-instagram-transcript→main | #15 | ✅ Merged |
+| [#14](https://github.com/Leon-87-7/ownix/pull/14) | feat(#7): Mini-PRD intent slot + /spec + chat_state routing | feat/issue-7-intent-slot→main | #7 | ✅ Merged |
+| [#12](https://github.com/Leon-87-7/ownix/pull/12) | feat: brain backfill, photo OCR, and Mini-PRD auto slot (#6, #8, #9, #11) | feat/issues-6-8-9-11-brain-photo-prd→main | — | ✅ Merged |
