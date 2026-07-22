@@ -50,7 +50,7 @@ function platformFromUrl(
   if (host.endsWith('instagram.com')) return 'instagram';
   if (host.endsWith('tiktok.com')) return 'tiktok';
   if (host === 'github.com') return 'github';
-  if (contentType === 'article') return 'article';
+  if (contentType === 'article' || contentType === 'link') return 'article';
   return 'unknown';
 }
 

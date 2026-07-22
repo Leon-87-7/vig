@@ -207,6 +207,7 @@ export function SubmitJobProvider({
   const { restricted, showRestrictedToast } = useRestrictedMode();
   const [open, setOpenRaw] = useState(false);
   const [docsOpenRaw, setDocsOpenRaw] = useState(false);
+  const [addLinkOpenRaw, setAddLinkOpenRaw] = useState(false);
   const setOpen = useCallback((next: boolean) => {
     if (next && restricted) { showRestrictedToast('Sign in to submit URLs to your own Index.'); return; }
     setOpenRaw(next);
@@ -215,13 +216,21 @@ export function SubmitJobProvider({
     if (next && restricted) { showRestrictedToast('Sign in to parse documents into your own Index.'); return; }
     setDocsOpenRaw(next);
   }, [restricted, showRestrictedToast]);
+  const setAddLinkOpen = useCallback((next: boolean) => {
+    if (next && restricted) { showRestrictedToast('Sign in to add links to your own Index.'); return; }
+    setAddLinkOpenRaw(next);
+  }, [restricted, showRestrictedToast]);
   const docsOpen = docsOpenRaw;
+  const addLinkOpen = addLinkOpenRaw;
   const [commandOpen, setCommandOpenRaw] = useState(false);
   const setCommandOpen = useCallback((next: boolean) => {
     if (next && restricted) { showRestrictedToast('Sign in to run commands on your own Index.'); return; }
     setCommandOpenRaw(next);
   }, [restricted, showRestrictedToast]);
   const [url, setUrl] = useState('');
+  const [addLinkUrl, setAddLinkUrl] = useState('');
+  const [addLinkError, setAddLinkError] = useState<string | null>(null);
+  const [addLinkSubmitting, setAddLinkSubmitting] = useState(false);
   const [template, setTemplate] = useState('summary');
   const [freestylePrompt, setFreestylePrompt] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -270,6 +279,17 @@ export function SubmitJobProvider({
       ) {
         event.preventDefault();
         setDocsOpen(true);
+        return;
+      }
+      if (
+        key === 'u' &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !shouldIgnoreGlobalShortcut(event.target)
+      ) {
+        event.preventDefault();
+        setAddLinkOpen(true);
         return;
       }
       if (
@@ -339,7 +359,7 @@ export function SubmitJobProvider({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [restricted, setCommandOpen]);
+  }, [restricted, setAddLinkOpen, setCommandOpen, setDocsOpen, setOpen]);
 
   const submitJob = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -393,6 +413,41 @@ export function SubmitJobProvider({
       }
     },
     [freestylePrompt, submitting, template, url],
+  );
+
+  const submitAddLink = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const trimmed = addLinkUrl.trim();
+      if (!trimmed || addLinkSubmitting) return;
+      setAddLinkError(null);
+      setAddLinkSubmitting(true);
+      try {
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: trimmed, content_type: 'link' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok)
+          throw new Error(data.detail || 'Could not add link');
+        setLastAccepted({
+          id: typeof data.id === 'string' && data.id ? data.id : null,
+          url: trimmed,
+          title: typeof data.title === 'string' ? data.title : null,
+          content_type: 'link',
+          status: typeof data.status === 'string' ? data.status : 'pending',
+          at: Date.now(),
+        });
+        setAddLinkUrl('');
+        setAddLinkOpen(false);
+      } catch (e) {
+        setAddLinkError(e instanceof Error ? e.message : 'Could not add link');
+      } finally {
+        setAddLinkSubmitting(false);
+      }
+    },
+    [addLinkSubmitting, addLinkUrl, setAddLinkOpen],
   );
 
   const openDocs = useCallback(() => setDocsOpen(true), [setDocsOpen]);
@@ -449,6 +504,41 @@ export function SubmitJobProvider({
               onSubmit={submitJob}
             />
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={addLinkOpen}
+        onOpenChange={setAddLinkOpen}
+      >
+        <DialogContent>
+          <DialogTitle>Add Link</DialogTitle>
+          <form onSubmit={submitAddLink} className="mt-4 space-y-4">
+            <label className="block text-sm font-medium text-ink">
+              URL
+              <input
+                value={addLinkUrl}
+                onChange={(event) => setAddLinkUrl(event.target.value)}
+                placeholder="https://example.com"
+                aria-describedby={addLinkError ? 'add-link-error' : undefined}
+                className="mt-2 w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink outline-none transition-ui placeholder:text-muted focus:border-signal focus:ring-1 focus:ring-signal"
+              />
+            </label>
+            <p className="text-xs text-muted">
+              Add Link saves the link as-is; it does not process it through the pipeline-detection flow.
+            </p>
+            {addLinkError && (
+              <p id="add-link-error" role="alert" className="text-sm text-red-400">
+                {addLinkError}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={addLinkSubmitting || !addLinkUrl.trim()}
+              className="inline-flex h-9 items-center rounded-md border border-line border-b-2 border-b-signal bg-canvas px-3 text-sm font-medium text-signal hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {addLinkSubmitting ? 'Adding…' : 'Add Link'}
+            </button>
+          </form>
         </DialogContent>
       </Dialog>
       <Dialog

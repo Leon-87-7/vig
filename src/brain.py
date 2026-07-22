@@ -416,14 +416,18 @@ async def _rewrite_existing_md(
 
 
 async def _touch_existing_link(
-    conn, existing, url: str, topic: str, source_job_id: str, now_iso: str
+    conn, existing, url: str, topic: str, source_job_id: str, now_iso: str,
+    og_image_url: str | None = None,
 ) -> None:
     """Bump seen_count/last_seen and rewrite the Drive .md when one exists."""
     new_seen = existing["seen_count"] + 1
     last_seen = datetime.now(timezone.utc).isoformat()
     await conn.execute(
-        "UPDATE links SET seen_count = ?, last_seen_at = ? WHERE id = ?",
-        (new_seen, last_seen, existing["id"]),
+        # og_image_url only fills NULL ("not yet checked", v32) — a stored value
+        # or '' ("checked, none found") is never overwritten.
+        "UPDATE links SET seen_count = ?, last_seen_at = ?, "
+        "og_image_url = COALESCE(og_image_url, ?) WHERE id = ?",
+        (new_seen, last_seen, og_image_url, existing["id"]),
     )
     await conn.commit()
 
@@ -454,7 +458,10 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                 )
                 existing = await cursor.fetchone()
                 if existing:
-                    await _touch_existing_link(conn, existing, url, topic, source_job_id, now_iso)
+                    await _touch_existing_link(
+                        conn, existing, url, topic, source_job_id, now_iso,
+                        og_image_url=link.get("og_image_url"),
+                    )
                     continue
 
             # --- First sighting: network work happens with no connection held ---
@@ -484,12 +491,13 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                     """
                     INSERT INTO links
                         (id, url, title, topic, description, source_job, embedding,
-                         drive_file_id, seen_count, last_seen_at, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
+                         drive_file_id, og_image_url, seen_count, last_seen_at, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, ?, ?)
                     ON CONFLICT(url) DO UPDATE SET
                         seen_count = links.seen_count + 1,
                         last_seen_at = excluded.last_seen_at,
-                        updated_at = excluded.updated_at
+                        updated_at = excluded.updated_at,
+                        og_image_url = COALESCE(links.og_image_url, excluded.og_image_url)
                     RETURNING id
                     """,
                     (
@@ -501,6 +509,7 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                         description if resolved else None,
                         source_job_id,
                         embedding_blob,
+                        link.get("og_image_url"),
                         now_iso,
                         now_iso,
                         now_iso,

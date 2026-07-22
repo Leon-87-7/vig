@@ -200,6 +200,20 @@ def normalize_repo_url(url: str) -> str:
     return f"https://github.com/{segments[0]}/{segments[1]}"
 
 
+def is_fetchable_url(url: str) -> bool:
+    """True when *url* is an absolute http(s) URL with a hostname.
+
+    The minimum bar for direct-add link jobs (/addlink), which bypass
+    detect_pipeline — keeps javascript:/data:/garbage strings out of the
+    jobs table and the dashboard's <a href>.
+    """
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.hostname)
+
+
 def is_video_url(text: str) -> bool:
     """True if text is a single video or article URL (excludes repo URLs)."""
     return detect_pipeline(text) in {"short", "long", "article"}

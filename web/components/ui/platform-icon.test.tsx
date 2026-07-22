@@ -11,6 +11,8 @@ describe("platform icon helpers", () => {
     ["https://www.instagram.com/reel/1", "short", "Instagram source"],
     ["https://github.com/example/repo", "repo", "GitHub source"],
     ["https://example.com/post", "article", "example.com source"],
+    // Link jobs get the article/host-favicon treatment, not a raw "link source" label.
+    ["https://example.com/path", "link", "example.com source"],
   ])("renders %s as %s", (url, contentType, label) => {
     render(<PlatformBadge url={url} contentType={contentType} />);
 
