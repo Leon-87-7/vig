@@ -7,18 +7,39 @@ import { JobCardTags } from "@/components/feed/job-card-tags";
 import { PlatformGlyph } from "@/components/ui/platform-icon";
 import { buildJobHref } from "@/lib/job-detail-utils";
 
+// CONTEXT.md: `Bento feed grid` / `Short grid`.
+// - default: fixed aspect thumbnail (9:16 portrait / 16:9 landscape), full meta.
+// - bento:   thumbnail stretches to fill the row-spanned cell (~15% vertical
+//            crop on portrait — deliberate); 16:9 fallback below `sm` where
+//            the grid collapses to one column and spans are off.
+// - compact: Short grid at 5-up — uncropped 9:16, status badge dropped
+//            (status lives in the filter pills, list view, and detail page).
+export type PreviewCardVariant = "default" | "bento" | "compact";
+
 interface PreviewCardProps {
   job: JobSummary;
   platformGlyph?: ReactNode;
   contentType?: string;
   status?: string;
+  variant?: PreviewCardVariant;
+  className?: string;
 }
 
-function Thumbnail({ job }: { job: JobSummary }) {
+function Thumbnail({
+  job,
+  variant,
+}: {
+  job: JobSummary;
+  variant: PreviewCardVariant;
+}) {
   const [failed, setFailed] = useState(false);
   const display = job.title?.trim() || job.url;
   const aspectClass =
-    job.thumbnail_kind === "portrait" ? "aspect-[9/16]" : "aspect-video";
+    variant === "bento"
+      ? "aspect-video sm:aspect-auto sm:h-full"
+      : job.thumbnail_kind === "portrait"
+        ? "aspect-[9/16]"
+        : "aspect-video";
   const showImage = Boolean(job.thumbnail_url) && !failed;
 
   return (
@@ -56,13 +77,16 @@ export function PreviewCard({
   platformGlyph,
   contentType,
   status,
+  variant = "default",
+  className = "",
 }: PreviewCardProps) {
   const href = buildJobHref(job.id, { contentType, status });
   const display = job.title?.trim() || job.url;
   const titleText = display.length > 30 ? `${display.slice(0, 30)}…` : display;
+  const compact = variant === "compact";
   const glyph =
     platformGlyph ??
-    (job.content_type === "short" ? (
+    (job.content_type === "short" && !compact ? (
       <PlatformGlyph
         url={job.url}
         contentType={job.content_type}
@@ -74,18 +98,30 @@ export function PreviewCard({
   // Overlay link covers the card; the tag dropdown sits above it
   // (pointer-events-auto) so its button isn't nested inside the anchor.
   return (
-    <div className="group relative flex h-full flex-col rounded-lg border border-line bg-surface p-3 transition-ui hover:border-line-strong hover:bg-raised">
+    <div
+      className={`group relative flex h-full flex-col rounded-lg border border-line bg-surface p-3 transition-ui hover:border-line-strong hover:bg-raised ${className}`}
+    >
       <Link
         href={href}
         aria-label={display}
         className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-bright focus-visible:ring-inset"
       />
 
-      <div className="pointer-events-none">
-        <Thumbnail job={job} />
+      <div
+        className={`pointer-events-none ${
+          variant === "bento" ? "sm:min-h-0 sm:flex-1" : ""
+        }`}
+      >
+        <Thumbnail job={job} variant={variant} />
       </div>
 
-      <div className="pointer-events-none mt-3 flex min-h-0 flex-1 flex-col gap-2">
+      {/* bento: the thumbnail wrapper is the flexible region; elsewhere the
+          meta block flexes so footers align across a stretched row. */}
+      <div
+        className={`pointer-events-none mt-3 flex min-h-0 flex-col gap-2 ${
+          variant === "bento" ? "" : "flex-1"
+        }`}
+      >
         {/* title ; status */}
         <div className="flex items-start gap-2">
           {glyph && (
@@ -96,12 +132,18 @@ export function PreviewCard({
               {glyph}
             </span>
           )}
-          <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-ink">
+          <p
+            className={`min-w-0 flex-1 truncate font-medium leading-5 text-ink ${
+              compact ? "text-xs" : "text-sm"
+            }`}
+          >
             {titleText}
           </p>
-          <span className="shrink-0">
-            <StatusBadge label={job.status} />
-          </span>
+          {!compact && (
+            <span className="shrink-0">
+              <StatusBadge label={job.status} />
+            </span>
+          )}
         </div>
 
         {/* date&time ; tags btn (count-only, no chips) */}

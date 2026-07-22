@@ -111,6 +111,7 @@ async function openRecoveryActions() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   navigationMock.replace.mockClear();
   navigationMock.searchParams = new URLSearchParams();
   googleStatusMock.connected = null;
@@ -345,13 +346,48 @@ describe('FeedPage', () => {
     expect(setCtFilter).toHaveBeenCalledWith('long');
   });
 
-  it('renders the all tab as the existing job list', () => {
+  it('renders the all tab as the bento grid by default', () => {
     render(<FeedTree />);
-    // JobCard uses an overlay link inside a styled wrapper; assert on the wrapper.
+    // Bento cards carry their row-span; landscape spans 2 row-units.
     const card = screen.getByRole('link', { name: /job one/i }).parentElement;
 
+    expect(card?.className).toContain('sm:row-span-2');
+  });
+
+  it('toggles the all tab to the flat list and persists the choice', () => {
+    render(<FeedTree />);
+    fireEvent.click(screen.getByRole('button', { name: /list layout/i }));
+
+    // JobCard uses an overlay link inside a styled wrapper; assert on the wrapper.
+    const card = screen.getByRole('link', { name: /job one/i }).parentElement;
     expect(card?.className).toContain('px-4');
     expect(card?.className).toContain('py-3');
+    expect(window.localStorage.getItem('ownix.feed.layout')).toBe('list');
+  });
+
+  it('restores the persisted list layout on mount', () => {
+    window.localStorage.setItem('ownix.feed.layout', 'list');
+    render(<FeedTree />);
+
+    const card = screen.getByRole('link', { name: /job one/i }).parentElement;
+    expect(card?.className).toContain('px-4');
+  });
+
+  it('hides the layout toggle on typed tabs', () => {
+    setupMocks({ ctFilter: 'short' });
+    render(<FeedTree />);
+
+    expect(screen.queryByRole('button', { name: /list layout/i })).toBeNull();
+  });
+
+  it('renders the short tab as the compact shorts grid', () => {
+    setupMocks({ ctFilter: 'short' });
+    render(<FeedTree />);
+
+    const card = screen.getByRole('link', { name: /job one/i }).parentElement;
+    // Compact shorts card drops the status badge; status stays in the pills.
+    expect(card?.querySelector('.font-mono')).toBeTruthy();
+    expect(card?.textContent).not.toContain('done');
   });
 
   it('renders typed tabs as preview cards', () => {

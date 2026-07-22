@@ -32,7 +32,7 @@ import { RecoveryPanel } from '@/components/feed/recovery-panel';
 import { PageShell } from '@/components/shell/page-shell';
 import { useGoogleStatus } from '@/components/shell/google-status';
 import { useSubmitJob } from '@/components/feed/submit-job';
-import { FileCode2, Link2, Plus } from 'lucide-react';
+import { FileCode2, LayoutDashboard, Link2, List, Plus } from 'lucide-react';
 import { GoogleIcon } from '@/components/svg/google-icon';
 import type { JobSummary } from '@/components/feed/job-card';
 import { LinksSearchBar, LinksTable } from '@/components/feed/links-table';
@@ -45,6 +45,8 @@ import {
 } from '@/components/ui/dialog';
 
 const CONTENT_TYPES = new Set(['short', 'long', 'article', 'repo']);
+
+const LAYOUT_KEY = 'ownix.feed.layout';
 
 const CONTENT_TYPE_FILTERS = [
   { label: 'All', value: '' },
@@ -339,7 +341,27 @@ function FeedPageContent() {
   // active — mirrors how the Jobs feed already fetches regardless of tab,
   // except Links has no reason to poll while parked on Jobs.
   const linksData = useLinksTable({ enabled: showingLinks && !restricted });
-  const showPreviewGrid = Boolean(ctFilter);
+  // CONTEXT.md `Feed layout toggle`: All-tab-only grid↔list switch, grid
+  // default, persisted. Hydrated in an effect so SSR/first paint stay 'grid'.
+  const [allLayout, setAllLayout] = useState<'grid' | 'list'>('grid');
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(LAYOUT_KEY) === 'list') {
+        setAllLayout('list');
+      }
+    } catch {
+      // storage unavailable (private mode) — stay on the grid default
+    }
+  }, []);
+  const switchLayout = (mode: 'grid' | 'list') => {
+    setAllLayout(mode);
+    try {
+      window.localStorage.setItem(LAYOUT_KEY, mode);
+    } catch {
+      // non-persistent session is fine
+    }
+  };
+  const showPreviewGrid = Boolean(ctFilter) || allLayout === 'grid';
   const hasFilters = Boolean(ctFilter || stFilter || query.trim());
   const empty = !loading && !error && displayedJobs.length === 0;
 
@@ -524,6 +546,42 @@ function FeedPageContent() {
             >
               {countLabel}
             </span>
+            {/* CONTEXT.md `Feed layout toggle` — All tab only; typed tabs keep
+                their fixed layouts. */}
+            {!ctFilter && (
+              <div
+                role="group"
+                aria-label="Layout"
+                className="ml-auto flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5"
+              >
+                <button
+                  type="button"
+                  aria-pressed={allLayout === 'grid'}
+                  aria-label="Grid layout"
+                  onClick={() => switchLayout('grid')}
+                  className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition-ui ${
+                    allLayout === 'grid'
+                      ? 'bg-signal text-onsignal'
+                      : 'text-muted hover:bg-raised hover:text-ink'
+                  }`}
+                >
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={allLayout === 'list'}
+                  aria-label="List layout"
+                  onClick={() => switchLayout('list')}
+                  className={`inline-flex h-7 w-8 items-center justify-center rounded-md transition-ui ${
+                    allLayout === 'list'
+                      ? 'bg-signal text-onsignal'
+                      : 'text-muted hover:bg-raised hover:text-ink'
+                  }`}
+                >
+                  <List className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -547,6 +605,13 @@ function FeedPageContent() {
                 jobs={displayedJobs}
                 contentType={ctFilter}
                 status={stFilter}
+                variant={
+                  ctFilter === 'short'
+                    ? 'shorts'
+                    : ctFilter
+                      ? 'uniform'
+                      : 'bento'
+                }
               />
             ) : (
               <div className="space-y-2">
