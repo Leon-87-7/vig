@@ -117,22 +117,20 @@ export default function LandingPage() {
             className="absolute inset-0 -z-10 bg-[linear-gradient(115deg,rgba(13,14,16,0.75)_0%,rgba(13,14,16,0)_100%)] lg:bg-[linear-gradient(100deg,rgba(13,14,16,0.96)_0%,rgba(13,14,16,0.88)_55%,rgba(13,14,16,0.45)_80%,rgba(13,14,16,0.12)_100%)]"
           />
           <div className="mx-auto max-w-[960px] px-6">
-            <p className="text-pretty hero-rise mb-4 text-sm font-medium text-muted">
-              The friend you send everything to.
-            </p>
             <h1 className="hero-rise mb-6 max-w-[16ch] text-[clamp(30px,6vw,52px)] font-semibold leading-[1.15] tracking-[-0.5px] text-ink [animation-delay:90ms]">
               You watched it. You liked it.{' '}
               <span className="text-muted">You lost it.</span>
             </h1>
             <p className="text-pretty hero-rise mb-8 max-w-[56ch] text-base leading-relaxed text-body [animation-delay:180ms]">
-              Share to Ownix from &ensp; <AppSlot />{' '}
-              <span>
-                <ChevronsRight className="inline-block ml-1 mr-3" />
-              </span>
-              three taps, and a minute later it&apos;s in your{' '}
-              <span className="font-medium text-ink">Index</span>:
-              transcribed, summarized, searchable, ready to paste into
-              your AI.
+              <span className="font-medium text-ink">
+                Ownix remembers. <br />
+              </span>{' '}
+              Three taps to share from&ensp;
+              <AppSlot />
+              &ensp;and a minute later it&apos;s transcribed,
+              summarized, searchable - even when all you remember is a
+              glimpse. <br />
+              Paste it straight into your AI.
             </p>
             <div className="hero-rise flex flex-wrap items-center gap-3 [animation-delay:270ms]">
               <a
@@ -467,7 +465,7 @@ export default function LandingPage() {
             </p>
 
             <div className="flex mx-auto max-w-[58ch] items-start gap-3 rounded-lg border border-line bg-surface p-4">
-              <GoogleDriveIcon className="my-auto h-[18px] w-[18px] shrink-0" />
+              <GoogleDriveIcon className="my-auto h-6 w-6 shrink-0" />
               <p className="text-pretty text-sm leading-normal">
                 Everything also lands in your Google Drive as
                 markdown.
@@ -495,21 +493,17 @@ export default function LandingPage() {
                 Invite-only for now.
               </h2>
               <p className="text-pretty mb-6 max-w-[52ch] text-[15px] leading-relaxed">
-                Sign in with Telegram and the bot will ask for your
+                Sign in with Telegram and the Ownix bot asks for your
                 email. I approve every member personally, usually
                 within a few hours. Then you&apos;ll get a hello from
-                me, asking if you want to help build what Ownix
-                becomes.
+                me - and a question: want to help build what Ownix
+                becomes?
               </p>
               <TelegramLoginWidget align="start" />
               <p className="text-pretty font-mono text-xs text-muted">
-                no password ◉ the bot collects your email ◉ approval
-                within hours.
+                no password ◉ the bot asks for your email ◉ approval
+                within hours
               </p>
-              {/* <p className="text-pretty mt-3 font-mono text-xs text-muted">
-                Your internet, Own it, Reuse it, Find it, even from a
-                glimpse.
-              </p> */}
 
               <div className="mt-8 border-t border-line pt-6">
                 <div className="flex items-center gap-3">
@@ -518,7 +512,7 @@ export default function LandingPage() {
                       aria-hidden="true"
                       className="h-4 w-4 shrink-0 "
                     />
-                    <span className="block shrink-0 font-mono text-lg font-medium tracking-[0.4px] text-muted">
+                    <span className="block shrink-0 font-mono text-xs font-medium tracking-[0.4px] text-muted">
                       FROM
                     </span>
                   </span>
@@ -539,6 +533,11 @@ export default function LandingPage() {
                   articles to Telegram, and it lands transcribed and
                   searchable in your Index.
                 </span>
+                <p className="mt-6 text-balance text-center text-[17px] font-medium leading-normal text-ink">
+                  Your internet. Own it. &ensp;Reuse it. Find it
+                  &ensp;
+                  <span className="italic">even from a glimpse.</span>
+                </p>
               </div>
             </div>
           </div>
@@ -568,7 +567,7 @@ export default function LandingPage() {
               </span>
               <span className="text-sm leading-6">
                 <span className="italic">your internet,</span>{' '}
-                <span className="font-mono">indexed.</span>
+                <span className="font-mono">own it.</span>
               </span>
             </div>
           </div>
