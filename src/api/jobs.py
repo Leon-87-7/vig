@@ -14,7 +14,7 @@ from src.services import job_recovery
 from src.services.jobs import create_and_enqueue_job
 from src.utils.logger import get_logger
 from src.templates import PROMPT_TEMPLATES
-from src.utils.validators import detect_pipeline, normalize_repo_url
+from src.utils.validators import detect_pipeline, is_fetchable_url, normalize_repo_url
 
 log = get_logger(__name__)
 
@@ -133,6 +133,7 @@ class JobCreateRequest(BaseModel):
     url: str
     template: str | None = None
     freestyle_prompt: str | None = Field(default=None, max_length=4_000)
+    content_type: Literal["link"] | None = None
 
 
 @jobs_router.post("")
@@ -140,6 +141,30 @@ async def create_job(request: Request, body: JobCreateRequest) -> dict:
     """Create a dashboard-submitted job using the shared Telegram ingest core."""
     chat_id: int = request.state.user["id"]
     url = body.url.strip()
+    if body.content_type == "link":
+        if not is_fetchable_url(url):
+            raise HTTPException(status_code=422, detail="Add Link needs an absolute http(s) URL")
+        existing = await database.find_recent_job_by_url(chat_id, url)
+        warning = "Add Link saves the link as-is; it does not process it through the pipeline-detection flow."
+        if existing and existing.get("content_type") != "link":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"⚠️ This URL already exists as a {existing.get('content_type')} job "
+                    f"(job_{existing['id'][-4:]}) — no link entry was created. {warning}"
+                ),
+            )
+        job = existing or await create_and_enqueue_job(chat_id, url, "link", skip_cache=True)
+        return {
+            "id": job["id"],
+            "job_id": job["id"],
+            "url": job.get("url", url),
+            "content_type": job.get("content_type", "link"),
+            "status": job.get("status", "pending"),
+            "title": job.get("title"),
+            "warning": warning,
+        }
+
     pipeline = detect_pipeline(url, frozenset(await database.list_allowed_domains(chat_id)))
     if pipeline == "rejected":
         raise HTTPException(status_code=422, detail="Unsupported URL")

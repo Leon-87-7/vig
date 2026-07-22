@@ -484,8 +484,8 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                     """
                     INSERT INTO links
                         (id, url, title, topic, description, source_job, embedding,
-                         drive_file_id, seen_count, last_seen_at, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?, ?)
+                         drive_file_id, og_image_url, seen_count, last_seen_at, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 1, ?, ?, ?)
                     ON CONFLICT(url) DO UPDATE SET
                         seen_count = links.seen_count + 1,
                         last_seen_at = excluded.last_seen_at,
@@ -501,6 +501,7 @@ async def ingest_links(links: list[dict], topic: str, source_job_id: str) -> Non
                         description if resolved else None,
                         source_job_id,
                         embedding_blob,
+                        link.get("og_image_url"),
                         now_iso,
                         now_iso,
                         now_iso,

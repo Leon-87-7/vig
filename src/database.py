@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at                TIMESTAMP,
-    CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document')),
+    CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document', 'link')),
     CHECK(status IN ('pending','processing','transcript_done','enriching','done','error','cancelled')),
     CHECK(prd_auto_status IS NULL OR prd_auto_status IN ('generating','done','error')),
     CHECK(prd_intent_status IS NULL OR prd_intent_status IN ('generating','done','error')),
@@ -1111,6 +1111,33 @@ _MIGRATIONS.append([
 _MIGRATIONS.append([
     "ALTER TABLE links ADD COLUMN og_image_url TEXT",
 ])
+
+
+# v32 → v33: widen content_type CHECK to include 'link' for the Link pipeline.
+# SQLite can't ALTER a CHECK, so rebuild the table via selective column copy.
+_V33_CREATE = _V23_CREATE.replace("jobs_v23", "jobs_v33").replace(
+    "CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document')),",
+    "CHECK(content_type IN ('short', 'long', 'article', 'repo', 'document', 'link')),")
+_V33_COLS = _V23_COLS
+
+
+async def _migrate_v32_v33(conn: aiosqlite.Connection) -> None:
+    """Widen content_type CHECK to include 'link' via selective column copy."""
+    # Same FK dance as _migrate_v22_v23 (#231): with foreign_keys ON, DROP TABLE
+    # jobs implicit-DELETEs every row first, cascade-wiping the ON DELETE CASCADE
+    # children (document_outputs, job_thumbnails). PRAGMA foreign_keys is a no-op
+    # inside a transaction, so commit out of any open one before toggling.
+    await conn.commit()
+    await conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        await _rebuild_jobs_table(conn, _V33_CREATE, "jobs_v33", _V33_COLS)
+        await conn.commit()
+    finally:
+        await conn.rollback()
+        await conn.execute("PRAGMA foreign_keys=ON")
+
+
+_MIGRATIONS.append(_migrate_v32_v33)
 
 
 async def _run_migrations(conn: aiosqlite.Connection) -> None:

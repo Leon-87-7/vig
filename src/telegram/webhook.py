@@ -48,6 +48,7 @@ from src.utils.validators import (
     detect_pipeline,
     normalize_email,
     normalize_repo_url,
+    is_fetchable_url,
     _ARTICLE_HINT,
     _REPO_HINT,
     is_valid_domain_name,
@@ -788,6 +789,32 @@ async def _reply_cached_job(chat_id: int, job: dict) -> None:
         await send_message(chat_id, body, parse_mode="HTML")
 
 
+async def _cmd_addlink(ctx: SlashCtx) -> None:
+    if len(ctx.parts) < 2:
+        await send_message(ctx.chat_id, "Usage: /addlink <url>")
+        return
+    url = ctx.parts[1]
+    if not is_fetchable_url(url):
+        await send_message(ctx.chat_id, "Usage: /addlink <url> — must be an absolute http(s) URL")
+        return
+    warning = "`/addlink` saves the link as-is; it does not process it through the pipeline-detection flow."
+    existing = await database.find_recent_job_by_url(ctx.chat_id, url)
+    if existing and existing.get("content_type") != "link":
+        await send_message(
+            ctx.chat_id,
+            f"⚠️ This URL already exists as a {existing.get('content_type')} job "
+            f"(job_{existing['id'][-4:]}) — no link entry was created.\n\n{warning}",
+            parse_mode="Markdown",
+        )
+        return
+    if existing:
+        await _reply_cached_job(ctx.chat_id, existing)
+        await send_message(ctx.chat_id, warning, parse_mode="Markdown")
+        return
+    job = await create_and_enqueue_job(ctx.chat_id, url, "link", message_id=ctx.message_id, skip_cache=True)
+    await send_message(ctx.chat_id, f"📥 Received\njob_{job['id'][-4:]}\n\n{warning}", parse_mode="Markdown")
+
+
 async def _cmd_force(ctx: SlashCtx) -> None:
     if len(ctx.parts) < 2:
         await send_message(ctx.chat_id, "Usage: /force <url>")
@@ -1077,6 +1104,7 @@ _SLASH_TABLE: dict[str, Callable[[SlashCtx], Awaitable[None]]] = {
     "/find": _cmd_find,
     "/rebuild-graph": _cmd_rebuild_graph,
     "/force": _cmd_force,
+    "/addlink": _cmd_addlink,
     "/ignore": _cmd_ignore,
     "/unignore": _cmd_unignore,
     "/ignore_list": _cmd_ignore_list,

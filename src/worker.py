@@ -6,6 +6,7 @@ Task discriminators handled by _dispatch:
     - 'article'         → processors.article.run
     - 'repo'            → processors.repo.run
     - 'document'        → processors.document.run
+    - 'link'            → processors.link.run
     - 'prd_auto'        → processors.prd.run_auto
     - 'prd_auto_resend' → processors.prd.run_auto_resend
     - 'prd_intent'      → processors.prd.run_intent
@@ -131,6 +132,20 @@ async def _handle_document(task: dict) -> None:
         await _notify_failure(job["chat_id"], job_id, "❌ Document processing failed. Please try again.")
 
 
+async def _handle_link(task: dict) -> None:
+    job_id = task["job_id"]
+    job = await _load_job_or_log(job_id)
+    if not job:
+        return
+    try:
+        from src.processors import link
+        await link.run(job)
+    except Exception:
+        log.exception("link_processor_error", job_id=job_id)
+        await database.update_job_status(job_id, "error")
+        await _notify_failure(job["chat_id"], job_id, "❌ Link pipeline failed. Please try again.")
+
+
 async def _reset_prd_slot_and_notify(job_id: str, status_col: str, buttons: list) -> None:
     """Roll a crashed PRD slot back to 'error' and offer retry buttons. Never raises."""
     # status_col is interpolated into SQL — keep it pinned to known columns.
@@ -199,6 +214,7 @@ _TASK_HANDLERS = {
     "article": _handle_article,
     "repo": _handle_repo,
     "document": _handle_document,
+    "link": _handle_link,
     "prd_auto": _handle_prd_auto,
     "prd_auto_resend": _handle_prd_auto_resend,
     "prd_intent": _handle_prd_intent,
