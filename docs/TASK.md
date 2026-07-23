@@ -859,32 +859,72 @@ as web interactions.
 - Real-time parity: does the web flow need live status push (the bot edits its
   message as the job progresses), or is Feed's existing polling enough?
 
-## 29. Test a new user-approval workflow
+## 29. Streamline new-user signup — pending is a preview, not a wall
 
-> **Grill:** `/grill-with-docs` — hinges on ADR-0031's invite-gate flow and the
-> `users.status` state machine.
+> Resolves this brief's original open questions (was: "Test a new user-approval
+> workflow"). Answer: a _changed_ approval UX. What's wrong with the current
+> gate is not the approval tap (task 22 covers missed pushes) — it's what the
+> new user experiences between signup and approval: a dead wall, and their
+> first links get discarded. Approval stays Telegram-only (task 21's ruling
+> stands). Constraints kept: Telegram login, email collection for community.
 
-The current approval flow (ADR-0031): a `pending` user submits an email
-(`awaiting_email` chat state, `src/database.py:124`; or the dashboard modal
-`web/components/invite-gate.tsx` → `PUT /api/auth/email`, `src/api/auth.py:151`),
-which sets `users.email`/`users.status` (`src/database.py:141`). The Operator
-gets a one-shot push (`_notify_operator_invite`, `src/telegram/webhook.py:1384`)
-with ✅ Approve / 🚫 Block buttons handled by `_cb_invite_decision`
-(`webhook.py:448`). Task 22 already briefs an Operator `/pending` command to
-re-surface missed approvals.
+**What already works (verified 2026-07-23, don't rebuild):** Telegram widget
+(`web/components/shell/telegram-login-widget.tsx`) → `POST /api/auth/telegram`
+(`src/api/auth.py:127`) mints a session for *any* status and lands on `/feed`.
+`InviteGate` (`web/components/shell/invite-gate.tsx:211`) fetches
+`/api/auth/me`; a user with no email gets the **in-browser** `EmailModal` →
+`PUT /api/auth/email` (`src/api/auth.py:252`) → ops-bot card with ✅ Approve /
+🚫 Block (`src/services/invite_notifications.py`, callback
+`src/telegram/webhook.py:1740`). Approval flips `users.status` and DMs "You're
+in, send a link." So email-in-browser and one-tap approval exist — no separate
+`/welcome` page needed.
 
-**Wanted:** unclear from the one-liner — either (a) trial/design a _different_
-approval workflow, or (b) add test coverage for the existing one. Resolve before
-scoping.
+**Gap A — pending users hit a dead wall.** `GateScreen`
+(`invite-gate.tsx:50`) renders "Pending approval" and nothing else, while a
+full read-only preview experience already exists for *anonymous* visitors
+(ADR-0035: `/restricted` mints the `ownix_preview` cookie, `isRestrictedRequest`
+in `web/lib/restricted/server.ts:31`, `RestrictedFacade` pages, `/api/preview`
+corpus). Fix: pending sessions get that preview dashboard instead of the wall,
+topped with a queue-status banner ("You're in the queue — approval usually
+within a few hours; you'll get a Telegram hello. Meanwhile: install the app,
+send the bot your first link."). Wiring: `_login_telegram_user` deletes the
+preview cookie unconditionally (`auth.py:72`) — keep it (or re-mint) for
+non-approved users so the dashboard layout's restricted flag engages; then
+`InviteGate` renders `children` + banner for `pending` instead of
+`GateScreen`. `blocked` keeps the wall.
 
-**Open questions** (resolve in grill)
+**Gap B — a pending user's links are thrown away.** `_invite_gate_allows`
+(`src/telegram/webhook.py:1407`) answers pending users with a waiting message
+and drops the link. Fix: for `pending` users *with an email on file*, create
+the job with a new `held` status and **don't enqueue** (`database.create_job`
+`src/database.py:1424` inserts `'pending'` today — parameterize or update
+after insert); reply "Saved — it processes the moment you're in." On approval
+— both paths: `ops_invite_approve` callback (`webhook.py:1765`) and
+`_approve_pending_ids` (`src/services/ops_bot.py:236`) — select the user's
+`held` jobs, set them `pending`, enqueue. `job_recovery` and any status scans
+must ignore `held` (it's not stuck — it's parked). Job FSM note for
+CONTEXT.md: `held` sits before `pending`, only reachable pre-approval.
+Web-side submission for pending users is **out of scope** — the preview feed
+is read-only and Telegram is the ingest surface; revisit only if asked.
 
-- "Test a new workflow" = prototype a _changed_ approval UX (e.g. self-serve,
-  auto-approve rules, a web approval surface), or write _tests_ for today's flow?
-- If a new workflow: what's wrong with the current Telegram one-tap gate that a
-  new one fixes? (Task 22 already addresses the "missed push" gap.)
-- Does it stay Telegram-only, or move approval into the dashboard (which task 21
-  explicitly ruled out for contact data)?
+**Gap C — copy.** Every state names what happens next. The banner (Gap A)
+covers web; bot-side, the waiting message
+(`_INVITE_WAITING_MESSAGE_TEMPLATE`) should mention that links sent now are
+saved for when they're in (true once Gap B lands).
+
+**Order:** B (backend hold/flush + tests) → A (preview-for-pending + banner) →
+C (copy sweep). B and A are independently shippable.
+
+**Acceptance:** a fresh Telegram identity can: log in → type email in the
+browser modal → browse the preview feed with the queue banner → send the bot a
+link and get the "saved" reply → on operator approve, the held job processes
+and the user gets the existing "You're in" DM with their first result close
+behind.
+
+**Optional follow-up (not in scope):** an `INVITE_AUTO_APPROVE` env flag that
+flips the model from approve-by-default-wait to ban-by-exception — new users
+land `approved`, the ops card becomes a notification with a Block button.
+One settings flag + default-status change when community trust allows it.
 
 ## 30. Link-level tags in the Links table + mobile color-badge redesign ✅ ISSUED TO GITHUB #382 #383 #386 #387 - ✅DONE
 
