@@ -21,10 +21,24 @@ export interface VisualViewportCenter {
 
 const EMPTY: VisualViewportCenter = { centerY: null, height: null };
 
+/** Read the current visual-viewport center, or EMPTY when the API is absent
+ * (SSR / older browsers). offsetTop is how far the visual viewport has shifted
+ * down inside the layout viewport (e.g. when pinch-zoomed and scrolled). */
+function measure(): VisualViewportCenter {
+  const vv =
+    typeof window !== 'undefined' ? window.visualViewport : null;
+  if (!vv) return EMPTY;
+  return { centerY: vv.offsetTop + vv.height / 2, height: vv.height };
+}
+
 export function useVisualViewport(
   active: boolean,
 ): VisualViewportCenter {
-  const [center, setCenter] = useState<VisualViewportCenter>(EMPTY);
+  // Seed from the current viewport so the first paint is already positioned,
+  // avoiding a render at the CSS-centered fallback that then jumps into place.
+  const [center, setCenter] = useState<VisualViewportCenter>(() =>
+    active ? measure() : EMPTY,
+  );
 
   useEffect(() => {
     if (!active) {
@@ -35,14 +49,7 @@ export function useVisualViewport(
       typeof window !== 'undefined' ? window.visualViewport : null;
     if (!vv) return;
 
-    const update = () => {
-      // offsetTop is how far the visual viewport has shifted down inside the
-      // layout viewport (e.g. when the page is pinch-zoomed and scrolled).
-      setCenter({
-        centerY: vv.offsetTop + vv.height / 2,
-        height: vv.height,
-      });
-    };
+    const update = () => setCenter(measure());
     update();
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);

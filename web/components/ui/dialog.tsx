@@ -8,6 +8,10 @@ import { useVisualViewport } from '@/lib/hooks/useVisualViewport';
 export const Dialog = RadixDialog.Root;
 export const DialogTrigger = RadixDialog.Trigger;
 
+// Vertical breathing room subtracted from the visible height when capping the
+// dialog, mirroring the 2rem (32px) horizontal inset of `w-[calc(100%-2rem)]`.
+const VIEWPORT_PADDING_Y = 32;
+
 export function DialogContent({
   children,
   className = '',
@@ -25,7 +29,7 @@ export function DialogContent({
     centerY != null && height != null
       ? {
           top: `${centerY}px`,
-          maxHeight: `${Math.max(0, height - 32)}px`,
+          maxHeight: `${Math.max(0, height - VIEWPORT_PADDING_Y)}px`,
         }
       : undefined;
   return (
