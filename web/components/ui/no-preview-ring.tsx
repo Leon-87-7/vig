@@ -10,14 +10,14 @@ function hash(s: string) {
 
 export function ringGeometry(seed: string) {
   const h = hash(seed);
-  const size = 112 + ((h >> 14) % 65); // px diameter, 112–176
+  const size = 112 + ((h >>> 14) % 65); // px diameter, 112–176
   // ponytail: edge-hugging placement — the ring center sits 0.35–0.45 radii
   // inside one card edge: the outer ring text clips, but the center logo
   // (32% of the diameter) always stays fully visible. Approximate, not exact
   // circular-segment math.
   const edge = h % 4; // 0 left, 1 right, 2 top, 3 bottom
-  const along = `${25 + ((h >> 2) % 51)}%`; // 25–75% along the edge, avoids corners
-  const t = 0.35 + ((h >> 9) % 11) / 100; // 0.35 … 0.45 of radius inside
+  const along = `${25 + ((h >>> 2) % 51)}%`; // 25–75% along the edge, avoids corners
+  const t = 0.35 + ((h >>> 9) % 11) / 100; // 0.35 … 0.45 of radius inside
   const inset = Math.round((size / 2) * t);
   const near = `${inset}px`;
   const far = `calc(100% - ${inset}px)`;
@@ -25,7 +25,7 @@ export function ringGeometry(seed: string) {
     left: edge === 0 ? near : edge === 1 ? far : along,
     top: edge === 2 ? near : edge === 3 ? far : along,
     size,
-    angle: (h >> 21) % 360, // static rotation of the ring text
+    angle: (h >>> 21) % 360, // static rotation of the ring text
   };
 }
 
@@ -71,14 +71,10 @@ export function NoPreviewRing({
           />
         </defs>
         <text className="fill-muted font-mono text-[15px] font-medium tracking-[0.18em]">
-          <textPath
-            href={`#${ringId}`}
-            startOffset="0"
-            textLength="408"
-            lengthAdjust="spacing"
-          >
-            {phrase}
-            {phrase}
+          {/* ponytail: overfill the ring and let the closed path clip the
+              excess — no textLength, so long labels never get squeezed. */}
+          <textPath href={`#${ringId}`} startOffset="0">
+            {phrase.repeat(Math.max(2, Math.ceil(40 / phrase.length)))}
           </textPath>
         </text>
       </svg>

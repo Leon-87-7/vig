@@ -14,6 +14,26 @@ describe("NoPreviewRing", () => {
     expect(edgy).toHaveLength(1);
   });
 
+  it("stays in bounds across many seeds (incl. high-bit hashes)", () => {
+    for (let i = 0; i < 500; i++) {
+      const g = ringGeometry(`job-${i}`);
+      expect(g.size).toBeGreaterThanOrEqual(112);
+      expect(g.size).toBeLessThanOrEqual(176);
+      expect(g.angle).toBeGreaterThanOrEqual(0);
+      expect(g.angle).toBeLessThan(360);
+      for (const v of [g.left, g.top]) {
+        const pct = /^(\d+)%$/.exec(v);
+        if (pct) {
+          expect(Number(pct[1])).toBeGreaterThanOrEqual(25);
+          expect(Number(pct[1])).toBeLessThanOrEqual(75);
+        } else {
+          // px / calc edge insets derive from size*t — never negative
+          expect(v).toMatch(/^(calc\(100% - )?\d+px\)?$/);
+        }
+      }
+    }
+  });
+
   it("renders decorative ring text with the pipeline type", () => {
     const { container } = render(<NoPreviewRing seed="job-1" label="link" />);
     const root = container.firstElementChild;
