@@ -658,7 +658,7 @@ export function SubmitJobProvider({
                 shortcut="U"
                 onSelect={() => {
                   setCommandOpen(false);
-                  setDocsOpen(true);
+                  setAddLinkOpen(true);
                 }}
               />
             </CommandGroup>
