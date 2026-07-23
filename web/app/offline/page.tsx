@@ -30,7 +30,7 @@ export default function OfflinePage() {
         <p
           style={{
             fontFamily:
-              'ui-monospace, SFMono-Regular, Menlo, monospace',
+              "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
             fontSize: '12px',
             textTransform: 'uppercase',
             letterSpacing: '0.24em',

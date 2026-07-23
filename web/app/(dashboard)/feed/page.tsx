@@ -228,7 +228,15 @@ function FeedPageContent() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, {
       scroll: false,
     });
-  }, [searchParams, pathname, router, setCtFilter, restricted, openSubmitWith]);
+  }, [
+    searchParams,
+    pathname,
+    router,
+    setCtFilter,
+    restricted,
+    openSubmitWith,
+    setOauthResult,
+  ]);
 
   const refreshFeed = useCallback(async () => {
     await reload();

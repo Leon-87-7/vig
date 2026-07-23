@@ -547,7 +547,7 @@ export function SubmitJobProvider({
       if (!restricted) setUrl(nextUrl);
       setOpen(true);
     },
-    [restricted, setOpen],
+    [restricted, setOpen, setUrl],
   );
   const openDocs = useCallback(
     () => setDocsOpen(true),
