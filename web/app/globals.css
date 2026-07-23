@@ -210,6 +210,19 @@
   }
 }
 
+/* Onboarding stepper auto-advance bar — scaleX fill over one dwell interval.
+   Only ever rendered under no-preference (the component drops it and the
+   auto-advance entirely under reduced motion), so no guard needed here. */
+@keyframes onboarding-fill {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
 @keyframes auth-card-enter {
   from {
     opacity: 0;

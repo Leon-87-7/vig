@@ -3,6 +3,7 @@ import { AppHeader } from '@/components/shell/app-header';
 import { PageBackground } from '@/components/shell/page-background';
 import { ScrollToTop } from '@/components/shell/scroll-to-top';
 import { InviteGate } from '@/components/shell/invite-gate';
+import { OfflineBanner } from '@/components/shell/offline-banner';
 import { GoogleStatusProvider } from '@/components/shell/google-status';
 import { SubmitJobProvider } from '@/components/feed/submit-job';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -54,6 +55,8 @@ export default async function DashboardLayout({
             </SubmitJobProvider>
           </GoogleStatusProvider>
         </InviteGate>
+        {/* Outside InviteGate so the connection hint shows even on the gate screen. */}
+        <OfflineBanner />
         {/* Outside InviteGate so the dev switch survives the gate screen. */}
         <DevPersonaSwitch />
       </RestrictedModeProvider>

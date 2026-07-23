@@ -8,6 +8,7 @@ import { HeroGradient } from '@/components/landing/hero-gradient';
 import { AppSlot } from '@/components/landing/app-slot';
 import { CountUp } from '@/components/landing/count-up';
 import { DemoVideo } from '@/components/landing/demo-video';
+import { OnboardingStepper } from '@/components/landing/onboarding-stepper';
 import { WordmarkMarquee } from '@/components/landing/wordmark-marquee';
 import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
 import { OpenAIIcon } from '@/components/svg/openai-icon';
@@ -145,6 +146,12 @@ export default function LandingPage() {
               >
                 {signedIn ? 'Open feed' : 'Look inside'}
               </Link>
+              <a
+                href="#onboarding"
+                className={`${linkClasses} font-mono text-xs text-muted hover:text-body`}
+              >
+                See how it works ↓
+              </a>
               <span className="ml-2 font-mono text-xs text-muted">
                 invite-only for now
               </span>
@@ -203,6 +210,8 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        <OnboardingStepper />
 
         <section
           aria-labelledby="showcase"
