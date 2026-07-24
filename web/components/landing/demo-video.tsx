@@ -38,7 +38,7 @@ export function DemoVideo({
           sawFirstEntry = true;
           return;
         }
-        if (entry.isIntersecting) void el.play();
+        if (entry.intersectionRatio >= 0.5) el.play().catch(() => {});
         else el.pause();
       },
       { threshold: 0.5 },
