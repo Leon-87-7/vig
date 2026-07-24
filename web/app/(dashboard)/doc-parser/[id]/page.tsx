@@ -190,7 +190,7 @@ function OutputCard({ job, output }: { job: Job; output: Output }) {
             aria-label="Open full output"
             className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted transition-ui hover:text-ink active:scale-[0.96]"
           >
-            <OwnixShareIcon className="h-4.5 w-4.5" />
+            <OwnixShareIcon className="h-[18px] w-[18px]" />
           </a>
         </Tooltip>
       </div>

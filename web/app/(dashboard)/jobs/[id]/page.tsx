@@ -567,7 +567,7 @@ function JobActionsBar({
           >
             Open this file in Drive{' '}
             <OwnixShareIcon
-              className="h-4.5 w-4.5"
+              className="h-[18px] w-[18px]"
               aria-hidden="true"
             />
           </a>
@@ -582,7 +582,7 @@ function JobActionsBar({
             <GoogleDriveIcon className="h-3.5 w-3.5" />
             Open Ownix folder{' '}
             <OwnixShareIcon
-              className="h-4.5 w-4.5"
+              className="h-[18px] w-[18px]"
               aria-hidden="true"
             />
           </a>
