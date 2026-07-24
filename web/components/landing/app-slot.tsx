@@ -18,11 +18,21 @@ const icons = [
 ];
 
 /** Inline 22px icon slot in the hero copy that cross-fades through the
- * apps you can share from. Under reduced motion it stays on the first icon. */
+ * apps you can share from. Under reduced motion it stays on the first icon.
+ *
+ * This sits inside the hero paragraph — the page's LCP element — so the
+ * server-rendered/initial-paint markup deliberately mounts only the active
+ * icon instead of all six stacked ones. The other five (needed for the
+ * cross-fade cycle) mount only after hydration, via the standard
+ * client-only-enhancement `mounted` flag: it starts `false` on both server
+ * and first client render (no hydration mismatch), then flips `true` inside
+ * `useEffect`, safely after the critical first paint has already happened. */
 export function AppSlot() {
   const [active, setActive] = useState(0);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const media = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     );
@@ -46,20 +56,26 @@ export function AppSlot() {
     };
   }, []);
 
+  const ActiveIcon = icons[active];
+
   return (
     <>
       <span
         aria-hidden="true"
         className="inline-grid h-[22px] w-[22px] align-[-4px]"
       >
-        {icons.map((Icon, i) => (
-          <Icon
-            key={i}
-            className={`col-start-1 row-start-1 h-[22px] w-[22px] text-ink transition-opacity duration-[400ms] ease-out ${
-              i === active ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-        ))}
+        {mounted ? (
+          icons.map((Icon, i) => (
+            <Icon
+              key={i}
+              className={`col-start-1 row-start-1 h-[22px] w-[22px] text-ink transition-opacity duration-[400ms] ease-out ${
+                i === active ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          ))
+        ) : (
+          <ActiveIcon className="col-start-1 row-start-1 h-[22px] w-[22px] text-ink opacity-100" />
+        )}
       </span>
       <span className="sr-only">any app</span>
     </>
