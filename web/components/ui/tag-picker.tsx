@@ -2,7 +2,26 @@
 
 import { useState, useEffect, type ReactNode } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { CornerDownLeft, Brain, Code2, Database, FileText, Globe, Lightbulb, Link2, type LucideIcon } from 'lucide-react';
+import {
+  CornerDownLeft,
+  Brain,
+  Code2,
+  Database,
+  FileText,
+  Globe,
+  Lightbulb,
+  Link2,
+  type LucideIcon,
+  Cog,
+  HatGlasses,
+  PawPrint,
+  ChessPawn,
+  Anvil,
+  Brush,
+  Paintbrush,
+  Container,
+  PackageOpen,
+} from 'lucide-react';
 import type { TagFormState } from '@/lib/hooks/useTagList';
 import { Tooltip } from '@/components/ui/tooltip';
 
@@ -31,15 +50,45 @@ export const PRESET_COLORS = [
 ];
 const DEFAULT_COLOR = '#8b5cf6';
 
-const TAG_ICONS: Record<string, LucideIcon> = { Brain, Code2, Database, FileText, Globe, Lightbulb, Link2 };
+const TAG_ICONS: Record<string, LucideIcon> = {
+  Brain,
+  Code2,
+  Database,
+  PackageOpen,
+  FileText,
+  Globe,
+  Lightbulb,
+  Link2,
+  Cog,
+  HatGlasses,
+  PawPrint,
+  Paintbrush,
+  ChessPawn,
+  Anvil,
+  Brush,
+  Container,
+};
 const TAG_ICON_NAMES = Object.keys(TAG_ICONS);
 
-export function TagMark({ tag, className = 'h-2 w-2' }: { tag: TagSummary; className?: string }) {
+export function TagMark({
+  tag,
+  className = 'h-2 w-2',
+}: {
+  tag: TagSummary;
+  className?: string;
+}) {
   const Icon = tag.icon ? TAG_ICONS[tag.icon] : undefined;
   return Icon ? (
-    <Icon className={className} style={{ color: tag.color }} aria-hidden="true" />
+    <Icon
+      className={className}
+      style={{ color: tag.color }}
+      aria-hidden="true"
+    />
   ) : (
-    <span className={`inline-block shrink-0 rounded-full ${className}`} style={{ backgroundColor: tag.color }} />
+    <span
+      className={`inline-block shrink-0 rounded-full ${className}`}
+      style={{ backgroundColor: tag.color }}
+    />
   );
 }
 
@@ -94,7 +143,9 @@ export function TagMenu({
             >
               Tags
               {jobTags.length > 0 && (
-                <span className="font-mono text-signal">{jobTags.length}</span>
+                <span className="font-mono text-signal">
+                  {jobTags.length}
+                </span>
               )}
               <CornerDownLeft className="h-3 w-3" />
             </button>
@@ -126,7 +177,10 @@ export function TagMenu({
                     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-signal">
                       {isOn && <Check className="h-3.5 w-3.5" />}
                     </span>
-                    <TagMark tag={tag} className="h-3.5 w-3.5" />
+                    <TagMark
+                      tag={tag}
+                      className="h-3.5 w-3.5"
+                    />
                     <span className="truncate">{tag.name}</span>
                   </DropdownMenu.CheckboxItem>
                 );
@@ -185,7 +239,12 @@ function CreateTagModal({
     setSubmitting(true);
     setError(undefined);
     try {
-      await onCreate({ name, meaning, color, icon: icon || undefined });
+      await onCreate({
+        name,
+        meaning,
+        color,
+        icon: icon || undefined,
+      });
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
@@ -268,14 +327,31 @@ function CreateTagModal({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-body">Icon (optional)</label>
+            <label className="text-xs font-medium text-body">
+              Icon (optional)
+            </label>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setIcon('')} className={`rounded border px-2 py-1 text-xs ${icon === '' ? 'border-signal text-ink' : 'border-line text-muted'}`}>None</button>
+              <button
+                type="button"
+                onClick={() => setIcon('')}
+                className={`rounded border px-2 py-1 text-xs ${icon === '' ? 'border-signal text-ink' : 'border-line text-muted'}`}
+              >
+                None
+              </button>
               {TAG_ICON_NAMES.map((name) => {
                 const Icon = TAG_ICONS[name];
                 return (
-                  <button key={name} type="button" onClick={() => setIcon(name)} aria-label={`Icon ${name}`} className={`rounded border p-1.5 ${icon === name ? 'border-signal' : 'border-line'}`}>
-                    <Icon className="h-4 w-4" style={{ color }} />
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setIcon(name)}
+                    aria-label={`Icon ${name}`}
+                    className={`rounded border p-1.5 ${icon === name ? 'border-signal' : 'border-line'}`}
+                  >
+                    <Icon
+                      className="h-4 w-4"
+                      style={{ color }}
+                    />
                   </button>
                 );
               })}
@@ -318,9 +394,15 @@ export function TagChips({
   return (
     <>
       {jobTags.map((tag) => (
-        <Tooltip key={tag.id} content={tag.meaning || undefined}>
+        <Tooltip
+          key={tag.id}
+          content={tag.meaning || undefined}
+        >
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-raised px-2.5 py-1 text-xs font-medium text-ink">
-            <TagMark tag={tag} className="h-3 w-3" />
+            <TagMark
+              tag={tag}
+              className="h-3 w-3"
+            />
             {tag.name}
             <button
               type="button"
