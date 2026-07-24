@@ -1,15 +1,19 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
-import { TagMenu, TagChips } from "@/components/ui/tag-picker";
-import { StatusBadge, TypeBadge } from "@/components/ui/badges";
-import { useJobDetail } from "@/lib/hooks/useJobDetail";
-import { useJobAnnotation } from "@/lib/hooks/useJobAnnotation";
-import { useJobTags } from "@/lib/hooks/useJobTags";
-import type { JobDetail } from "@/lib/hooks/useJobDetail";
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import {
+  useParams,
+  useRouter,
+  useSearchParams,
+} from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { TagMenu, TagChips } from '@/components/ui/tag-picker';
+import { StatusBadge, TypeBadge } from '@/components/ui/badges';
+import { useJobDetail } from '@/lib/hooks/useJobDetail';
+import { useJobAnnotation } from '@/lib/hooks/useJobAnnotation';
+import { useJobTags } from '@/lib/hooks/useJobTags';
+import type { JobDetail } from '@/lib/hooks/useJobDetail';
 import {
   type RenderType,
   ENRICHMENT_FIELDS,
@@ -22,23 +26,26 @@ import {
   buildMarkdown,
   parseLinks,
   jobScopeQuery,
-} from "@/lib/job-detail-utils";
-import { PageShell } from "@/components/shell/page-shell";
-import { SkeletonBlock } from "@/components/feed/feed-states";
-import { Tooltip } from "@/components/ui/tooltip";
-import { useRestrictedMode } from "@/lib/restricted/context";
-import { useGoogleStatus } from "@/components/shell/google-status";
-import { GoogleDriveIcon } from "@/components/svg/google-drive-icon";
-import { OwnixShareIcon } from "@/components/svg/ownix-share-icon";
+} from '@/lib/job-detail-utils';
+import { PageShell } from '@/components/shell/page-shell';
+import { SkeletonBlock } from '@/components/feed/feed-states';
+import { Tooltip } from '@/components/ui/tooltip';
+import { useRestrictedMode } from '@/lib/restricted/context';
+import { useGoogleStatus } from '@/components/shell/google-status';
+import { GoogleDriveIcon } from '@/components/svg/google-drive-icon';
+import { OwnixShareIcon } from '@/components/svg/ownix-share-icon';
 
-const MarkdownEditor = dynamic(() => import("@/components/ui/markdown-editor"), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">
-      Loading editor…
-    </div>
-  ),
-});
+const MarkdownEditor = dynamic(
+  () => import('@/components/ui/markdown-editor'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border border-line bg-surface p-4 text-xs text-muted">
+        Loading editor…
+      </div>
+    ),
+  },
+);
 
 // --- Icons ---
 
@@ -74,12 +81,16 @@ function CheckIcon({ className }: { className?: string }) {
 
 // --- template_analysis: JSON → readable React tree ---
 
-function JsonValue({ value }: { value: unknown }): JSX.Element | null {
+function JsonValue({
+  value,
+}: {
+  value: unknown;
+}): JSX.Element | null {
   if (isEmpty(value)) return null;
   if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
   ) {
     return (
       <p className="whitespace-pre-wrap break-words text-sm text-ink">
@@ -88,7 +99,9 @@ function JsonValue({ value }: { value: unknown }): JSX.Element | null {
     );
   }
   if (Array.isArray(value)) {
-    const allScalar = value.every((v) => typeof v !== "object" || v === null);
+    const allScalar = value.every(
+      (v) => typeof v !== 'object' || v === null,
+    );
     if (allScalar) {
       return (
         <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
@@ -110,7 +123,12 @@ function JsonValue({ value }: { value: unknown }): JSX.Element | null {
       </ol>
     );
   }
-  return <JsonObject obj={value as Record<string, unknown>} nested />;
+  return (
+    <JsonObject
+      obj={value as Record<string, unknown>}
+      nested
+    />
+  );
 }
 
 function JsonObject({
@@ -123,27 +141,35 @@ function JsonObject({
   const entries = Object.entries(obj).filter(([, v]) => !isEmpty(v));
   if (entries.length === 0) return null;
   return (
-    <div className={nested ? "space-y-1" : "space-y-3"}>
+    <div className={nested ? 'space-y-1' : 'space-y-3'}>
       {entries.map(([key, value]) => {
         const scalar =
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean";
+          typeof value === 'string' ||
+          typeof value === 'number' ||
+          typeof value === 'boolean';
         if (nested && scalar) {
           return (
-            <p key={key} className="text-sm text-ink">
-              <span className="font-medium text-body">{humanizeKey(key)}:</span>{" "}
+            <p
+              key={key}
+              className="text-sm text-ink"
+            >
+              <span className="font-medium text-body">
+                {humanizeKey(key)}:
+              </span>{' '}
               {String(value)}
             </p>
           );
         }
         return (
-          <div key={key} className="space-y-1">
+          <div
+            key={key}
+            className="space-y-1"
+          >
             <h3
               className={
                 nested
-                  ? "text-xs font-medium text-muted"
-                  : "text-sm font-semibold text-ink"
+                  ? 'text-xs font-medium text-muted'
+                  : 'text-sm font-semibold text-ink'
               }
             >
               {humanizeKey(key)}
@@ -162,10 +188,16 @@ function TemplateAnalysis({ raw }: { raw: string }) {
     parsed = JSON.parse(raw);
   } catch {
     return (
-      <p className="whitespace-pre-wrap break-words text-sm text-ink">{raw}</p>
+      <p className="whitespace-pre-wrap break-words text-sm text-ink">
+        {raw}
+      </p>
     );
   }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+  if (
+    parsed === null ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed)
+  )
     return <JsonValue value={parsed} />;
   return <JsonObject obj={parsed as Record<string, unknown>} />;
 }
@@ -207,16 +239,23 @@ function CopyButton({
         ) : (
           <CopyIcon className="h-3.5 w-3.5" />
         )}
-        {label && <span>{copied ? "Copied!" : label}</span>}
+        {label && <span>{copied ? 'Copied!' : label}</span>}
       </button>
     </Tooltip>
   );
 }
 
-function FieldBody({ value, render }: { value: string; render: RenderType }) {
-  if (render === "list") {
+function FieldBody({
+  value,
+  render,
+}: {
+  value: string;
+  render: RenderType;
+}) {
+  if (render === 'list') {
     const items = splitPipes(value);
-    if (items.length === 0) return <p className="text-sm text-ink">{value}</p>;
+    if (items.length === 0)
+      return <p className="text-sm text-ink">{value}</p>;
     return (
       <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
         {items.map((item, i) => (
@@ -225,7 +264,7 @@ function FieldBody({ value, render }: { value: string; render: RenderType }) {
       </ul>
     );
   }
-  if (render === "links") {
+  if (render === 'links') {
     const links = parseLinks(value);
     if (links.length === 0)
       return (
@@ -238,7 +277,10 @@ function FieldBody({ value, render }: { value: string; render: RenderType }) {
         {links.map((link) => {
           const label = link.label || link.url;
           return (
-            <li key={link.url} className="space-y-1">
+            <li
+              key={link.url}
+              className="space-y-1"
+            >
               <a
                 href={link.url}
                 target="_blank"
@@ -261,9 +303,11 @@ function FieldBody({ value, render }: { value: string; render: RenderType }) {
       </ul>
     );
   }
-  if (render === "json") return <TemplateAnalysis raw={value} />;
+  if (render === 'json') return <TemplateAnalysis raw={value} />;
   return (
-    <p className="whitespace-pre-wrap break-words text-sm text-ink">{value}</p>
+    <p className="whitespace-pre-wrap break-words text-sm text-ink">
+      {value}
+    </p>
   );
 }
 
@@ -287,21 +331,27 @@ function FieldCard({
           ariaLabel={`Copy ${label}`}
         />
       </div>
-      <FieldBody value={value} render={render} />
+      <FieldBody
+        value={value}
+        render={render}
+      />
     </div>
   );
 }
 
-type AdjacentJobs = { previous_id: string | null; next_id: string | null };
+type AdjacentJobs = {
+  previous_id: string | null;
+  next_id: string | null;
+};
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
   return (
     target.isContentEditable ||
-    tag === "textarea" ||
-    tag === "input" ||
-    tag === "select"
+    tag === 'textarea' ||
+    tag === 'input' ||
+    tag === 'select'
   );
 }
 
@@ -315,7 +365,7 @@ function AdjacentNavLink({
   children: ReactNode;
 }) {
   const base =
-    "inline-flex h-10 items-center rounded-md border border-line bg-surface px-3 text-sm font-medium";
+    'inline-flex h-10 items-center rounded-md border border-line bg-surface px-3 text-sm font-medium';
   return href ? (
     <Link
       href={href}
@@ -324,20 +374,32 @@ function AdjacentNavLink({
       {children}
     </Link>
   ) : (
-    <span aria-disabled="true" className={`${base} text-muted opacity-50`}>
+    <span
+      aria-disabled="true"
+      className={`${base} text-muted opacity-50`}
+    >
       {children}
     </span>
   );
 }
 
-function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
+function JobHeader({
+  job,
+  tags,
+}: {
+  job: JobDetail;
+  tags?: ReactNode;
+}) {
   const { restricted } = useRestrictedMode();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const contentType = searchParams.get("content_type") ?? undefined;
-  const status = searchParams.get("status") ?? undefined;
+  const contentType = searchParams.get('content_type') ?? undefined;
+  const status = searchParams.get('status') ?? undefined;
   const scopeQuery = useMemo(
-    () => new URLSearchParams(jobScopeQuery({ contentType, status })).toString(),
+    () =>
+      new URLSearchParams(
+        jobScopeQuery({ contentType, status }),
+      ).toString(),
     [contentType, status],
   );
   const [adjacent, setAdjacent] = useState<AdjacentJobs>({
@@ -348,25 +410,26 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
   const displayUrl =
     job.url.length > 40 ? `${job.url.slice(0, 40)}...` : job.url;
   const jobHref = (id: string) =>
-    `/jobs/${id}${scopeQuery ? `?${scopeQuery}` : ""}`;
+    `/jobs/${id}${scopeQuery ? `?${scopeQuery}` : ''}`;
 
   useEffect(() => {
     // Adjacent nav is session-gated (/api/jobs/*) — in Restricted mode the
     // request would just 401, so skip it and leave the pager links hidden.
     if (restricted) return;
     let cancelled = false;
-    const qs = scopeQuery ? `?${scopeQuery}` : "";
+    const qs = scopeQuery ? `?${scopeQuery}` : '';
     void fetch(`/api/jobs/${job.id}/adjacent${qs}`)
       .then((res) =>
         res.ok
           ? res.json()
-          : Promise.reject(new Error("Adjacent request failed")),
+          : Promise.reject(new Error('Adjacent request failed')),
       )
       .then((payload: AdjacentJobs) => {
         if (!cancelled) setAdjacent(payload);
       })
       .catch(() => {
-        if (!cancelled) setAdjacent({ previous_id: null, next_id: null });
+        if (!cancelled)
+          setAdjacent({ previous_id: null, next_id: null });
       });
     return () => {
       cancelled = true;
@@ -376,20 +439,25 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Modified arrows are browser/OS shortcuts (Alt+Left = history back).
-      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
         return;
       if (isEditableTarget(event.target)) return;
-      if (event.key === "ArrowLeft" && adjacent.previous_id) {
+      if (event.key === 'ArrowLeft' && adjacent.previous_id) {
         event.preventDefault();
         router.push(jobHref(adjacent.previous_id));
       }
-      if (event.key === "ArrowRight" && adjacent.next_id) {
+      if (event.key === 'ArrowRight' && adjacent.next_id) {
         event.preventDefault();
         router.push(jobHref(adjacent.next_id));
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, [adjacent.previous_id, adjacent.next_id, router, scopeQuery]);
   return (
     <div>
@@ -401,10 +469,14 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
         <span aria-hidden="true">&#8592;</span> Back to feed
       </Link>
       <div className="mb-4 flex flex-wrap gap-2">
-        <AdjacentNavLink href={adjacent.previous_id && jobHref(adjacent.previous_id)}>
+        <AdjacentNavLink
+          href={adjacent.previous_id && jobHref(adjacent.previous_id)}
+        >
           ← Previous
         </AdjacentNavLink>
-        <AdjacentNavLink href={adjacent.next_id && jobHref(adjacent.next_id)}>
+        <AdjacentNavLink
+          href={adjacent.next_id && jobHref(adjacent.next_id)}
+        >
           Next →
         </AdjacentNavLink>
       </div>
@@ -420,7 +492,10 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
       {/* URL on the left, tag row right-aligned under the badges. */}
       <div className="mt-1 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         {/^https?:\/\//i.test(job.url) ? (
-          <Tooltip content={job.url} mono>
+          <Tooltip
+            content={job.url}
+            mono
+          >
             <a
               href={job.url}
               target="_blank"
@@ -431,7 +506,10 @@ function JobHeader({ job, tags }: { job: JobDetail; tags?: ReactNode }) {
             </a>
           </Tooltip>
         ) : (
-          <Tooltip content={job.url} mono>
+          <Tooltip
+            content={job.url}
+            mono
+          >
             <p className="min-w-0 flex-1 break-all font-mono text-xs text-muted">
               {displayUrl}
             </p>
@@ -463,7 +541,7 @@ function JobActionsBar({
       return;
     }
     let cancelled = false;
-    void fetch("/api/google/folder")
+    void fetch('/api/google/folder')
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { folder_url: string } | null) => {
         if (!cancelled) setFolderUrl(data?.folder_url ?? null);
@@ -487,7 +565,11 @@ function JobActionsBar({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 rounded-md border border-line px-3 py-1.5 text-[13px] font-medium text-ink transition-ui hover:bg-raised"
           >
-            Open this file in Drive <OwnixShareIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Open this file in Drive{' '}
+            <OwnixShareIcon
+              className="h-4.5 w-4.5"
+              aria-hidden="true"
+            />
           </a>
         )}
         {folderUrl && (
@@ -498,7 +580,11 @@ function JobActionsBar({
             className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-[13px] font-medium text-ink transition-ui hover:bg-raised"
           >
             <GoogleDriveIcon className="h-3.5 w-3.5" />
-            Open Ownix folder <OwnixShareIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Open Ownix folder{' '}
+            <OwnixShareIcon
+              className="h-4.5 w-4.5"
+              aria-hidden="true"
+            />
           </a>
         )}
       </div>
@@ -532,7 +618,7 @@ export default function JobDetailPage() {
     restricted,
   );
 
-  if (fetchState === "loading") {
+  if (fetchState === 'loading') {
     return (
       <PageShell width="narrow">
         <div className="space-y-3">
@@ -543,39 +629,52 @@ export default function JobDetailPage() {
       </PageShell>
     );
   }
-  if (fetchState === "not_found")
+  if (fetchState === 'not_found')
     return (
       <div className="text-sm text-body">
-        Job not found.{" "}
-        <Link href="/feed" className="text-signal hover:underline">
+        Job not found.{' '}
+        <Link
+          href="/feed"
+          className="text-signal hover:underline"
+        >
           Back to feed
         </Link>
       </div>
     );
-  if (fetchState === "forbidden")
+  if (fetchState === 'forbidden')
     return (
       <div className="text-sm text-body">
-        Access denied.{" "}
-        <Link href="/feed" className="text-signal hover:underline">
+        Access denied.{' '}
+        <Link
+          href="/feed"
+          className="text-signal hover:underline"
+        >
           Back to feed
         </Link>
       </div>
     );
-  if (fetchState === "error" || !job)
+  if (fetchState === 'error' || !job)
     return (
       <div className="text-sm text-body">
-        Failed to load job.{" "}
-        <Link href="/feed" className="text-signal hover:underline">
+        Failed to load job.{' '}
+        <Link
+          href="/feed"
+          className="text-signal hover:underline"
+        >
           Back to feed
         </Link>
       </div>
     );
 
   const fieldSet =
-    job.content_type === "short" ? SHORT_FIELDS : ENRICHMENT_FIELDS;
+    job.content_type === 'short' ? SHORT_FIELDS : ENRICHMENT_FIELDS;
   const presentFields = fieldSet.filter(({ key }) => {
     const value = job[key];
-    return value !== null && value !== undefined && String(value).trim() !== "";
+    return (
+      value !== null &&
+      value !== undefined &&
+      String(value).trim() !== ''
+    );
   });
 
   return (
@@ -598,14 +697,17 @@ export default function JobDetailPage() {
         }
       />
 
-      {job.status === "error" && job.error_msg && (
+      {job.status === 'error' && job.error_msg && (
         <div className="rounded-lg border border-line bg-status-error-tint px-4 py-3 text-sm text-status-error">
           <span className="font-semibold">Error: </span>
           {job.error_msg}
         </div>
       )}
 
-      <JobActionsBar job={job} hasFields={presentFields.length > 0} />
+      <JobActionsBar
+        job={job}
+        hasFields={presentFields.length > 0}
+      />
 
       <div className="space-y-3">
         {presentFields.map(({ key, label, render }) => (
